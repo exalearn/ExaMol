@@ -1,0 +1,36 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: CI
+
+on: [push]
+
+permissions:
+  contents: read
+  
+defaults:
+  run:
+    shell: bash -el {0}  # Lets conda work
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up environment
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        mamba-version: "*"
+        environment-file: envs/environment-cpu.yml
+    - name: Install test dependencies
+      run: |
+        pip install -r test-requirements.txt
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        flake8 examol
+    - name: Test with pytest
+      run: |
+        pytest tests
