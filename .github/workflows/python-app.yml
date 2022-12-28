@@ -34,9 +34,9 @@ jobs:
     - name: Add quantum chemistry tools
       run: |
         sudo apt-get update
-        sudo apt install cp2k
+        sudo apt install -y cp2k
     - name: Test with pytest
-      run: pytest --cov=exalmol tests
+      run: pytest --cov=examol tests
     - name: Coveralls
       run: |
         pip install coveralls
