@@ -13,5 +13,4 @@ dependencies:
   - pytest
   - pip
   - pip:
-      - colmena>=0.4.0
       - -e ..
