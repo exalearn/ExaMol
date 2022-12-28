@@ -1,0 +1,17 @@
+# Environment that does not use a GPU
+name: examol
+channels:
+  - defaults
+  - psi4/label/dev
+  - conda-forge
+dependencies:
+  - python==3.10.*
+  - pandas==1.*
+  - pymongo
+  - jupyterlab
+  - matplotlib
+  - pytest
+  - pip
+  - pip:
+      - colmena>=0.4.0
+      - -e ..
