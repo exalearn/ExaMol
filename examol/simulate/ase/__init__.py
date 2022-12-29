@@ -185,7 +185,7 @@ class ASESimulator(BaseSimulator):
             for atoms in atoms_to_write:
                 # Get the atom hash
                 hasher = sha512()
-                hasher.update(atoms.positions.tobytes())
+                hasher.update(atoms.positions.round(3).tobytes())
                 hasher.update(atoms.get_chemical_formula(mode='all', empirical=False).encode('ascii'))
                 atoms_hash = hasher.hexdigest()[-16:]
 
