@@ -57,7 +57,7 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         yield calc
         return
 
-    # Otheriwse, create one
+    # Otherwise, create one
     name = calc['name']
     if name.lower() == 'cp2k':
         from ase.calculators.cp2k import CP2K
