@@ -10,6 +10,7 @@ from ase import units
 from ase.calculators.cp2k import CP2K
 from ase.db import connect
 from ase.io import Trajectory
+from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGS
 
 from . import utils
@@ -95,9 +96,9 @@ class ASESimulator(BaseSimulator):
 
         # Make the run directory based on a hash of the input configuration
         hasher = sha512()
-        hasher.update(xyz.encode('ascii'))
+        hasher.update(xyz.encode())
         hasher.update(config_name.encode())
-        hasher.update(bytes(charge))
+        hasher.update(str(charge).encode())
         if solvent is not None:
             hasher.update(hasher)
         run_path = self.scratch_dir / Path(f'ase_opt_{hasher.hexdigest()[:8]}')
@@ -125,7 +126,10 @@ class ASESimulator(BaseSimulator):
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
-                    dyn.replay_trajectory('history.traj')
+                    try:
+                        dyn.replay_trajectory('history.traj')
+                    except InvalidULMFileError:
+                        pass
 
                 # Run an optimization
                 dyn.run(fmax=0.01)
@@ -186,7 +190,7 @@ class ASESimulator(BaseSimulator):
                 atoms_hash = hasher.hexdigest()[-16:]
 
                 # See if the database already has this record
-                if db.count(atoms_hash=atoms_hash, config_name=config_name) > 0:
+                if db.count(atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent)) > 0:
                     continue
 
-                db.write(atoms, atoms_hash=atoms_hash, config_name=config_name, charge=charge, solvent=str(solvent))
+                db.write(atoms, atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent))

@@ -29,9 +29,10 @@ def test_ase(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = str(tmpdir / 'data.db')
         sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path)
-        out_res, traj_res, extra = sim.optimize_structure(strc, config_name, charge=0)
+        out_res, traj_res, extra = sim.optimize_structure(strc, config_name, charge=1)
         assert out_res.energy < traj_res[0].energy
 
         # Make sure everything is stored in the DB
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
+            assert next(db.select())['total_charge'] == 1
