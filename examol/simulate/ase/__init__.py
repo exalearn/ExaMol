@@ -5,9 +5,12 @@ from pathlib import Path
 from shutil import rmtree, copy
 from typing import Any
 
+import ase
 from ase import units
 from ase.calculators.cp2k import CP2K
+from ase.db import connect
 from ase.io import Trajectory
+from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGS
 
 from . import utils
@@ -20,17 +23,20 @@ class ASESimulator(BaseSimulator):
     def __init__(self,
                  cp2k_command: str | None = None,
                  cp2k_buffer: float = 6.0,
-                 scratch_dir: str | None = None):
+                 scratch_dir: Path | str | None = None,
+                 ase_db_path: Path | str | None = None):
         """
 
         Args:
             cp2k_command: Command to launch CP2K
             cp2k_buffer: Length of buffer to place around molecule for CP2K (units: Ang)
             scratch_dir: Path in which to create temporary directories
+            ase_db_path: Path to an ASE db in which to store results
         """
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.cp2k_buffer = cp2k_buffer
+        self.ase_db_path = Path(ase_db_path).absolute()
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         if name.startswith('cp2k_blyp'):
@@ -81,7 +87,7 @@ class ASESimulator(BaseSimulator):
             }
 
     def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
-            -> (SimResult, list[SimResult], str | None):
+            -> tuple[SimResult, list[SimResult], str | None]:
         # Make the configuration
         calc_cfg = self.create_configuration(config_name, charge, solvent)
 
@@ -90,9 +96,9 @@ class ASESimulator(BaseSimulator):
 
         # Make the run directory based on a hash of the input configuration
         hasher = sha512()
-        hasher.update(xyz.encode('ascii'))
+        hasher.update(xyz.encode())
         hasher.update(config_name.encode())
-        hasher.update(bytes(charge))
+        hasher.update(str(charge).encode())
         if solvent is not None:
             hasher.update(hasher)
         run_path = self.scratch_dir / Path(f'ase_opt_{hasher.hexdigest()[:8]}')
@@ -120,31 +126,71 @@ class ASESimulator(BaseSimulator):
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
-                    dyn.replay_trajectory('history.traj')
+                    try:
+                        dyn.replay_trajectory('history.traj')
+                    except InvalidULMFileError:
+                        pass
 
                 # Run an optimization
                 dyn.run(fmax=0.01)
 
-                # Gather the outputs
-                #  Start with the output structure
-                out_strc = utils.write_to_string(atoms, 'xyz')
-                out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
-                                       xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
+            # Gather the outputs
+            #  Start with the output structure
+            if self.ase_db_path is not None:
+                self.update_database([atoms], config_name, charge, solvent)
+            out_strc = utils.write_to_string(atoms, 'xyz')
+            out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                   xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
 
-                # Get the trajectory
-                out_traj = []
-                with Trajectory(str(traj_path), mode='r') as traj:
-                    for atoms in traj:
-                        traj_xyz = utils.write_to_string(atoms, 'xyz')
-                        traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
-                                             xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
-                        out_traj.append(traj_res)
+            # Get the trajectory
+            out_traj = []
+            with Trajectory(str(traj_path), mode='r') as traj:
+                # Get all atoms in the trajectory
+                traj_lst = [a for a in traj]
+                if self.ase_db_path is not None:
+                    self.update_database(traj_lst, config_name, charge, solvent)
 
-                # Read in the output log
-                out_log = Path('opt.log').read_text()
+                # Convert them to the output format
+                for atoms in traj_lst:
+                    traj_xyz = utils.write_to_string(atoms, 'xyz')
+                    traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                         xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
+                    out_traj.append(traj_res)
 
-                return out_result, out_traj, out_log
+            # Read in the output log
+            out_log = Path('opt.log').read_text()
 
-        finally:
+            # Delete the run directory
             os.chdir(old_path)
             rmtree(run_path)
+
+            return out_result, out_traj, out_log
+
+        finally:
+            # Make sure we end back where we started
+            os.chdir(old_path)
+
+    def update_database(self, atoms_to_write: list[ase.Atoms], config_name: str, charge: int, solvent: str | None):
+        """Update the ASE database collected along with this class
+
+        Args:
+            atoms_to_write: List of Atoms objects to store in DB
+            config_name: Name of the configuration used to compute energies
+            charge: Charge on the system
+            solvent: Name of solvent, if any
+        """
+
+        # Connect to the database
+        with connect(self.ase_db_path, append=True) as db:
+            for atoms in atoms_to_write:
+                # Get the atom hash
+                hasher = sha512()
+                hasher.update(atoms.positions.tobytes())
+                hasher.update(atoms.get_chemical_formula(mode='all', empirical=False).encode('ascii'))
+                atoms_hash = hasher.hexdigest()[-16:]
+
+                # See if the database already has this record
+                if db.count(atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent)) > 0:
+                    continue
+
+                db.write(atoms, atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent))
