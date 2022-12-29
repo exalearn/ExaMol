@@ -41,7 +41,7 @@ class BaseSimulator:
         ...
 
     def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
-            -> (SimResult, list[SimResult], str | None):
+            -> tuple[SimResult, list[SimResult], str | None]:
         """Minimize the energy of a structure
 
         Args:
