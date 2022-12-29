@@ -25,7 +25,6 @@ class BaseSimulator:
 
     def __init__(self, scratch_dir: Path | str | None):
         """
-
         Args:
             scratch_dir: Path in which to create temporary directories
         """

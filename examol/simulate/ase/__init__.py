@@ -108,7 +108,7 @@ class ASESimulator(BaseSimulator):
                     utils.buffer_cell(atoms)
 
                 # Attach the calculator
-                atoms.set_calculator(calc)
+                atoms.calc = calc
 
                 # Save the history in a separate file, if stored
                 traj_path = Path('lbfgs.traj')
