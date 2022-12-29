@@ -1,6 +1,7 @@
 """Tests for the "chemistry" utilities"""
 
 from rdkit import Chem
+from pytest import raises
 
 from examol.utils import chemistry as chem
 
@@ -13,6 +14,9 @@ def test_parse():
     mol = chem.parse_from_molecule_string(inchi)
     smiles = Chem.MolToSmiles(mol)
     assert smiles == 'O'
+
+    with raises(ValueError):
+        chem.parse_from_molecule_string('bad')
 
 
 def test_charge():
