@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
+from ase import units
 from ase.db import connect
-from pytest import mark, fixture
+from pytest import mark, fixture, raises
 from ase.build import molecule
 from ase.calculators.lj import LennardJones
 
@@ -24,6 +25,24 @@ def strc() -> str:
     return write_to_string(atoms, 'xyz')
 
 
+def test_config_maker(tmpdir):
+    sim = ASESimulator(scratch_dir=tmpdir)
+
+    # Easy example
+    config = sim.create_configuration('cp2k_blyp_szv', charge=0, solvent=None)
+    assert config['kwargs']['cutoff'] == 600 * units.Ry
+
+    # With a charge
+    config = sim.create_configuration('cp2k_blyp_szv', charge=1, solvent=None)
+    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['charge'] == 1
+    assert config['kwargs']['uks']
+
+    # With an undefined basis set
+    with raises(AssertionError):
+        sim.create_configuration('cp2k_blyp_notreal', charge=1, solvent=None)
+
+
 @mark.parametrize('config_name', ['cp2k_blyp_szv'])
 def test_ase(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
@@ -36,3 +55,8 @@ def test_ase(config_name: str, strc, tmpdir):
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
             assert next(db.select())['total_charge'] == 1
+
+        # Make sure it doesn't write new stuff
+        sim.optimize_structure(strc, config_name, charge=1)
+        assert len(db) == len(traj_res)
+        assert next(db.select())['total_charge'] == 1

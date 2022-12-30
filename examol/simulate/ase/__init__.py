@@ -16,6 +16,15 @@ from ase.optimize import LBFGS
 from . import utils
 from ..base import BaseSimulator, SimResult
 
+# Mapping between basis set and a converged cutoff energy
+#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/converge-parameters-mt.ipynb
+#  We increase the cutoff slightly to be on the safe side
+_cutoff_lookup = {
+    'TZVP-GTH': 850.,
+    'DZVP-GTH': 600.,
+    'SZV-GTH': 600.
+}
+
 
 class ASESimulator(BaseSimulator):
     """Use ASE to perform simulations"""
@@ -36,13 +45,17 @@ class ASESimulator(BaseSimulator):
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.cp2k_buffer = cp2k_buffer
-        self.ase_db_path = Path(ase_db_path).absolute()
+        self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         if name.startswith('cp2k_blyp'):
             # Get the name the basis set
             basis_set_id = name.rsplit('_')[-1]
             basis_set_name = f'{basis_set_id}-GTH'.upper()
+
+            # Get the cutoff
+            assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
+            cutoff = _cutoff_lookup[basis_set_name]
 
             assert solvent is None, 'We do not yet support solvents'
             return {
@@ -77,7 +90,7 @@ class ASESimulator(BaseSimulator):
   &END
 &END FORCE_EVAL
 """,
-                    cutoff=600 * units.Ry,
+                    cutoff=cutoff * units.Ry,
                     max_scf=10,
                     basis_set_file='GTH_BASIS_SETS',
                     basis_set=basis_set_name,
