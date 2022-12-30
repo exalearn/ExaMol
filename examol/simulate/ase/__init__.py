@@ -1,8 +1,10 @@
 """Utilities for simulation using ASE"""
+import json
 import os
 from hashlib import sha512
 from pathlib import Path
 from shutil import rmtree, move
+from time import perf_counter
 from typing import Any
 
 import ase
@@ -104,6 +106,8 @@ class ASESimulator(BaseSimulator):
 
     def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
+        start_time = perf_counter()  # Measure when we started
+
         # Make the configuration
         calc_cfg = self.create_configuration(config_name, charge, solvent)
 
@@ -188,7 +192,7 @@ class ASESimulator(BaseSimulator):
                 os.chdir(old_path)
                 rmtree(run_path)
 
-            return out_result, out_traj, out_log
+            return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time, 'out_log': out_log})
 
         finally:
             # Make sure we end back where we started
