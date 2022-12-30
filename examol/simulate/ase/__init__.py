@@ -2,7 +2,7 @@
 import os
 from hashlib import sha512
 from pathlib import Path
-from shutil import rmtree, copy
+from shutil import rmtree, move
 from typing import Any
 
 import ase
@@ -33,6 +33,7 @@ class ASESimulator(BaseSimulator):
                  cp2k_command: str | None = None,
                  cp2k_buffer: float = 6.0,
                  scratch_dir: Path | str | None = None,
+                 clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None):
         """
 
@@ -40,12 +41,14 @@ class ASESimulator(BaseSimulator):
             cp2k_command: Command to launch CP2K
             cp2k_buffer: Length of buffer to place around molecule for CP2K (units: Ang)
             scratch_dir: Path in which to create temporary directories
+            clean_after_run: Whether to clean output files after a run exits successfully
             ase_db_path: Path to an ASE db in which to store results
         """
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.cp2k_buffer = cp2k_buffer
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
+        self.clean_after_run = clean_after_run
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         if name.startswith('cp2k_blyp'):
@@ -122,6 +125,20 @@ class ASESimulator(BaseSimulator):
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
+                # Recover the history from a previous run
+                traj_path = Path('lbfgs.traj')
+                if traj_path.is_file():
+                    try:
+                        # Overwrite our atoms with th last in the trajectory
+                        with Trajectory(traj_path, mode='r') as traj:
+                            for atoms in traj:
+                                pass
+
+                        # Move the history so we can use it to over
+                        move(traj_path, 'history.traj')
+                    except InvalidULMFileError:
+                        pass
+
                 # Buffer the cell if using CP2K
                 if isinstance(calc, CP2K):
                     utils.buffer_cell(atoms)
@@ -129,20 +146,13 @@ class ASESimulator(BaseSimulator):
                 # Attach the calculator
                 atoms.calc = calc
 
-                # Save the history in a separate file, if stored
-                traj_path = Path('lbfgs.traj')
-                if traj_path.is_file():
-                    copy(traj_path, 'history.traj')
-
                 # Make the optimizer
                 dyn = LBFGS(atoms, logfile='opt.log', trajectory=str(traj_path))
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
-                    try:
-                        dyn.replay_trajectory('history.traj')
-                    except InvalidULMFileError:
-                        pass
+                    dyn.replay_trajectory('history.traj')
+                    os.unlink('history.traj')
 
                 # Run an optimization
                 dyn.run(fmax=0.01)
@@ -174,8 +184,9 @@ class ASESimulator(BaseSimulator):
             out_log = Path('opt.log').read_text()
 
             # Delete the run directory
-            os.chdir(old_path)
-            rmtree(run_path)
+            if self.clean_after_run:
+                os.chdir(old_path)
+                rmtree(run_path)
 
             return out_result, out_traj, out_log
 

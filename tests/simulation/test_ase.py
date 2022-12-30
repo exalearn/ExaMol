@@ -1,3 +1,5 @@
+import shutil
+from pathlib import Path
 from unittest.mock import patch
 
 from ase import units
@@ -44,12 +46,16 @@ def test_config_maker(tmpdir):
 
 
 @mark.parametrize('config_name', ['cp2k_blyp_szv'])
-def test_ase(config_name: str, strc, tmpdir):
+def test_ase(config_name: str, strc, tmpdir: Path):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = str(tmpdir / 'data.db')
-        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path)
+        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=False)
         out_res, traj_res, extra = sim.optimize_structure(strc, config_name, charge=1)
         assert out_res.energy < traj_res[0].energy
+
+        # Find the output directory
+        run_dir = next(Path(tmpdir).glob('ase_opt_*'))
+        assert run_dir.is_dir()
 
         # Make sure everything is stored in the DB
         with connect(db_path) as db:
@@ -60,3 +66,17 @@ def test_ase(config_name: str, strc, tmpdir):
         sim.optimize_structure(strc, config_name, charge=1)
         assert len(db) == len(traj_res)
         assert next(db.select())['total_charge'] == 1
+
+        # Make sure it can deal with a bad restart file
+        (run_dir / 'lbfgs.traj').write_text('bad')  # Kill the restart file
+        sim.optimize_structure(strc, config_name, charge=1)
+        assert len(db) == len(traj_res)
+        assert next(db.select())['total_charge'] == 1
+
+        # Make sure it cleans up after itself
+        sim.clean_after_run = True
+        shutil.rmtree(run_dir)
+        sim.optimize_structure(strc, config_name, charge=1)
+        assert len(db) == len(traj_res)
+        assert next(db.select())['total_charge'] == 1
+        assert not run_dir.is_dir()
