@@ -13,7 +13,7 @@ from ase.calculators.cp2k import CP2K
 from ase.db import connect
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
-from ase.optimize import LBFGS
+from ase.optimize import LBFGSLineSearch
 
 from . import utils
 from ..base import BaseSimulator, SimResult
@@ -81,7 +81,7 @@ class ASESimulator(BaseSimulator):
   &END POISSON
   &SCF
     &OUTER_SCF
-     MAX_SCF 5
+     MAX_SCF 9
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -129,6 +129,10 @@ class ASESimulator(BaseSimulator):
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
+                # Buffer the cell if using CP2K
+                if isinstance(calc, CP2K):
+                    utils.buffer_cell(atoms)
+
                 # Recover the history from a previous run
                 traj_path = Path('lbfgs.traj')
                 if traj_path.is_file():
@@ -143,15 +147,11 @@ class ASESimulator(BaseSimulator):
                     except InvalidULMFileError:
                         pass
 
-                # Buffer the cell if using CP2K
-                if isinstance(calc, CP2K):
-                    utils.buffer_cell(atoms)
-
                 # Attach the calculator
                 atoms.calc = calc
 
                 # Make the optimizer
-                dyn = LBFGS(atoms, logfile='opt.log', trajectory=str(traj_path))
+                dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
@@ -159,7 +159,7 @@ class ASESimulator(BaseSimulator):
                     os.unlink('history.traj')
 
                 # Run an optimization
-                dyn.run(fmax=0.01)
+                dyn.run(fmax=0.02, steps=250)
 
             # Gather the outputs
             #  Start with the output structure
@@ -215,7 +215,7 @@ class ASESimulator(BaseSimulator):
                 hasher = sha512()
                 hasher.update(atoms.positions.round(3).tobytes())
                 hasher.update(atoms.get_chemical_formula(mode='all', empirical=False).encode('ascii'))
-                atoms_hash = hasher.hexdigest()[-16:]
+                atoms_hash = hasher.hexdigest()[-16:] + "="
 
                 # See if the database already has this record
                 if db.count(atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent)) > 0:
