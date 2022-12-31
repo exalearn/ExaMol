@@ -24,11 +24,14 @@ if __name__ == "__main__":
     parser.add_argument('--cp2k-configuration', default='cp2k_blyp_szv')
     parser.add_argument('--nodes-per-cp2k', default=1, type=int)
     parser.add_argument('--num-parallel', default=2, type=int)
+    parser.add_argument('--max-to-run', default=None, type=int)
     args = parser.parse_args()
     config_name = args.cp2k_configuration
 
     # Load in the molecules to be evaluated
     to_run = pd.read_json('data/g4mp2-mols.json', lines=True)
+    if args.max_to_run is not None:
+        to_run = to_run.iloc[:args.max_to_run]
 
     # Make the ASE calculator
     #  Call with a local host file defined by the worker's rank
@@ -37,6 +40,7 @@ if __name__ == "__main__":
     sim = ASESimulator(
         scratch_dir='cp2k-files',
         ase_db_path='data.db',
+        cp2k_buffer=16.0,
         cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                      f'--hostfile {cwd}/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
@@ -72,8 +76,8 @@ hostname
 pwd
 split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE local_hostfile.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                    walltime="1:00:00",
-                    queue="debug",
+                    walltime="12:00:00",
+                    queue="prod",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
                     launcher=SimpleLauncher(),
                     select_options="ngpus=4",
@@ -106,6 +110,12 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
 
     # Write them out as they complete
     for future in tqdm(as_completed(futures), total=len(futures)):
+        exc = future.exception()
+        if exc is not None:
+            with open('failures.json', 'a') as fp:
+                print(json.dumps({**future.info, 'exception': str(exc)}), file=fp)
+            continue
+
         with open('output.json', 'a') as fp:
             res = future.result()
             print(json.dumps({
