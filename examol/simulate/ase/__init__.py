@@ -1,8 +1,10 @@
 """Utilities for simulation using ASE"""
+import json
 import os
 from hashlib import sha512
 from pathlib import Path
-from shutil import rmtree, copy
+from shutil import rmtree, move
+from time import perf_counter
 from typing import Any
 
 import ase
@@ -11,10 +13,19 @@ from ase.calculators.cp2k import CP2K
 from ase.db import connect
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
-from ase.optimize import LBFGS
+from ase.optimize import LBFGSLineSearch
 
 from . import utils
 from ..base import BaseSimulator, SimResult
+
+# Mapping between basis set and a converged cutoff energy
+#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/converge-parameters-mt.ipynb
+#  We increase the cutoff slightly to be on the safe side
+_cutoff_lookup = {
+    'TZVP-GTH': 850.,
+    'DZVP-GTH': 600.,
+    'SZV-GTH': 600.
+}
 
 
 class ASESimulator(BaseSimulator):
@@ -24,6 +35,7 @@ class ASESimulator(BaseSimulator):
                  cp2k_command: str | None = None,
                  cp2k_buffer: float = 6.0,
                  scratch_dir: Path | str | None = None,
+                 clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None):
         """
 
@@ -31,18 +43,24 @@ class ASESimulator(BaseSimulator):
             cp2k_command: Command to launch CP2K
             cp2k_buffer: Length of buffer to place around molecule for CP2K (units: Ang)
             scratch_dir: Path in which to create temporary directories
+            clean_after_run: Whether to clean output files after a run exits successfully
             ase_db_path: Path to an ASE db in which to store results
         """
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.cp2k_buffer = cp2k_buffer
-        self.ase_db_path = Path(ase_db_path).absolute()
+        self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
+        self.clean_after_run = clean_after_run
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         if name.startswith('cp2k_blyp'):
             # Get the name the basis set
             basis_set_id = name.rsplit('_')[-1]
             basis_set_name = f'{basis_set_id}-GTH'.upper()
+
+            # Get the cutoff
+            assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
+            cutoff = _cutoff_lookup[basis_set_name]
 
             assert solvent is None, 'We do not yet support solvents'
             return {
@@ -63,7 +81,7 @@ class ASESimulator(BaseSimulator):
   &END POISSON
   &SCF
     &OUTER_SCF
-     MAX_SCF 5
+     MAX_SCF 9
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -77,7 +95,7 @@ class ASESimulator(BaseSimulator):
   &END
 &END FORCE_EVAL
 """,
-                    cutoff=600 * units.Ry,
+                    cutoff=cutoff * units.Ry,
                     max_scf=10,
                     basis_set_file='GTH_BASIS_SETS',
                     basis_set=basis_set_name,
@@ -88,6 +106,8 @@ class ASESimulator(BaseSimulator):
 
     def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
+        start_time = perf_counter()  # Measure when we started
+
         # Make the configuration
         calc_cfg = self.create_configuration(config_name, charge, solvent)
 
@@ -113,26 +133,33 @@ class ASESimulator(BaseSimulator):
                 if isinstance(calc, CP2K):
                     utils.buffer_cell(atoms)
 
-                # Attach the calculator
-                atoms.calc = calc
-
-                # Save the history in a separate file, if stored
+                # Recover the history from a previous run
                 traj_path = Path('lbfgs.traj')
                 if traj_path.is_file():
-                    copy(traj_path, 'history.traj')
-
-                # Make the optimizer
-                dyn = LBFGS(atoms, logfile='opt.log', trajectory=str(traj_path))
-
-                # Reply the trajectory
-                if Path('history.traj').is_file():
                     try:
-                        dyn.replay_trajectory('history.traj')
+                        # Overwrite our atoms with th last in the trajectory
+                        with Trajectory(traj_path, mode='r') as traj:
+                            for atoms in traj:
+                                pass
+
+                        # Move the history so we can use it to over
+                        move(traj_path, 'history.traj')
                     except InvalidULMFileError:
                         pass
 
+                # Attach the calculator
+                atoms.calc = calc
+
+                # Make the optimizer
+                dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
+
+                # Reply the trajectory
+                if Path('history.traj').is_file():
+                    dyn.replay_trajectory('history.traj')
+                    os.unlink('history.traj')
+
                 # Run an optimization
-                dyn.run(fmax=0.01)
+                dyn.run(fmax=0.02, steps=250)
 
             # Gather the outputs
             #  Start with the output structure
@@ -161,10 +188,11 @@ class ASESimulator(BaseSimulator):
             out_log = Path('opt.log').read_text()
 
             # Delete the run directory
-            os.chdir(old_path)
-            rmtree(run_path)
+            if self.clean_after_run:
+                os.chdir(old_path)
+                rmtree(run_path)
 
-            return out_result, out_traj, out_log
+            return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time, 'out_log': out_log})
 
         finally:
             # Make sure we end back where we started
@@ -185,9 +213,9 @@ class ASESimulator(BaseSimulator):
             for atoms in atoms_to_write:
                 # Get the atom hash
                 hasher = sha512()
-                hasher.update(atoms.positions.round(3).tobytes())
+                hasher.update(atoms.positions.round(5).tobytes())
                 hasher.update(atoms.get_chemical_formula(mode='all', empirical=False).encode('ascii'))
-                atoms_hash = hasher.hexdigest()[-16:]
+                atoms_hash = hasher.hexdigest()[-16:] + "="
 
                 # See if the database already has this record
                 if db.count(atoms_hash=atoms_hash, config_name=config_name, total_charge=charge, solvent=str(solvent)) > 0:
