@@ -80,3 +80,12 @@ def test_ase(config_name: str, strc, tmpdir: Path):
         assert len(db) == len(traj_res)
         assert next(db.select())['total_charge'] == 1
         assert not run_dir.is_dir()
+
+
+def test_solvent(strc, tmpdir):
+    """Test running computations with a solvent"""
+
+    with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
+        sim = ASESimulator(scratch_dir=tmpdir, clean_after_run=False)
+        config = sim.create_configuration('cp2k_blyp_szv', solvent='acn', charge=0)
+        assert 'ALPHA' in config['kwargs']['inp']

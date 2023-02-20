@@ -27,6 +27,42 @@ _cutoff_lookup = {
     'SZV-GTH': 600.
 }
 
+# Base input file
+_cp2k_inp = """&FORCE_EVAL
+&DFT
+  &XC
+     &XC_FUNCTIONAL BLYP
+     &END XC_FUNCTIONAL
+  &END XC
+  &POISSON
+     PERIODIC NONE
+     PSOLVER MT
+  &END POISSON
+  &SCF
+    &OUTER_SCF
+     MAX_SCF 9
+    &END OUTER_SCF
+    &OT T
+      PRECONDITIONER FULL_ALL
+    &END OT
+  &END SCF
+&END DFT
+&SUBSYS
+  &TOPOLOGY
+    &CENTER_COORDINATES
+    &END
+  &END
+&END FORCE_EVAL
+"""
+
+# Solvent data (solvent name -> (gamma, e0)
+_solv_data = {
+    'acn': (
+        29.4500,  # http://www.ddbst.com/en/EED/PCP/SFT_C3.php
+        37.5  # https://depts.washington.edu/eooptic/linkfiles/dielectric_chart%5B1%5D.pdf
+    )
+}
+
 
 class ASESimulator(BaseSimulator):
     """Use ASE to perform simulations"""
@@ -62,45 +98,38 @@ class ASESimulator(BaseSimulator):
             assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
             cutoff = _cutoff_lookup[basis_set_name]
 
-            assert solvent is None, 'We do not yet support solvents'
+            # Add solvent information, if desired
+            inp = _cp2k_inp
+            if solvent is not None:
+                assert solvent in _solv_data, f"Solvent {solvent} not defined. Available: {', '.join(_solv_data.keys())}"
+                gamma, e0 = _solv_data[solvent]
+                # Inject it in the input file
+                inp = inp.replace(
+                    '&END SCF\n',
+                    f"""&END SCF
+&SCCS
+  ALPHA {-gamma}
+  BETA 0
+  GAMMA {gamma}
+RELATIVE_PERMITTIVITY {e0}
+DERIVATIVE_METHOD CD3
+METHOD ANDREUSSI
+&END SCCS\n""")
+
             return {
                 'name': 'cp2k',
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
                     uks=charge != 0,
-                    inp="""&FORCE_EVAL
-&DFT
-  &XC
-     &XC_FUNCTIONAL BLYP
-     &END XC_FUNCTIONAL
-  &END XC
-  &POISSON
-     PERIODIC NONE
-     PSOLVER MT
-  &END POISSON
-  &SCF
-    &OUTER_SCF
-     MAX_SCF 9
-    &END OUTER_SCF
-    &OT T
-      PRECONDITIONER FULL_ALL
-    &END OT
-  &END SCF
-&END DFT
-&SUBSYS
-  &TOPOLOGY
-    &CENTER_COORDINATES
-    &END
-  &END
-&END FORCE_EVAL
-""",
+                    inp=inp,
                     cutoff=cutoff * units.Ry,
                     max_scf=10,
                     basis_set_file='GTH_BASIS_SETS',
                     basis_set=basis_set_name,
                     pseudo_potential='GTH-BLYP',
                     poisson_solver=None,
+                    stress_tensor=False,
                     command=self.cp2k_command)
             }
 
