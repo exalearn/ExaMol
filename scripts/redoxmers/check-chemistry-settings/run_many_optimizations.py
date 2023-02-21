@@ -39,10 +39,10 @@ if __name__ == "__main__":
     cwd = Path().cwd().absolute()
     sim = ASESimulator(
         scratch_dir='cp2k-files',
-        ase_db_path='data.db',
+#        ase_db_path='data.db',
         cp2k_buffer=16.0,
         cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                     f'--hostfile {cwd}/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
+                     f'--hostfile {cwd}/hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.`printf %02d $((PARSL_WORKER_RANK+1))` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',
     )
@@ -74,9 +74,10 @@ module list
 cd {cwd}
 hostname
 pwd
-split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE local_hostfile.
+mkdir -p hostfiles/$PBS_JOBID
+split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                    walltime="12:00:00",
+                    walltime="4:00:00",
                     queue="prod",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
                     launcher=SimpleLauncher(),
