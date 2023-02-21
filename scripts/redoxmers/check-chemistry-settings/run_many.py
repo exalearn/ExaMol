@@ -39,7 +39,7 @@ if __name__ == "__main__":
     cwd = Path().cwd().absolute()
     sim = ASESimulator(
         scratch_dir='cp2k-files',
-        ase_db_path='data.db',
+#        ase_db_path='data.db',
         cp2k_buffer=16.0,
         cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                      f'--hostfile {cwd}/hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.`printf %02d $((PARSL_WORKER_RANK+1))` '
