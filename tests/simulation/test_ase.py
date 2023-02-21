@@ -92,6 +92,9 @@ def test_solvent(strc, tmpdir):
         config = sim.create_configuration('cp2k_blyp_szv', solvent='acn', charge=0)
         assert 'ALPHA' in config['kwargs']['inp']
 
+        # Make sure there are no directories left
+        assert len(list(Path(tmpdir).glob('ase_*'))) == 0
+
         # Run the calculation
         result, metadata = sim.compute_energy(strc, 'cp2k_blyp_szv', solvent='acn', charge=0)
         assert result.energy

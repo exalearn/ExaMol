@@ -282,6 +282,12 @@ METHOD ANDREUSSI
                 out_strc = utils.write_to_string(atoms, 'xyz')
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
+
+                # Delete the run directory
+                if self.clean_after_run:
+                    os.chdir(old_path)
+                    rmtree(run_path)
+
                 return out_result, json.dumps({'runtime': perf_counter() - start_time})
 
         finally:
