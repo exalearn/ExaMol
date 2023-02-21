@@ -64,6 +64,27 @@ _solv_data = {
 }
 
 
+def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: str) -> str:
+    """Generate a summary hash for a calculation
+
+    Args:
+        charge: Charge of the cell
+        config_name: Name of the configuration
+        solvent: Name of the solvent, if any
+        xyz: XYZ coordinates for the atoms
+    Returns:
+        Hash of the above contents
+    """
+    hasher = sha512()
+    hasher.update(xyz.encode())
+    hasher.update(config_name.encode())
+    hasher.update(str(charge).encode())
+    if solvent is not None:
+        hasher.update(solvent.encode())
+    run_hash = hasher.hexdigest()[:8]
+    return run_hash
+
+
 class ASESimulator(BaseSimulator):
     """Use ASE to perform simulations"""
 
@@ -104,6 +125,7 @@ class ASESimulator(BaseSimulator):
                 assert solvent in _solv_data, f"Solvent {solvent} not defined. Available: {', '.join(_solv_data.keys())}"
                 gamma, e0 = _solv_data[solvent]
                 # Inject it in the input file
+                #  We use beta=0 and alpha+gamma=0 as these do not matter for solvation energy: https://groups.google.com/g/cp2k/c/7oYTqSIyIqI/m/7D62tXIzBgAJ
                 inp = inp.replace(
                     '&END SCF\n',
                     f"""&END SCF
@@ -144,13 +166,8 @@ METHOD ANDREUSSI
         atoms = utils.read_from_string(xyz, 'xyz')
 
         # Make the run directory based on a hash of the input configuration
-        hasher = sha512()
-        hasher.update(xyz.encode())
-        hasher.update(config_name.encode())
-        hasher.update(str(charge).encode())
-        if solvent is not None:
-            hasher.update(hasher)
-        run_path = self.scratch_dir / Path(f'ase_opt_{hasher.hexdigest()[:8]}')
+        run_hash = _compute_run_hash(charge, config_name, solvent, xyz)
+        run_path = self.scratch_dir / Path(f'ase_opt_{run_hash}')
         run_path.mkdir(exist_ok=True, parents=True)
 
         # Run inside a temporary directory
@@ -160,7 +177,7 @@ METHOD ANDREUSSI
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
                 # Buffer the cell if using CP2K
                 if isinstance(calc, CP2K):
-                    utils.buffer_cell(atoms)
+                    utils.buffer_cell(atoms, self.cp2k_buffer)
 
                 # Recover the history from a previous run
                 traj_path = Path('lbfgs.traj')
@@ -225,6 +242,49 @@ METHOD ANDREUSSI
 
         finally:
             # Make sure we end back where we started
+            os.chdir(old_path)
+
+    def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
+                       charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
+        # Make the configuration
+        start_time = perf_counter()  # Measure when we started
+
+        # Make the configuration
+        calc_cfg = self.create_configuration(config_name, charge, solvent)
+
+        # Make the run directory based on a hash of the input configuration
+        run_hash = _compute_run_hash(charge, config_name, solvent, xyz)
+        run_path = self.scratch_dir / Path(f'ase_single_{run_hash}')
+        run_path.mkdir(exist_ok=True, parents=True)
+
+        # Parse the XYZ file into atoms
+        atoms = utils.read_from_string(xyz, 'xyz')
+
+        # Run inside a temporary directory
+        old_path = Path.cwd()
+        try:
+            os.chdir(run_path)
+
+            # Prepare to run the cell
+            with utils.make_ephemeral_calculator(calc_cfg) as calc:
+                # Buffer the cell if using CP2K
+                if isinstance(calc, CP2K):
+                    utils.buffer_cell(atoms, self.cp2k_buffer)
+
+                # Run a single point
+                atoms.set_calculator(calc)
+                forces = atoms.get_forces() if forces else None
+                energy = atoms.get_potential_energy()
+
+                # Report the results
+                if self.ase_db_path is not None:
+                    self.update_database([atoms], config_name, charge, solvent)
+                out_strc = utils.write_to_string(atoms, 'xyz')
+                out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                       xyz=out_strc, energy=energy, forces=forces)
+                return out_result, json.dumps({'runtime': perf_counter() - start_time})
+
+        finally:
             os.chdir(old_path)
 
     def update_database(self, atoms_to_write: list[ase.Atoms], config_name: str, charge: int, solvent: str | None):
