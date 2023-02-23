@@ -1,5 +1,6 @@
 """Evaluate the molecules from a list prepared by Naveen Dandu"""
 from examol.simulate.ase import ASESimulator
+from examol.simulate.base import SimResult
 from examol.simulate.initialize import generate_inchi_and_xyz
 from parsl.executors import HighThroughputExecutor
 from parsl.addresses import address_by_hostname
@@ -9,7 +10,7 @@ from parsl.app.python import PythonApp
 from parsl import Config
 from concurrent.futures import as_completed
 from argparse import ArgumentParser
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from pathlib import Path
 from tqdm import tqdm
 import pickle as pkl
@@ -35,21 +36,17 @@ if __name__ == "__main__":
     cwd = Path().cwd().absolute()
     sim = ASESimulator(
         scratch_dir='cp2k-files',
-        ase_db_path='data.db',
         cp2k_buffer=6.0,
         cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                     f'--hostfile {cwd}/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
+                     f'--hostfile {cwd}/hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.`printf %02d $((PARSL_WORKER_RANK+1))` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',
     )
 
     # Load in the geometries
     optimizations = pd.read_json('output.json', lines=True)
-    optimizations.query(f'config_name=={config_name}', inplace=True)
+    optimizations.query(f'config_name=="{config_name}"', inplace=True)
     print(f'Loaded {len(optimizations)} optimized geometries for {config_name}')
-    if args.max_to_run is not None:
-        optimizations = optimizations.iloc[:args.max_to_run]
-        print(f'Reduced to {args.max_to_run}')
 
     # Get the solvation energies which have already ran
     solvation_out = Path('solvation.json')
@@ -79,16 +76,17 @@ module list
 cd {cwd}
 hostname
 pwd
-split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE local_hostfile.
+mkdir -p hostfiles/$PBS_JOBID
+split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                    walltime="12:00:00",
-                    queue="prod",
+                    walltime="6:00:00",
+                    queue="preemptable",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
                     launcher=SimpleLauncher(),
                     select_options="ngpus=4",
                     nodes_per_block=args.num_parallel * args.nodes_per_cp2k,
                     min_blocks=0,
-                    max_blocks=1,
+                    max_blocks=10,
                     cpus_per_node=64,
                 ),
             ),
@@ -104,23 +102,32 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
     for _, row in optimizations.iterrows():
         if (row["smiles"], row["charge"], config_name, args.solvent) in already_ran:
             continue
-        future = app(row['xyz'], charge=row['charge'], sovlvent=args.solvent, config_name=config_name)
+
+        # Upack the result to get the xyz
+        result: SimResult = pkl.loads(b64decode(row['result']))[0]  # second part is metadata
+
+        future = app(result.xyz, charge=row['charge'], solvent=args.solvent, config_name=config_name)
         future.info = {'filename': row['filename'], 'smiles': row['smiles'], 'charge': row['charge']}
         futures.append(future)
+
+        # Stop submitting if hit max
+        if args.max_to_run is not None and len(futures) == args.max_to_run:
+            break
 
     # Write them out as they complete
     for future in tqdm(as_completed(futures), total=len(futures)):
         exc = future.exception()
         if exc is not None:
-            with open('failures.json', 'a') as fp:
+            with open('solv-failures.json', 'a') as fp:
                 print(json.dumps({**future.info, 'exception': str(exc)}), file=fp)
             continue
 
-        with open('output.json', 'a') as fp:
+        with open(solvation_out, 'a') as fp:
             res = future.result()
             print(json.dumps({
                 **future.info,
                 'config_name': config_name,
+                'solvent': args.solvent,
                 'energy': res[0].energy,
                 'result': b64encode(pkl.dumps(res)).decode('ascii'),
             }), file=fp)
