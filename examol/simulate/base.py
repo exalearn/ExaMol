@@ -28,7 +28,7 @@ class BaseSimulator:
         Args:
             scratch_dir: Path in which to create temporary directories
         """
-        self.scratch_dir: Path = Path(scratch_dir)
+        self.scratch_dir: Path | None = None if scratch_dir is None else Path(scratch_dir)
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         """Create the configuration needed for a certain computation
@@ -54,6 +54,24 @@ class BaseSimulator:
         Returns:
             - The minimized structure
             - Any intermediate structures
+            - Other metadata produced by the computation
+        """
+        ...
+
+    def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
+                       charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
+        """Get the energy and forces of a structure
+
+        Args:
+            Args:
+            xyz: 3D geometry of the molecule
+            config_name: Name of the method
+            charge: Charge on the molecule
+            solvent: Name of the solvent
+            **kwargs: Any other arguments for the method
+
+        Returns:
+            - Energy result
             - Other metadata produced by the computation
         """
         ...

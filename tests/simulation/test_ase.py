@@ -46,7 +46,7 @@ def test_config_maker(tmpdir):
 
 
 @mark.parametrize('config_name', ['cp2k_blyp_szv'])
-def test_ase(config_name: str, strc, tmpdir: Path):
+def test_optimization(config_name: str, strc, tmpdir: Path):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = str(tmpdir / 'data.db')
         sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=False)
@@ -80,3 +80,25 @@ def test_ase(config_name: str, strc, tmpdir: Path):
         assert len(db) == len(traj_res)
         assert next(db.select())['total_charge'] == 1
         assert not run_dir.is_dir()
+
+
+def test_solvent(strc, tmpdir):
+    """Test running computations with a solvent"""
+
+    with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
+        # Run a test with a patched executor
+        db_path = str(tmpdir / 'data.db')
+        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=True)
+        config = sim.create_configuration('cp2k_blyp_szv', solvent='acn', charge=0)
+        assert 'ALPHA' in config['kwargs']['inp']
+
+        # Make sure there are no directories left
+        assert len(list(Path(tmpdir).glob('ase_*'))) == 0
+
+        # Run the calculation
+        result, metadata = sim.compute_energy(strc, 'cp2k_blyp_szv', solvent='acn', charge=0)
+        assert result.energy
+
+        # Check that the data was added
+        with connect(db_path) as db:
+            assert db.count() == 1

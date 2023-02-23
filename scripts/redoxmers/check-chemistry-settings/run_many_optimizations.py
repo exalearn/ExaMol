@@ -77,14 +77,14 @@ pwd
 mkdir -p hostfiles/$PBS_JOBID
 split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                    walltime="4:00:00",
-                    queue="prod",
+                    walltime="6:00:00",
+                    queue="preemptable",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
                     launcher=SimpleLauncher(),
                     select_options="ngpus=4",
                     nodes_per_block=args.num_parallel * args.nodes_per_cp2k,
                     min_blocks=0,
-                    max_blocks=1,
+                    max_blocks=10,
                     cpus_per_node=64,
                 ),
             ),
