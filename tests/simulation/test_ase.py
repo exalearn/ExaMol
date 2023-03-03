@@ -9,7 +9,7 @@ from ase.build import molecule
 from ase.calculators.lj import LennardJones
 
 from examol.simulate.ase import ASESimulator
-from examol.simulate.ase.utils import write_to_string
+from examol.utils.conversions import write_to_string
 
 
 class FakeCP2K(LennardJones):

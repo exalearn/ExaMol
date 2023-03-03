@@ -1,9 +1,15 @@
 """Base class defining the interfaces for common simulation operations"""
 from dataclasses import dataclass
 from pathlib import Path
+from io import StringIO
 from typing import Any
 
+import ase
 import numpy as np
+from ase.io.xyz import read_xyz
+from six import StringIO
+
+from examol.utils.conversions import read_from_string
 
 
 @dataclass
@@ -18,6 +24,11 @@ class SimResult:
     xyz: str = ...  # 3D geometry of the molecule
     energy: float | None = None  # Energy of the molecule (units: eV)
     forces: np.ndarray | None = None  # Forces acting on each atom  (units: eV/Ang)
+
+    @property
+    def atoms(self) -> ase.Atoms:
+        """ASE Atoms object of """
+        return read_from_string(self.xyz, 'xyz')
 
 
 class BaseSimulator:
