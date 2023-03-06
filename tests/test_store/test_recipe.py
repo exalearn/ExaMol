@@ -54,10 +54,16 @@ def test_redox(record, sim_result):
     assert len(record.conformers) == 2
     assert isclose(recipe.compute_property(record), 0.5)
 
-    # Test it in a solvent
+    # Add energies in solvents
     adia_sim_result.solvent = 'acn'
     adia_sim_result.energy -= 2
     assert not record.add_energies(adia_sim_result)
 
     sim_result.charge = 0
     sim_result.solvent = 'acn'
+    sim_result.energy -= 2
+    assert not record.add_energies(sim_result)
+
+    recipe = RedoxEnergy(1, 'test', solvent='acn', vertical=False)
+    assert 'acn' in recipe.level
+    assert isclose(recipe.compute_property(record), -0.5)
