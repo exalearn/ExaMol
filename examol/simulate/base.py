@@ -46,7 +46,7 @@ class BaseSimulator:
             charge: Charge on the system
             solvent: Name of any solvent
         """
-        ...
+        raise NotImplementedError()
 
     def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
@@ -64,7 +64,7 @@ class BaseSimulator:
             - Any intermediate structures
             - Other metadata produced by the computation
         """
-        ...
+        raise NotImplementedError()
 
     def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
                        charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
@@ -82,4 +82,4 @@ class BaseSimulator:
             - Energy result
             - Other metadata produced by the computation
         """
-        ...
+        raise NotImplementedError()
