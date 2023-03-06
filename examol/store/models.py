@@ -98,6 +98,39 @@ class Conformer(EmbeddedDocument):
         self.energies.append(new_energy)
         return True
 
+    def get_energy_index(self, config_name: str, charge: int, solvent: str | None) -> int | None:
+        """Get the index of the record for a certain level of energy
+
+        Args:
+            config_name: Name of the compute configuration
+            charge: Charge of the molecule
+            solvent: Solvent in which the molecule is dissolved
+        Returns:
+            Index of the record, if available, or ``None``, if not.
+        """
+
+        for i, record in enumerate(self.energies):
+            if record.config_name == config_name and \
+                    record.charge == charge and \
+                    record.solvent == solvent:
+                return i
+        return None
+
+    def get_energy(self, config_name: str, charge: int, solvent: str | None) -> float:
+        """Get the energy for a certain level
+
+        Args:
+            config_name: Name of the compute configuration
+            charge: Charge of the molecule
+            solvent: Solvent in which the molecule is dissolved
+        Returns:
+            Index of the record, if available, or ``None``, if not.
+        """
+
+        ind = self.get_energy_index(config_name, charge, solvent)
+        assert ind is not None, f'No energy available for config="{config_name}", charge={charge}, solvent={solvent}'
+        return self.energies[ind].energy
+
 
 class MoleculeRecord(Document):
     """Defines whatever we know about a molecule"""
@@ -183,11 +216,10 @@ class MoleculeRecord(Document):
 
         # Check all conformers
         for conf in self.conformers:
-            for energy_eval in conf.energies:
-                matches = energy_eval.charge == charge and energy_eval.solvent == solvent and energy_eval.config_name == config_name
-                if matches and energy_eval.energy < lowest_energy:
-                    stable_conformer = conf
-                    lowest_energy = energy_eval.energy
+            energy_ind = conf.get_energy_index(config_name, charge, solvent)
+            if energy_ind is not None and conf.energies[energy_ind].energy < lowest_energy:
+                stable_conformer = conf
+                lowest_energy = conf.energies[energy_ind].energy
 
         if stable_conformer is None:
             raise ValueError(f'No energy evaluations found for config_name="{config_name}, charge={charge}, solvent="{solvent}"')

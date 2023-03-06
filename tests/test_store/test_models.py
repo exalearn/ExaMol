@@ -63,8 +63,9 @@ def test_find_lowest_conformer(sim_result):
     record.add_energies(sim_result)
 
     # Find the energy
-    _, energy = record.find_lowest_conformer('test', 0, None)
+    conf, energy = record.find_lowest_conformer('test', 0, None)
     assert isclose(energy, -1)
+    assert isclose(conf.get_energy('test', 0, None), energy)
 
     # Add a second conformer, with a higher energy
     sim_result.energy = 0
