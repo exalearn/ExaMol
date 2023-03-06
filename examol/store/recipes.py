@@ -38,7 +38,7 @@ class PropertyRecipe:
         Returns:
             Property value
         """
-        ...
+        raise NotImplementedError()
 
 
 class SolvationEnergy(PropertyRecipe):
