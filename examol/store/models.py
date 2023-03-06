@@ -1,12 +1,11 @@
 """Data models used for molecular data"""
-
 from hashlib import md5
 from datetime import datetime
 from typing import Collection
 
 import ase
 import numpy as np
-from mongoengine import Document, DynamicEmbeddedDocument, EmbeddedDocument, IntField, EmbeddedDocumentField, DateTimeField, FloatField
+from mongoengine import Document, DynamicEmbeddedDocument, EmbeddedDocument, IntField, EmbeddedDocumentField, DateTimeField, FloatField, DictField
 from mongoengine.fields import StringField, ListField
 from rdkit import Chem
 
@@ -139,12 +138,13 @@ class MoleculeRecord(Document):
     key = StringField(min_length=27, max_length=27, required=True, primary_key=True, help_text='InChI key')
     identifier = EmbeddedDocumentField(Identifiers, help_text='Collection of identifiers which define the molecule')
     names = ListField(StringField(), help_text='Names this molecule is known by')
+    subsets = ListField(StringField(), help_text='List of subsets this molecule is part of')
 
     # Data about the molecule
     conformers: list[Conformer] = ListField(EmbeddedDocumentField(Conformer))
 
     # Characteristics
-    subsets = ListField(StringField(), help_text='List of subsets this molecule is part of')
+    properties: dict[str, dict[str, float]] = DictField(help_text='Properties available for the molecule')
 
     @classmethod
     def from_identifier(cls, smiles: str | None = None, inchi: str | None = None):

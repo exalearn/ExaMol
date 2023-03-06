@@ -1,23 +1,8 @@
 from math import isclose
 
-from pytest import fixture, raises
-from ase.build import molecule
+from pytest import raises
 
-from examol.utils.conversions import write_to_string
-from examol.simulate.base import SimResult
 from examol.store.models import Conformer, MoleculeRecord
-
-
-@fixture()
-def sim_result() -> SimResult:
-    mol = molecule('CH4')
-    return SimResult(
-        xyz=write_to_string(mol, 'xyz'),
-        charge=0,
-        energy=-1,
-        config_name='test',
-        solvent=None
-    )
 
 
 def test_make_conformer(sim_result):
@@ -46,10 +31,7 @@ def test_identifiers():
     assert 'not_real' in str(error)
 
 
-def test_add_conformer(sim_result):
-    # Make a record for methane
-    record = MoleculeRecord.from_identifier('C')
-
+def test_add_conformer(record, sim_result):
     # Test adding an energy record
     assert record.add_energies(sim_result)
     assert not record.add_energies(sim_result)
@@ -57,9 +39,8 @@ def test_add_conformer(sim_result):
     assert len(record.conformers) == 1
 
 
-def test_find_lowest_conformer(sim_result):
+def test_find_lowest_conformer(record, sim_result):
     # Make a record with a single energy evaluation
-    record = MoleculeRecord.from_identifier('C')
     record.add_energies(sim_result)
 
     # Find the energy
@@ -80,3 +61,7 @@ def test_find_lowest_conformer(sim_result):
     with raises(ValueError) as error:
         record.find_lowest_conformer('not_done', 0, None)
     assert 'not_done' in str(error)
+
+
+def test_properties(record):
+    assert len(record.properties) == 0
