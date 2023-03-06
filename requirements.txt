@@ -4,4 +4,5 @@ rdkit>=2022.9
 networkx>=2.8
 parsl>=2022.12
 foundry_ml
+mongoengine>=0.27
 tqdm

@@ -1,6 +1,8 @@
 """Converting between different descriptions of molecules"""
 import logging
+from io import StringIO
 
+from ase import Atoms, io
 from rdkit import Chem
 import networkx as nx
 
@@ -99,3 +101,32 @@ def convert_nx_to_smiles(graph: nx.Graph) -> str:
     mol = convert_nx_to_rdkit(graph)
     mol = Chem.RemoveHs(mol)
     return Chem.MolToSmiles(mol, canonical=True)
+
+
+def write_to_string(atoms: Atoms, fmt: str) -> str:
+    """Write an ASE atoms object to string
+
+    Args:
+        atoms: Structure to write
+        fmt: Target format
+    Returns:
+        Structure written in target format
+    """
+
+    out = StringIO()
+    atoms.write(out, fmt)
+    return out.getvalue()
+
+
+def read_from_string(atoms_msg: str, fmt: str) -> Atoms:
+    """Read an ASE atoms object from a string
+
+    Args:
+        atoms_msg: String format of the object to read
+        fmt: Format (cannot be autodetected)
+    Returns:
+        Parsed atoms object
+    """
+
+    out = StringIO(str(atoms_msg))  # str() ensures that Proxies are resolved
+    return io.read(out, format=fmt)

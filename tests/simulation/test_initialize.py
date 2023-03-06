@@ -1,6 +1,6 @@
 import numpy as np
 
-from examol.simulate.ase.utils import read_from_string
+from examol.utils.conversions import read_from_string
 from examol.simulate import initialize as init
 
 

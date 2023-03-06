@@ -30,7 +30,7 @@ jobs:
     - name: Lint with flake8
       run: |
         pip install flake8
-        flake8 examol
+        flake8 examol tests
     - name: Add quantum chemistry tools
       run: |
         sudo apt-get update

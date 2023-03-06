@@ -15,6 +15,7 @@ from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGSLineSearch
 
+import examol.utils.conversions
 from . import utils
 from ..base import BaseSimulator, SimResult
 
@@ -163,7 +164,7 @@ METHOD ANDREUSSI
         calc_cfg = self.create_configuration(config_name, charge, solvent)
 
         # Parse the XYZ file into atoms
-        atoms = utils.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
 
         # Make the run directory based on a hash of the input configuration
         run_hash = _compute_run_hash(charge, config_name, solvent, xyz)
@@ -211,7 +212,7 @@ METHOD ANDREUSSI
             #  Start with the output structure
             if self.ase_db_path is not None:
                 self.update_database([atoms], config_name, charge, solvent)
-            out_strc = utils.write_to_string(atoms, 'xyz')
+            out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
 
@@ -225,7 +226,7 @@ METHOD ANDREUSSI
 
                 # Convert them to the output format
                 for atoms in traj_lst:
-                    traj_xyz = utils.write_to_string(atoms, 'xyz')
+                    traj_xyz = examol.utils.conversions.write_to_string(atoms, 'xyz')
                     traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                          xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
                     out_traj.append(traj_res)
@@ -258,7 +259,7 @@ METHOD ANDREUSSI
         run_path.mkdir(exist_ok=True, parents=True)
 
         # Parse the XYZ file into atoms
-        atoms = utils.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
 
         # Run inside a temporary directory
         old_path = Path.cwd()
@@ -279,7 +280,7 @@ METHOD ANDREUSSI
                 # Report the results
                 if self.ase_db_path is not None:
                     self.update_database([atoms], config_name, charge, solvent)
-                out_strc = utils.write_to_string(atoms, 'xyz')
+                out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
 
