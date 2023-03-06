@@ -57,6 +57,9 @@ def test_find_lowest_conformer(record, sim_result):
     assert isclose(energy, -1)
     assert "0.000" in conf.xyz
 
+    # Make sure we do not re-add the second conformer
+    assert not record.add_energies(sim_result)
+
     # Test without a match
     with raises(ValueError) as error:
         record.find_lowest_conformer('not_done', 0, None)
