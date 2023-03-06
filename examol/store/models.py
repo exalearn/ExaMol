@@ -136,7 +136,7 @@ class MoleculeRecord(Document):
 
     # Identifiers
     key = StringField(min_length=27, max_length=27, required=True, primary_key=True, help_text='InChI key')
-    identifier = EmbeddedDocumentField(Identifiers, help_text='Collection of identifiers which define the molecule')
+    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='Collection of identifiers which define the molecule')
     names = ListField(StringField(), help_text='Names this molecule is known by')
     subsets = ListField(StringField(), help_text='List of subsets this molecule is part of')
 
