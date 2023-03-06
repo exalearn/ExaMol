@@ -70,7 +70,7 @@ class Conformer(EmbeddedDocument):
 
         new_record = cls(
             xyz=sim_result.xyz,
-            xyz_hash=md5(sim_result.xyz.encode()).hexdigest()[-32:],
+            xyz_hash=md5(sim_result.xyz.encode()).hexdigest(),
             date_created=datetime.now(),
             source=source,
             config_name=sim_result.config_name,
