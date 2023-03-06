@@ -1,10 +1,11 @@
-from pytest import fixture, raises
+from math import isclose
 
+from pytest import fixture, raises
 from ase.build import molecule
 
 from examol.utils.conversions import write_to_string
 from examol.simulate.base import SimResult
-from examol.store import Conformer, MoleculeRecord
+from examol.store.models import Conformer, MoleculeRecord
 
 
 @fixture()
@@ -40,8 +41,9 @@ def test_identifiers():
     assert record_1.key == record_2.key
 
     # Make sure a parse can fail
-    with raises(ValueError) as exc:
+    with raises(ValueError) as error:
         MoleculeRecord.from_identifier('not_real')
+    assert 'not_real' in str(error)
 
 
 def test_add_conformer(sim_result):
@@ -55,3 +57,25 @@ def test_add_conformer(sim_result):
     assert len(record.conformers) == 1
 
 
+def test_find_lowest_conformer(sim_result):
+    # Make a record with a single energy evaluation
+    record = MoleculeRecord.from_identifier('C')
+    record.add_energies(sim_result)
+
+    # Find the energy
+    _, energy = record.find_lowest_conformer('test', 0, None)
+    assert isclose(energy, -1)
+
+    # Add a second conformer, with a higher energy
+    sim_result.energy = 0
+    sim_result.xyz = sim_result.xyz.replace("0.000", "0.01")
+    assert record.add_energies(sim_result)
+    assert len(record.conformers) == 2
+    conf, energy = record.find_lowest_conformer('test', 0, None)
+    assert isclose(energy, -1)
+    assert "0.000" in conf.xyz
+
+    # Test without a match
+    with raises(ValueError) as error:
+        record.find_lowest_conformer('not_done', 0, None)
+    assert 'not_done' in str(error)
