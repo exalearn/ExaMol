@@ -273,7 +273,7 @@ METHOD ANDREUSSI
                     utils.buffer_cell(atoms, self.cp2k_buffer)
 
                 # Run a single point
-                atoms.set_calculator(calc)
+                atoms.calc = calc
                 forces = atoms.get_forces() if forces else None
                 energy = atoms.get_potential_energy()
 
