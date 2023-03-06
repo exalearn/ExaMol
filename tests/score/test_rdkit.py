@@ -48,4 +48,3 @@ def test_functions(training_set, scorer):
     model_msg = scorer.get_model_state()
     scores = scorer.score(model_msg, inputs)
     assert np.isclose(scores, outputs).all()
-
