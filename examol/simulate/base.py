@@ -1,13 +1,10 @@
 """Base class defining the interfaces for common simulation operations"""
 from dataclasses import dataclass
 from pathlib import Path
-from io import StringIO
 from typing import Any
 
 import ase
 import numpy as np
-from ase.io.xyz import read_xyz
-from six import StringIO
 
 from examol.utils.conversions import read_from_string
 

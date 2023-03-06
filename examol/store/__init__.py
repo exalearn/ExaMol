@@ -164,5 +164,3 @@ class MoleculeRecord(Document):
         else:
             self.conformers[my_match].add_energy(result)
             return False
-
-

@@ -1,1 +1,1 @@
-"""Functions associated with evlauating the properties of molecules"""
+"""Functions associated with evaluating the properties of molecules"""
