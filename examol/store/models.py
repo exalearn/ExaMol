@@ -181,7 +181,7 @@ class MoleculeRecord(Document):
 
         def _match_conformers(positions: np.ndarray) -> int | None:
             for i, c in enumerate(conf_pos):
-                if np.isclose(positions, conf_pos, atol=match_tol).all():
+                if np.isclose(positions, c, atol=match_tol).all():
                     return i
 
         # First try to add optimization steps

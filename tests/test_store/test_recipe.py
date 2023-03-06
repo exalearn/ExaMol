@@ -1,4 +1,5 @@
 """Test for different recipes"""
+import copy
 from math import isclose
 
 from pytest import raises
@@ -25,7 +26,7 @@ def test_solvation(record, sim_result):
 
 
 def test_redox(record, sim_result):
-    # Add the vacuum energy and a charged energy of the same molecule
+    # Add the vacuum energy, energy in solvent and a charged energy of the same molecule
     assert record.add_energies(sim_result)
     sim_result.charge = 1
     sim_result.energy += 1
@@ -46,8 +47,17 @@ def test_redox(record, sim_result):
     assert 'We do not have a relaxed charged molecule' in str(error)
 
     # Add a different geometry
-    sim_result.xyz = sim_result.xyz.replace('0.000', '0.010')
-    sim_result.energy -= 0.5
-    assert record.add_energies(sim_result)
+    adia_sim_result = copy.copy(sim_result)
+    adia_sim_result.xyz = sim_result.xyz.replace('0.000', '0.010')
+    adia_sim_result.energy -= 0.5
+    assert record.add_energies(adia_sim_result)
     assert len(record.conformers) == 2
     assert isclose(recipe.compute_property(record), 0.5)
+
+    # Test it in a solvent
+    adia_sim_result.solvent = 'acn'
+    adia_sim_result.energy -= 2
+    assert not record.add_energies(adia_sim_result)
+
+    sim_result.charge = 0
+    sim_result.solvent = 'acn'

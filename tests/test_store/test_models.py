@@ -50,7 +50,7 @@ def test_find_lowest_conformer(record, sim_result):
 
     # Add a second conformer, with a higher energy
     sim_result.energy = 0
-    sim_result.xyz = sim_result.xyz.replace("0.000", "0.01")
+    sim_result.xyz = sim_result.xyz.replace("0.000", "0.010")
     assert record.add_energies(sim_result)
     assert len(record.conformers) == 2
     conf, energy = record.find_lowest_conformer('test', 0, None)
@@ -59,6 +59,10 @@ def test_find_lowest_conformer(record, sim_result):
 
     # Make sure we do not re-add the second conformer
     assert not record.add_energies(sim_result)
+
+    # Add a third
+    sim_result.xyz = sim_result.xyz.replace("0.010", "0.015")
+    assert record.add_energies(sim_result)
 
     # Test without a match
     with raises(ValueError) as error:
