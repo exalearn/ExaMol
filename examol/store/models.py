@@ -70,7 +70,7 @@ class Conformer(EmbeddedDocument):
 
         new_record = cls(
             xyz=sim_result.xyz,
-            xyz_hash=md5(sim_result.xyz.encode()).hexdigest()[-32:],
+            xyz_hash=md5(sim_result.xyz.encode()).hexdigest(),
             date_created=datetime.now(),
             source=source,
             config_name=sim_result.config_name,
@@ -181,7 +181,7 @@ class MoleculeRecord(Document):
 
         def _match_conformers(positions: np.ndarray) -> int | None:
             for i, c in enumerate(conf_pos):
-                if np.isclose(positions, conf_pos, atol=match_tol).all():
+                if np.isclose(positions, c, atol=match_tol).all():
                     return i
 
         # First try to add optimization steps
