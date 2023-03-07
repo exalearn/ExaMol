@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -53,10 +54,11 @@ def test_config_maker(tmpdir):
 
 
 @mark.parametrize('config_name', ['cp2k_blyp_szv', 'xtb'])
-def test_optimization(config_name: str, strc, tmpdir: Path):
+def test_optimization(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
-        db_path = str(tmpdir / 'data.db')
-        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=False)
+        db_path = Path(tmpdir) / 'data.db'
+        db_path.unlink(missing_ok=True)
+        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=str(db_path), clean_after_run=False)
         out_res, traj_res, extra = sim.optimize_structure(strc, config_name, charge=1)
         assert out_res.energy < traj_res[0].energy
 
