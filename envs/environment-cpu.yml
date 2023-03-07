@@ -2,11 +2,11 @@
 name: examol
 channels:
   - defaults
-  - psi4/label/dev
   - conda-forge
 dependencies:
   - python==3.10.*
   - pandas==1.*
+  - xtb-python==22.*
   - pymongo
   - jupyterlab
   - matplotlib

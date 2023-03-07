@@ -9,7 +9,6 @@ from typing import Any
 
 import ase
 from ase import units
-from ase.calculators.cp2k import CP2K
 from ase.db import connect
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
@@ -56,13 +55,14 @@ _cp2k_inp = """&FORCE_EVAL
 &END FORCE_EVAL
 """
 
-# Solvent data (solvent name -> (gamma, e0)
+# Solvent data (solvent name -> (gamma, e0) for CP2K, solvent name - xTB name for xTB)
 _solv_data = {
     'acn': (
         29.4500,  # http://www.ddbst.com/en/EED/PCP/SFT_C3.php
         37.5  # https://depts.washington.edu/eooptic/linkfiles/dielectric_chart%5B1%5D.pdf
     )
 }
+_xtb_solv_names = {'acn': 'acetonitrile'}
 
 
 def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: str) -> str:
@@ -111,7 +111,13 @@ class ASESimulator(BaseSimulator):
         self.clean_after_run = clean_after_run
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
-        if name.startswith('cp2k_blyp'):
+        if name == 'xtb':
+            kwargs = {}
+            if solvent is not None:
+                assert solvent in _xtb_solv_names
+                kwargs['solvent'] = _xtb_solv_names[solvent]
+            return {'name': 'xtb', 'kwargs': kwargs}
+        elif name.startswith('cp2k_blyp'):
             # Get the name the basis set
             basis_set_id = name.rsplit('_')[-1]
             basis_set_name = f'{basis_set_id}-GTH'.upper()
@@ -177,8 +183,7 @@ METHOD ANDREUSSI
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
                 # Buffer the cell if using CP2K
-                if isinstance(calc, CP2K):
-                    utils.buffer_cell(atoms, self.cp2k_buffer)
+                self._prepare_atoms(atoms, config_name, charge)
 
                 # Recover the history from a previous run
                 traj_path = Path('lbfgs.traj')
@@ -245,6 +250,13 @@ METHOD ANDREUSSI
             # Make sure we end back where we started
             os.chdir(old_path)
 
+    def _prepare_atoms(self, atoms: ase.Atoms, config_name: str, charge: int):
+        """Make the atoms object ready for the simulation"""
+        if 'cp2k' in config_name:
+            utils.buffer_cell(atoms, self.cp2k_buffer)
+        elif 'xtb' in config_name:
+            utils.initialize_charges(atoms, charge)
+
     def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
                        charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
         # Make the configuration
@@ -269,8 +281,7 @@ METHOD ANDREUSSI
             # Prepare to run the cell
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
                 # Buffer the cell if using CP2K
-                if isinstance(calc, CP2K):
-                    utils.buffer_cell(atoms, self.cp2k_buffer)
+                self._prepare_atoms(atoms, config_name, charge)
 
                 # Run a single point
                 atoms.calc = calc

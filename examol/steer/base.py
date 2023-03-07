@@ -49,5 +49,5 @@ class MoleculeThinker(BaseThinker):
             self.search_space_inputs.append(batch_inputs)
 
     def _write_result(self, result: Result, result_type: str):
-        with (self.run_dir / f'{result_type}-result.json').open('a') as fp:
+        with (self.run_dir / f'{result_type}-results.json').open('a') as fp:
             print(result.json(exclude={'value', 'inputs'}), file=fp)

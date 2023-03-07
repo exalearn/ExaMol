@@ -123,7 +123,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             sim_result, steps, metadata = result.value
             record.add_energies(sim_result, steps)
 
-            value = self.recipe.lookup(record)
+            value = self.recipe.lookup(record, recompute=True)
             if value is not None:
                 self.completed += 1
                 if self.completed == self.num_to_run:
@@ -203,7 +203,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         """Retrain all models"""
 
         # Get the training set
-        train_set = list(self.database.values())
+        train_set = [x for x in list(self.database.values()) if self.recipe.lookup(x) is not None]
         self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining')
 
         # Process to form the inputs and outputs

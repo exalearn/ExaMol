@@ -36,7 +36,7 @@ class BaseSimulator:
         Args:
             scratch_dir: Path in which to create temporary directories
         """
-        self.scratch_dir: Path | None = None if scratch_dir is None else Path(scratch_dir)
+        self.scratch_dir: Path | None = Path('tmp') if scratch_dir is None else Path(scratch_dir)
 
     def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
         """Create the configuration needed for a certain computation
