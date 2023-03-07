@@ -4,6 +4,7 @@ rdkit>=2022.9
 networkx>=2.8
 parsl>=2022.12
 scikit-learn==1.2.*
+more_itertools==9.*
 foundry_ml
 mongoengine>=0.27
 tqdm
