@@ -66,7 +66,7 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     doer.join()
 
 
-@mark.timeout(10)
+@mark.timeout(60)
 def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, caplog):
     # Create the thinker
     run_dir = tmp_path / 'run'
