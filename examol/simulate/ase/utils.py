@@ -25,19 +25,26 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         yield calc
         return
 
+    # Get the arguments for the calculator
+    args = calc.get('args', [])
+    kwargs = calc.get('kwargs', {})
+
     # Otherwise, create one
-    name = calc['name']
-    if name.lower() == 'cp2k':
+    name = calc['name'].lower()
+    if name == 'cp2k':
         from ase.calculators.cp2k import CP2K
         calc = CP2K(*calc.get('args', []), **calc.get('kwargs', {}))
         yield calc
 
-        # Kill the calculator by deleting the object to stop thei underlying
+        # Kill the calculator by deleting the object to stop the underlying
         #  shell and then set the `_shell` parameter of the object so that the
         #  calculator object's destructor will skip the shell shutdown process
         #  when the object is finally garbage collected
         calc.__del__()
         calc._shell = None
+    elif name == 'xtb':
+        from xtb.ase.calculator import XTB
+        yield XTB(*args, **kwargs)
     else:
         raise ValueError('No such calculator')
 

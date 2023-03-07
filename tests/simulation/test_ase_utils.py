@@ -17,7 +17,8 @@ def atoms():
 
 @mark.parametrize('calc', [
     LennardJones(),
-    {'name': 'cp2k', 'kwargs': {'label': 'test'}}
+    {'name': 'cp2k', 'kwargs': {'label': 'test'}},
+    {'name': 'xtb'}
 ])
 def test_make(calc, atoms, tmpdir):
     os.chdir(tmpdir)
