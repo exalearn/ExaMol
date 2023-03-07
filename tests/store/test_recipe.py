@@ -9,6 +9,11 @@ from examol.store.recipes import SolvationEnergy, RedoxEnergy
 
 
 def test_solvation(record, sim_result):
+    """Test solvation and the basic properties of a Recipe"""
+    recipe = SolvationEnergy('test', 'acn')
+    assert recipe.lookup(record) is None
+    assert recipe.lookup(record, recompute=True) is None
+
     # Add the vacuum energy
     record.add_energies(sim_result)
 
@@ -18,11 +23,12 @@ def test_solvation(record, sim_result):
     record.add_energies(sim_result)
 
     # Compute the solvation energy
-    recipe = SolvationEnergy('test', 'acn')
     assert recipe.level == 'test_acn'
     assert isclose(recipe.compute_property(record), -1)
     recipe.update_record(record)
     assert isclose(record.properties['solvation_energy']['test_acn'], -1)
+    assert recipe.lookup(record) is not None
+    assert recipe.lookup(record, recompute=True) is not None
 
 
 def test_redox(record, sim_result):

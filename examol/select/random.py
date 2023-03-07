@@ -12,10 +12,10 @@ class RandomSelector(Selector):
 
     def __init__(self, to_select: int):
         super().__init__(to_select=to_select)
-        self._options = set()
+        self._options = list()
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
-        self._options.update(keys)
+        self._options.extend(zip(keys, samples.mean(axis=1)))
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
-        yield from sample(self._options, self.to_select)
+        yield from sample(self._options, min(self.to_select, len(self._options)))
