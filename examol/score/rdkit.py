@@ -43,29 +43,13 @@ class RDKitScorer(Scorer):
 
     @staticmethod
     def score(model_msg: object, inputs: list, **kwargs) -> np.ndarray:
-        # Unpack the model
         model: Pipeline = pkl.loads(model_msg)
-
-        # Run all molecules
-        mols = RDKitScorer._parse_mols(inputs)
-        return model.predict(mols)
-
-    @staticmethod
-    def _parse_mols(inputs: list[str]) -> list[Chem.Mol]:
-        """Parse a list of molecules into RDKit Chem objects"""
-        #  TODO (wardlt): Parallelize parsing
-        mols = []
-        for smiles in inputs:
-            mol = Chem.MolFromSmiles(smiles)
-            assert mol is not None, f'Parsing failed for {smiles}'
-            mols.append(mol)
-        return mols
+        return model.predict(inputs)
 
     @staticmethod
     def retrain(model_msg: object, inputs: list, outputs: list, **kwargs) -> object:
         model: Pipeline = pkl.loads(model_msg)
-        mols = RDKitScorer._parse_mols(inputs)
-        model.fit(mols, outputs)
+        model.fit(inputs, outputs)
         return pkl.dumps(model)
 
     def update(self, update_msg: object):
@@ -82,9 +66,33 @@ def make_knn_model(n_neighbors: int = 2, length: int = 256, radius: int = 4, **k
     """
 
     return Pipeline([
+        ('parse', MoleculeParserTransformer()),
         ('fingerprint', MorganFingerprintTransformer(length, radius)),
         ('knn', KNeighborsRegressor(n_neighbors=n_neighbors, metric='jaccard', n_jobs=1))
     ])
+
+
+class MoleculeParserTransformer(BaseEstimator, TransformerMixin):
+    """Parses a molecule from SMILES string to RDKit.Mol"""
+
+    def fit(self, X, y=None):
+        return self  # Do nothing
+
+    def transform(self, X, y=None):
+        """Compute the fingerprints
+
+        Args:
+            X: List of SMILES strings
+        Returns:
+            Array of fingerprints
+        """
+
+        output = []
+        for smiles in X:
+            mol = Chem.MolFromSmiles(smiles)
+            assert mol is not None, f'Parsing failed for {smiles}'
+            output.append(mol)
+        return output
 
 
 class MorganFingerprintTransformer(BaseEstimator, TransformerMixin):
