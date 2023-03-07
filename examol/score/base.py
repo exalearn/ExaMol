@@ -21,7 +21,7 @@ class Scorer:
         model = Scorer()
         inputs = model.transform_inputs(records)  # Runs locally, using options of scorer
         model_msg = model.get_state()  # Gets the current copy of the model from disk
-        Scorer.score(inputs)  # Can be run remotely
+        Scorer.score(model_msg, inputs)  # Can be run remotely
 
 
     Training operations are broken into separate operations for similar reasons.

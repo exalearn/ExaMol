@@ -44,8 +44,15 @@ def test_config_maker(tmpdir):
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', charge=1, solvent=None)
 
+    # For xTB
+    config = sim.create_configuration('xtb', charge=0, solvent=None)
+    assert config['kwargs'] == {}
 
-@mark.parametrize('config_name', ['cp2k_blyp_szv'])
+    config = sim.create_configuration('xtb', charge=0, solvent='acn')
+    assert config['kwargs'] == {'solvent': 'acetonitrile'}
+
+
+@mark.parametrize('config_name', ['cp2k_blyp_szv', 'xtb'])
 def test_optimization(config_name: str, strc, tmpdir: Path):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = str(tmpdir / 'data.db')
@@ -102,3 +109,19 @@ def test_solvent(strc, tmpdir):
         # Check that the data was added
         with connect(db_path) as db:
             assert db.count() == 1
+
+
+def test_xtb(tmpdir, strc):
+    sim = ASESimulator(scratch_dir=tmpdir)
+
+    # Ensure we get a different single point energy
+    neutral, _ = sim.compute_energy(strc, config_name='xtb', charge=0)
+    charged, _ = sim.compute_energy(strc, config_name='xtb', charge=1)
+    solvated, _ = sim.compute_energy(strc, config_name='xtb', charge=0, solvent='acn')
+    assert neutral.energy != charged.energy
+    assert neutral.energy != solvated.energy
+
+    # Ensure it relaxes under charge
+    charged_opt, _, _ = sim.optimize_structure(strc, config_name='xtb', charge=-1)
+    charged_opt_neutral, _ = sim.compute_energy(charged_opt.xyz, config_name='xtb', charge=0)
+    assert charged_opt.energy != charged_opt_neutral.energy
