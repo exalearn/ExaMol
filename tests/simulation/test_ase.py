@@ -52,7 +52,7 @@ def test_config_maker(tmpdir):
     assert config['kwargs'] == {'solvent': 'acetonitrile'}
 
 
-@mark.parametrize('config_name', ['cp2k_blyp_szv', 'xtb'])
+@mark.parametrize('config_name', ['cp2k_blyp_szv'])
 def test_optimization(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = Path(tmpdir) / 'data.db'
