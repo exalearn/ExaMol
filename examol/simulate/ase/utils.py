@@ -2,6 +2,8 @@
 from contextlib import contextmanager
 from typing import Iterator
 
+import ase
+import numpy as np
 from ase.calculators.calculator import Calculator
 
 
@@ -60,3 +62,14 @@ def buffer_cell(atoms, buffer_size: float = 6.):
     atoms.positions -= atoms.positions.min(axis=0)
     atoms.cell = atoms.positions.max(axis=0) + buffer_size * 2
     atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
+
+
+def initialize_charges(atoms: ase.Atoms, charge: int):
+    """Set initial charges to sum up to a certain value
+
+    Args:
+         atoms: Atoms object to be manipulated
+         charge: Total charge for the system
+    """
+    charges = np.ones((len(atoms),)) * (charge / len(atoms))
+    atoms.set_initial_charges(charges)
