@@ -72,21 +72,24 @@ def test_optimization(config_name: str, strc, tmpdir):
 
         # Make sure it doesn't write new stuff
         sim.optimize_structure(strc, config_name, charge=1)
-        assert len(db) == len(traj_res)
-        assert next(db.select())['total_charge'] == 1
+        with connect(db_path) as db:
+            assert len(db) == len(traj_res)
+            assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
         (run_dir / 'lbfgs.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure(strc, config_name, charge=1)
-        assert len(db) == len(traj_res)
-        assert next(db.select())['total_charge'] == 1
+        with connect(db_path) as db:
+            assert len(db) == len(traj_res)
+            assert next(db.select())['total_charge'] == 1
 
         # Make sure it cleans up after itself
         sim.clean_after_run = True
         shutil.rmtree(run_dir)
         sim.optimize_structure(strc, config_name, charge=1)
-        assert len(db) == len(traj_res)
-        assert next(db.select())['total_charge'] == 1
+        with connect(db_path) as db:
+            assert len(db) == len(traj_res)
+            assert next(db.select())['total_charge'] == 1
         assert not run_dir.is_dir()
 
 
