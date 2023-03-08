@@ -17,3 +17,8 @@ def test_dryrun(caplog, capsys):
     with caplog.at_level(logging.INFO):
         main(['run', '--dry-run', f'{_spec_dir / "spec.py"}:spec'])
     assert 'dry run' in caplog.messages[-1]
+
+
+def test_full(caplog):
+    with caplog.at_level(logging.INFO):
+        main(['run', f'{_spec_dir / "spec.py"}:spec'])

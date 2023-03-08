@@ -3,6 +3,7 @@ import logging
 import os
 from argparse import ArgumentParser
 from pathlib import Path
+from unittest import mock
 
 from rdkit import RDLogger
 
@@ -56,6 +57,16 @@ def run_examol(args):
     if args.dry_run:
         logger.info('Finished with dry run. Exiting')
         return
+
+    # Launch them
+    doer.start()  # Run the doer as a subprocess
+    try:
+        thinker.run()  # Run the thinker on the main thread
+    finally:
+        logger.info('Thinker complete, sending a signal to shut down the doer')
+        thinker.queues.send_kill_signal()
+        doer.join()
+    logger.info('Thinker is shut down.')
 
 
 def main(args: list[str] | None = None):
