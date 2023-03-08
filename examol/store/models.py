@@ -187,7 +187,7 @@ class MoleculeRecord(Document):
         # First try to add optimization steps
         for step in opt_steps:
             if (match_id := _match_conformers(step.atoms.positions)) is not None:
-                self.conformers[match_id].add_energy(result)
+                self.conformers[match_id].add_energy(step)
 
         # Get the atomic positions for me
         my_match = _match_conformers(result.atoms.positions)

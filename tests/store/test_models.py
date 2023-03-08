@@ -1,4 +1,5 @@
 from math import isclose
+from copy import copy
 
 from pytest import raises
 
@@ -37,6 +38,19 @@ def test_add_conformer(record, sim_result):
     assert not record.add_energies(sim_result)
     assert not record.add_energies(sim_result, [sim_result])
     assert len(record.conformers) == 1
+
+    # Test adding optimization in a different charge state
+    charged_vert = copy(sim_result)
+    charged_vert.charge = 1
+
+    charged_opt = copy(charged_vert)
+    charged_opt.xyz = charged_opt.xyz.replace("0.000", "0.015")
+    charged_opt.energy -= 1
+
+    assert record.add_energies(charged_opt, [charged_vert, charged_opt])
+    assert len(record.conformers) == 2
+    assert record.conformers[0].energies[1].charge == 1
+    assert record.conformers[0].energies[1].energy == charged_vert.energy
 
 
 def test_find_lowest_conformer(record, sim_result):
