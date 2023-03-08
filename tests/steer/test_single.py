@@ -44,7 +44,7 @@ def scorer(recipe) -> RDKitScorer:
 
 @fixture()
 def simulator(tmp_path) -> ASESimulator:
-    return ASESimulator()
+    return ASESimulator(scratch_dir=tmp_path)
 
 
 @fixture()
