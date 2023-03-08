@@ -68,6 +68,8 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 
 @mark.timeout(60)
 def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, caplog):
+    caplog.set_level(logging.ERROR)
+
     # Create the thinker
     run_dir = tmp_path / 'run'
     thinker = SingleObjectiveThinker(
@@ -87,8 +89,7 @@ def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, c
     assert len(thinker.database) == len(training_set)
 
     # Run it
-    with caplog.at_level(logging.ERROR):
-        thinker.run()
+    thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
 
     # Check the output files
