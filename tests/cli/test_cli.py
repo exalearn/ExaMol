@@ -22,3 +22,4 @@ def test_dryrun(caplog, capsys):
 def test_full(caplog):
     with caplog.at_level(logging.INFO):
         main(['run', f'{_spec_dir / "spec.py"}:spec'])
+    assert 'Find run details in' in caplog.messages[-1]

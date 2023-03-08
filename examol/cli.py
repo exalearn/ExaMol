@@ -65,7 +65,8 @@ def run_examol(args):
         logger.info('Thinker complete, sending a signal to shut down the doer')
         thinker.queues.send_kill_signal()
         doer.join()
-    logger.info('Thinker is shut down.')
+    logger.info('All processes have completed.')
+    logger.info(f'Find run details in {spec.run_dir.absolute()}')
 
 
 def main(args: list[str] | None = None):
