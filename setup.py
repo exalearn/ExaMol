@@ -15,13 +15,13 @@ with open('README.md') as f:
 setup(
     name='examol',
     version=version,
-    packages=find_packages(include=['examol']),
+    packages=find_packages(),
     include_package_data=True,
     description='Molecular design on Exascale HPC',
     long_description=long_desc,
     long_description_content_type='text/markdown',
     install_requires=install_requires,
-    python_requires=">=3.8.*",
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
