@@ -50,6 +50,7 @@ def test_add_conformer(record, sim_result):
     assert record.add_energies(charged_opt, [charged_vert, charged_opt])
     assert len(record.conformers) == 2
     assert record.conformers[0].energies[1].charge == 1
+    assert record.conformers[0].energies[1].energy == charged_vert.energy
 
 
 def test_find_lowest_conformer(record, sim_result):
