@@ -89,7 +89,11 @@ class SingleObjectiveThinker(MoleculeThinker):
 
             # Have it run a relaxation task for both neutral and charged
             #  TODO (wardlt): Let the recipe tell me what to do
-            _, xyz = generate_inchi_and_xyz(smiles)
+            try:
+                _, xyz = generate_inchi_and_xyz(smiles)
+            except ValueError as exc:
+                self.logger.warning(f'Creating an XYZ for {smiles} failed. Skipping. Reason: {exc}')
+                continue
             yield record, xyz, 0, None
             yield record, xyz, self.recipe.charge, None
 

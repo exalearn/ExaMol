@@ -1,6 +1,7 @@
 """Interface which launches an ExaMol run from the command line"""
 import logging
 import os
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -92,7 +93,7 @@ def main(args: list[str] | None = None):
 
     # Turn on logging
     examol_logger = logging.getLogger('examol')
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     examol_logger.addHandler(handler)
     examol_logger.setLevel(logging.INFO)

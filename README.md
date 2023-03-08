@@ -20,7 +20,7 @@ We will provide environments compatible with supercomputers over time.
 ExaMol deploys a computational workflow following a specification which that contains information including:
 - what is molecular properties are already known,
 - what are the molecules we could search,
-- the types of computations being performed
+- the types of computations being performed,
 - how to search over them (e.g., how to schedule tasks, which active learning strategy, informed by which ML model),
 - and the resources over which computations are deployed.
 

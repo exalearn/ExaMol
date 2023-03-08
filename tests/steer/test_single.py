@@ -66,13 +66,10 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     doer.join()
 
 
-@mark.timeout(60)
-def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, caplog):
-    caplog.set_level(logging.ERROR)
-
-    # Create the thinker
+@fixture()
+def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleObjectiveThinker:
     run_dir = tmp_path / 'run'
-    thinker = SingleObjectiveThinker(
+    return SingleObjectiveThinker(
         queues=queues,
         run_dir=run_dir,
         recipe=recipe,
@@ -84,6 +81,11 @@ def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, c
         search_space=zip([x.identifier.smiles for x in search_space], scorer.transform_inputs(search_space)),
     )
 
+
+@mark.timeout(10)
+def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
+    caplog.set_level(logging.ERROR)
+
     # Make sure it is set up right
     assert len(thinker.search_space_keys) == 1
     assert len(thinker.database) == len(training_set)
@@ -93,8 +95,24 @@ def test_thinker(queues, recipe, search_space, scorer, training_set, tmp_path, c
     assert len(caplog.records) == 0, caplog.records[0]
 
     # Check the output files
-    with (run_dir / 'inference-results.json').open() as fp:
+    with (thinker.run_dir / 'inference-results.json').open() as fp:
         record = json.loads(fp.readline())
         assert record['success']
 
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
+
+
+@mark.timeout(10)
+def test_iterator(thinker, caplog):
+    caplog.set_level('WARNING')
+
+    # Insert a bad and good SMILES into the task queue
+    thinker.task_queue.append(('C1C2CN3C1C1C3CN21', 1))  # XYZ generation fails
+    thinker.task_queue.append(('C', 0))
+
+    # Get the next task
+    record = next(thinker.task_iterator)[0]
+    assert record.identifier.smiles == 'C'  # It should not
+
+    # Make sure we are warned about it
+    assert 'C1C2CN3C1C1C3CN21' in caplog.messages[-1]
