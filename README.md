@@ -6,9 +6,16 @@ Designing new molecules as fast as possible with AI and simulation
 
 ## Installation
 
-You can build the entire environment with Anaconda:
+First clone this repository to the computer you'll use to design molecules:
 
 ```commandline
+git clone https://github.com/exalearn/ExaMol.git
+```
+
+You can then build the entire environment with Anaconda:
+
+```commandline
+cd ExaMol
 conda env create --file envs/environment-cpu.yml --force
 ```
 
