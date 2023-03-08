@@ -47,3 +47,6 @@ test = [
     'pytest-timeout',
     'pytest-cov',
 ]
+
+[project.scripts]
+examol = "examol.cli:main"
