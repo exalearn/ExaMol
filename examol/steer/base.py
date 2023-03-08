@@ -43,10 +43,13 @@ class MoleculeThinker(BaseThinker):
         # Partition the search space into smaller chunks
         self.search_space_keys: list[list[str]] = []
         self.search_space_inputs: list[list[object]] = []
+        search_size = 0
         for batch in batched(search_space, inference_chunk_size):
+            search_size += len(batch)
             batch_keys, batch_inputs = zip(*batch)
             self.search_space_keys.append(batch_keys)
             self.search_space_inputs.append(batch_inputs)
+        self.logger.info(f'Saved {search_size} search entries into {len(self.search_space_keys)} batches')
 
     def _write_result(self, result: Result, result_type: str):
         with (self.run_dir / f'{result_type}-results.json').open('a') as fp:
