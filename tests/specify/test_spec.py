@@ -74,6 +74,7 @@ def simulator(tmp_path):
 def config(tmp_path) -> Config:
     config = htex_local.config
     config.run_dir = tmp_path
+    return config
 
 
 @fixture()
@@ -86,7 +87,9 @@ def spec(config, database, recipe, scorer, search_space, selector, simulator, tm
         simulator=simulator,
         recipe=recipe,
         thinker=SingleObjectiveThinker,
-        compute_config=config
+        compute_config=config,
+        num_to_run=2,
+        run_dir=tmp_path
     )
 
 
@@ -106,3 +109,8 @@ def test_search_load(search_space, spec):
     with raises(ValueError):
         spec.search_space = 'not.supported'
         next(spec.load_search_space())
+
+
+def test_assemble(spec):
+    doer, thinker = spec.assemble()
+    assert 'train' in doer.queues.topics

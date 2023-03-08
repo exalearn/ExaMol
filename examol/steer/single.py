@@ -28,7 +28,7 @@ class SingleObjectiveThinker(MoleculeThinker):
                  selector: Selector,
                  num_to_run: int,
                  search_space: Iterable[tuple[str, object]],
-                 num_workers: int,
+                 num_workers: int = 2,
                  inference_chunk_size: int = 10000):
         """
 

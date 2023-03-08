@@ -2,10 +2,13 @@
 import json
 import logging
 from csv import reader
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
+from colmena.queue import PipeQueues
+from colmena.task_server import ParslTaskServer
+from colmena.task_server.base import BaseTaskServer
 from more_itertools import batched
 from parsl import Config
 
@@ -13,6 +16,7 @@ from examol.score.base import Scorer
 from examol.select.base import Selector
 from examol.simulate.base import BaseSimulator
 from examol.steer.base import MoleculeThinker
+from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -32,6 +36,7 @@ class ExaMolSpecification:
             is the smiles string and the second is a form ready for inference with :attr:`scorer`.
         thinker: Tool used to schedule computations
         compute_config: Description of the available resources via Parsl. See :class:`~parsl.config.Config`.
+        num_to_run: Number of quantum chemistry computations to perform
     """
 
     # Define the problem
@@ -41,12 +46,39 @@ class ExaMolSpecification:
     selector: Selector = ...
     scorer: Scorer = ...
     simulator: BaseSimulator = ...
+    num_to_run: int = ...
 
-    # Define how we create it
-    thinker: type[MoleculeThinker] = ...
+    # Define how we create the thinker
+    thinker: type[SingleObjectiveThinker] = ...
+    thinker_options: dict[str, object] = field(default_factory=dict)
 
     # Define the computing resources
     compute_config: Config = ...
+    run_dir: Path | str = ...
+
+    def assemble(self) -> tuple[BaseTaskServer, MoleculeThinker]:
+        """Assemble the Colmena application"""
+
+        queues = PipeQueues(topics=['inference', 'simulation', 'train'])
+        doer = ParslTaskServer(
+            queues=queues,
+            methods=[self.scorer.score, self.simulator.optimize_structure, self.scorer.retrain],
+            config=self.compute_config,
+        )
+
+        thinker = self.thinker(
+            queues=queues,
+            run_dir=self.run_dir,
+            recipe=self.recipe,
+            search_space=self.load_search_space(),
+            database=self.load_database(),
+            models=[self.scorer],
+            selector=self.selector,
+            num_to_run=self.num_to_run,
+            **self.thinker_options
+        )
+
+        return doer, thinker
 
     def load_database(self) -> list[MoleculeRecord]:
         """Load the starting database
