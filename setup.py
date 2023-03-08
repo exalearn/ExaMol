@@ -15,7 +15,7 @@ with open('README.md') as f:
 setup(
     name='examol',
     version=version,
-    packages=find_packages(include=['examol']),
+    packages=find_packages(),
     include_package_data=True,
     description='Molecular design on Exascale HPC',
     long_description=long_desc,
