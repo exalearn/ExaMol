@@ -3,7 +3,6 @@ import logging
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from unittest import mock
 
 from rdkit import RDLogger
 
