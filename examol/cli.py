@@ -10,11 +10,10 @@ def main(args: list[str] | None = None):
 
     # Make the parser and parse
     parser = ArgumentParser()
-
     parser.add_argument('--version', action='store_true', help='Print the ExaMol version and return')
-
     args = parser.parse_args(args)
 
     # Print the version
     if args.version:
         print(f'Running ExaMol version: {__version__}')
+        return
