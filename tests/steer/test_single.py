@@ -2,13 +2,14 @@
 import json
 import logging
 
-from parsl.configs.htex_local import config
+from parsl.config import Config
+from parsl.executors import HighThroughputExecutor
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
 from pytest import fixture, mark
 
 from examol.score.rdkit import RDKitScorer, make_knn_model
-from examol.select.random import RandomSelector
+from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
@@ -52,7 +53,13 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     """Make a start the task server"""
 
     queues = PipeQueues(topics=['inference', 'simulation', 'train'])
-    config.run_dir = tmp_path
+
+    # Make parsl configuration
+    config = Config(
+        run_dir=str(tmp_path),
+        executors=[HighThroughputExecutor(start_method='thread', max_workers=1)]
+    )
+
     doer = ParslTaskServer(
         queues=queues,
         methods=[scorer.score, simulator.optimize_structure, scorer.retrain],

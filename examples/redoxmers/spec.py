@@ -5,7 +5,7 @@ from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.recipes import RedoxEnergy
-from examol.select.random import RandomSelector
+from examol.select.baseline import GreedySelector
 from examol.specify import ExaMolSpecification
 from pathlib import Path
 
@@ -29,7 +29,7 @@ spec = ExaMolSpecification(
     database=(my_path / 'training-data.json').absolute(),
     recipe=recipe,
     search_space=(my_path / 'search_space.smi').absolute(),
-    selector=RandomSelector(8),
+    selector=GreedySelector(8, maximize=True),
     simulator=ASESimulator(scratch_dir=(my_path / 'tmp').absolute()),
     scorer=scorer,
     num_to_run=8,

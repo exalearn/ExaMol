@@ -31,14 +31,14 @@ ExaMol deploys a computational workflow following a specification which that con
 - how to search over them (e.g., how to schedule tasks, which active learning strategy, informed by which ML model),
 - and the resources over which computations are deployed.
 
-An example which performs a random search using xTB would look something like
+An example which performs a greedy search using xTB would look something like
 
 ```python
 spec = ExaMolSpecification(
     database='training-data.json',
     recipe=RedoxEnergy(charge=1, compute_config='xtb'),
     search_space='search_space.smi',
-    selector=RandomSelector(8),
+    selector=GreedySelector(n_to_select=8, maximize=True),
     simulator=ASESimulator(scratch_dir='/tmp'),
     scorer=RDKitScorer(pipeline=KNeighborsRegressor()),
     num_to_run=8,
