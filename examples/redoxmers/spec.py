@@ -5,7 +5,7 @@ from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.recipes import RedoxEnergy
-from examol.select.random import RandomSelector
+from examol.select.baseline import RandomSelector
 from examol.specify import ExaMolSpecification
 from pathlib import Path
 

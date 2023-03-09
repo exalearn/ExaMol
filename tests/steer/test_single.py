@@ -8,7 +8,7 @@ from colmena.queue import ColmenaQueues, PipeQueues
 from pytest import fixture, mark
 
 from examol.score.rdkit import RDKitScorer, make_knn_model
-from examol.select.random import RandomSelector
+from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
