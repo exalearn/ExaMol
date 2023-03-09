@@ -6,7 +6,7 @@ so that this whole example can run on your laptop.
 
 ## Running the example
 
-Navigate to this directory and then call.
+Navigate to this directory and then call
 
 ```
 examol run spec.py:spec
