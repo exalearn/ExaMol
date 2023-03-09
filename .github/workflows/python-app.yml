@@ -15,7 +15,11 @@ defaults:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+          os: [ubuntu-latest, macos-latest]
+        max-parallel: 5
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
