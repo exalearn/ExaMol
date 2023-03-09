@@ -23,6 +23,7 @@ class RandomSelector(Selector):
         yield from sample(self._options, min(self.to_select, len(self._options)))
 
     def start_gathering(self):
+        super().start_gathering()
         self._options.clear()
 
 
