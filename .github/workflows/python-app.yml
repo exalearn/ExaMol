@@ -34,10 +34,15 @@ jobs:
       run: |
         pip install flake8
         flake8 examol tests
-    - name: Add quantum chemistry tools
+    - name: Add quantum chemistry tools (Linux)
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         sudo apt-get update
         sudo apt install -y cp2k
+    - name: Add quantum chemistry tools (MacOS)
+      if: ${{ matrix.os == 'macos-latest' }}
+      run: |
+        brew install cp2k
     - name: Test with pytest
       run: pytest --cov=examol tests
     - name: Coveralls
