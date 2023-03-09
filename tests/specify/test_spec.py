@@ -10,7 +10,7 @@ from pytest import fixture, raises
 
 from examol.score.base import Scorer
 from examol.score.rdkit import RDKitScorer, make_knn_model
-from examol.select.random import RandomSelector
+from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.specify import ExaMolSpecification
 from examol.steer.single import SingleObjectiveThinker
