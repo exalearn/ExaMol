@@ -7,6 +7,7 @@ import json
 from parsl import Config
 from parsl.configs import htex_local
 from pytest import fixture, raises
+from sklearn.pipeline import Pipeline
 
 from examol.score.base import Scorer
 from examol.score.rdkit import RDKitScorer, make_knn_model
@@ -35,13 +36,15 @@ def recipe() -> RedoxEnergy:
 
 
 @fixture()
-def scorer(recipe) -> Scorer:
+def scorer(recipe) -> tuple[Scorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe.name, recipe.level, pipeline)
+    return RDKitScorer(recipe), pipeline
 
 
 @fixture()
 def search_space(scorer, tmp_path) -> tuple[Path, Path]:
+    scorer, _ = scorer  # Unpack
+
     molecules = ['C', 'CO', 'CN', 'CCl']
     # Store one copy as a SMILES file
     smi_path = Path(tmp_path) / 'search.smi'
@@ -79,11 +82,13 @@ def config(tmp_path) -> Config:
 
 @fixture()
 def spec(config, database, recipe, scorer, search_space, selector, simulator, tmp_path) -> ExaMolSpecification:
+    scorer, pipeline = scorer
     return ExaMolSpecification(
         database=database,
         search_space=search_space[0],
         selector=selector,
         scorer=scorer,
+        models=[pipeline],
         simulator=simulator,
         recipe=recipe,
         thinker=SingleObjectiveThinker,

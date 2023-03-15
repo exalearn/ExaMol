@@ -31,6 +31,8 @@ class ExaMolSpecification:
         simulator: Tool used to perform quantum chemistry computations
         recipe: Definition for how to compute the target property
         selector: How to identify which computation to perform next
+        scorer: Defines algorithms used to retrain :attr:`models`
+        models: List of models that will be trained to predict :attr:`recipe`
         database: Path to the initial dataset
         search_space: Path to the molecules over which to search. Can either be a `.smi` file or a `.csv` where the first column
             is the smiles string and the second is a form ready for inference with :attr:`scorer`.
@@ -45,6 +47,7 @@ class ExaMolSpecification:
     search_space: Path | str = ...
     selector: Selector = ...
     scorer: Scorer = ...
+    models: list[object] = ...
     simulator: BaseSimulator = ...
     num_to_run: int = ...
 
@@ -72,7 +75,8 @@ class ExaMolSpecification:
             recipe=self.recipe,
             search_space=self.load_search_space(),
             database=self.load_database(),
-            models=[self.scorer],
+            scorer=self.scorer,
+            models=self.models.copy(),
             selector=self.selector,
             num_to_run=self.num_to_run,
             **self.thinker_options
