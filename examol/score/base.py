@@ -2,6 +2,7 @@
 import numpy as np
 
 from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe
 
 
 class Scorer:
@@ -102,3 +103,19 @@ class Scorer:
             Updated model
         """
         raise NotImplementedError()
+
+
+class RecipeBasedScorer(Scorer):
+    """A scorer which uses the output of a :class:`~examol.store.recipes.PropertyRecipe`
+
+    Provides a utility function for pulling training data"""
+
+    def __init__(self, recipe: PropertyRecipe):
+        """
+        Args:
+            recipe: Recipe to be predicted
+        """
+        self.recipe = recipe
+
+    def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
+        return np.array([x.properties[self.recipe.name][self.recipe.level] for x in records])

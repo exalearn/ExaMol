@@ -6,28 +6,24 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 
-from examol.score.base import Scorer
+from examol.score.base import RecipeBasedScorer
 from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe
 
 
-class RDKitScorer(Scorer):
+class RDKitScorer(RecipeBasedScorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn"""
 
-    def __init__(self, output_property: str, output_level: str):
+    def __init__(self, recipe: PropertyRecipe):
         """
 
         Args:
-            output_property: Property to be predicted
-            output_level: Level at which to predict it
+            recipe: Recipe to be predicted
         """
-        self.output_property = output_property
-        self.output_level = output_level
+        super().__init__(recipe)
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
         return [x.identifier.smiles for x in record_batch]
-
-    def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
-        return np.array([x.properties[self.output_property][self.output_level] for x in records])
 
     def prepare_message(self, model: Pipeline, training: bool = True) -> Pipeline:
         return model
