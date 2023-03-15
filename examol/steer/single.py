@@ -24,7 +24,8 @@ class SingleObjectiveThinker(MoleculeThinker):
                  run_dir: Path,
                  recipe: RedoxEnergy,
                  database: list[MoleculeRecord],
-                 models: list[Scorer],
+                 scorer: Scorer,
+                 models: list[object],
                  selector: Selector,
                  num_to_run: int,
                  search_space: Iterable[tuple[str, object]],
@@ -37,6 +38,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             run_dir: Directory in which to store logs, etc.
             recipe: Recipe used to compute the target property
             database: List of molecules which are already known
+            scorer: Tool used as part of model training
             models: Models used to predict target property
             selector: Tool used to pick which computations to run
             num_to_run: Number of molecules to evaluate
@@ -49,6 +51,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Store the selection equipment
         self.database: dict[str, MoleculeRecord] = dict((record.key, record) for record in database)
         self.models = models.copy()
+        self.scorer = scorer
         self.selector = selector
 
         # Attributes related to simulation
@@ -143,7 +146,7 @@ class SingleObjectiveThinker(MoleculeThinker):
 
         # Loop over models first to improve caching (avoid-reloading model if needed)
         for model_id, model in enumerate(self.models):
-            model_msg = model.get_model_state()
+            model_msg = self.scorer.prepare_message(model, training=False)
             for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_keys)):
                 self.queues.send_inputs(
                     model_msg, chunk_inputs,
@@ -211,13 +214,13 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining')
 
         # Process to form the inputs and outputs
-        train_inputs = self.models[0].transform_inputs(train_set)
-        train_outputs = self.models[0].transform_outputs(train_set)
+        train_inputs = self.scorer.transform_inputs(train_set)
+        train_outputs = self.scorer.transform_outputs(train_set)
         self.logger.info('Pre-processed the training entries')
 
         # Submit all models
         for model_id, model in enumerate(self.models):
-            model_msg = model.get_model_state()
+            model_msg = self.scorer.prepare_message(model, training=True)
             self.queues.send_inputs(
                 model_msg, train_inputs, train_outputs,
                 method='retrain',
@@ -235,7 +238,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             # Update the appropriate model
             model_id = result.task_info['model_id']
             model_msg = result.value
-            self.models[model_id].update(model_msg)
+            self.models[model_id] = self.scorer.update(self.models[model_id], model_msg)
             self.logger.info(f'Updated model {i + 1}/{len(self.models)}. Model id={model_id}')
         self.logger.info('Finished training all models')
 

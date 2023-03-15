@@ -34,13 +34,15 @@ ExaMol deploys a computational workflow following a specification which that con
 An example which performs a greedy search using xTB would look something like
 
 ```python
+recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
 spec = ExaMolSpecification(
     database='training-data.json',
-    recipe=RedoxEnergy(charge=1, compute_config='xtb'),
+    recipe=recipe,
     search_space='search_space.smi',
     selector=GreedySelector(n_to_select=8, maximize=True),
     simulator=ASESimulator(scratch_dir='/tmp'),
-    scorer=RDKitScorer(pipeline=KNeighborsRegressor()),
+    scorer=RDKitScorer(recipe),
+    models=[KNeighborsRegressor()],
     num_to_run=8,
     thinker=SingleObjectiveThinker,
     compute_config=config,

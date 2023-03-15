@@ -1,6 +1,4 @@
 """Scorers that rely on RDKit and sklearn"""
-import pickle as pkl
-
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors, DataStructs
@@ -8,52 +6,37 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 
-from examol.score.base import Scorer
+from examol.score.base import RecipeBasedScorer
 from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe
 
 
-class RDKitScorer(Scorer):
+class RDKitScorer(RecipeBasedScorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn"""
 
-    def __init__(
-            self,
-            output_property: str,
-            output_level: str,
-            pipeline: Pipeline,
-    ):
+    def __init__(self, recipe: PropertyRecipe):
         """
 
         Args:
-            output_property: Property to be predicted
-            output_level: Level at which to predict it
-            pipeline: sklearn regression model which takes a `RDKit.mol` as inputs
+            recipe: Recipe to be predicted
         """
-        self.output_property = output_property
-        self.output_level = output_level
-        self.model = pipeline
+        super().__init__(recipe)
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
         return [x.identifier.smiles for x in record_batch]
 
-    def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
-        return np.array([x.properties[self.output_property][self.output_level] for x in records])
+    def prepare_message(self, model: Pipeline, training: bool = True) -> Pipeline:
+        return model
 
-    def get_model_state(self) -> object:
-        return pkl.dumps(self.model)
+    def score(self, model_msg: Pipeline, inputs: list, **kwargs) -> np.ndarray:
+        return model_msg.predict(inputs)
 
-    @staticmethod
-    def score(model_msg: object, inputs: list, **kwargs) -> np.ndarray:
-        model: Pipeline = pkl.loads(model_msg)
-        return model.predict(inputs)
+    def retrain(self, model_msg: Pipeline, inputs: list, outputs: np.ndarray, **kwargs) -> object:
+        model_msg.fit(inputs, outputs)
+        return model_msg
 
-    @staticmethod
-    def retrain(model_msg: object, inputs: list, outputs: list, **kwargs) -> object:
-        model: Pipeline = pkl.loads(model_msg)
-        model.fit(inputs, outputs)
-        return pkl.dumps(model)
-
-    def update(self, update_msg: object):
-        self.model = pkl.loads(update_msg)
+    def update(self, model: object, update_msg: object) -> object:
+        return update_msg
 
 
 def make_knn_model(n_neighbors: int = 2, length: int = 256, radius: int = 4, **kwargs) -> Pipeline:
