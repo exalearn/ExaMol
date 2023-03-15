@@ -1,3 +1,7 @@
 [report]
 exclude_lines = 
     raise NotImplementedError
+    
+[run]
+omit = */tests/*
+concurrency = thread,multiprocessing
