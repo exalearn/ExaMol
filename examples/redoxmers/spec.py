@@ -17,7 +17,7 @@ recipe = RedoxEnergy(1, energy_config='xtb')
 
 # Make the scorer
 pipeline = make_knn_model()
-scorer = RDKitScorer(recipe.name, recipe.level, pipeline=pipeline)
+scorer = RDKitScorer(recipe)
 
 # Make the parsl configuration
 config = Config(
@@ -32,6 +32,7 @@ spec = ExaMolSpecification(
     selector=GreedySelector(8, maximize=True),
     simulator=ASESimulator(scratch_dir=(my_path / 'tmp').absolute()),
     scorer=scorer,
+    models=[pipeline],
     num_to_run=8,
     thinker=SingleObjectiveThinker,
     compute_config=config,
