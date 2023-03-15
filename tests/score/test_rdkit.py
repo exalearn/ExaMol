@@ -1,6 +1,6 @@
 """Tests for the RDKit scorer"""
 import numpy as np
-from pytest import fixture
+from pytest import fixture, raises
 from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit import make_knn_model, RDKitScorer
@@ -35,6 +35,20 @@ def pipeline() -> Pipeline:
 @fixture()
 def scorer() -> RDKitScorer:
     return RDKitScorer(_recipe)
+
+
+def test_process_failure(scorer):
+    record = MoleculeRecord.from_identifier('O')
+
+    # Missing record and property
+    with raises(ValueError) as err:
+        scorer.transform_outputs([record])
+    assert str(err.value).startswith('Record for')
+
+    record.properties[scorer.recipe] = {}
+    with raises(ValueError) as err:
+        scorer.transform_outputs([record])
+    assert str(err.value).startswith('Record for')
 
 
 def test_transform(training_set, scorer):

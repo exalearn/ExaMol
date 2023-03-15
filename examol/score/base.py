@@ -118,4 +118,8 @@ class RecipeBasedScorer(Scorer):
         self.recipe = recipe
 
     def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
+        for record in records:
+            if self.recipe.name not in record.properties or self.recipe.level not in record.properties[self.recipe.name]:
+                raise ValueError(f'Record for {record.identifier.smiles} missing property {self.recipe.name} at level {self.recipe.level}')
+
         return np.array([x.properties[self.recipe.name][self.recipe.level] for x in records])
