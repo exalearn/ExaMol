@@ -144,7 +144,7 @@ def convert_string_to_dict(mol_string: str) -> dict:
         Dictionary
     """
 
-    # Convert first to an nx Graph
+    # Convert first to a nx.Graph
     graph = convert_string_to_nx(mol_string)
 
     # Get the atom types
@@ -190,7 +190,7 @@ def make_data_loader(mol_dicts: list[dict],
                      repeat: bool = False,
                      shuffle_buffer: int | None = None,
                      value_spec: tf.TensorSpec = tf.TensorSpec((), dtype=tf.float32),
-                     max_size: list[int] = None,
+                     max_size: int = None,
                      drop_last_batch: bool = False) -> tf.data.Dataset:
     """Make an in-memory data loader for data compatible with NFP-style neural networks
 
@@ -273,8 +273,21 @@ class NFPScorer(RecipeBasedScorer):
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
         return [convert_string_to_dict(record.identifier.smiles) for record in record_batch]
 
-    def score(self, model_msg: NFPMessage, inputs: list, **kwargs) -> np.ndarray:
-        pass
+    def score(self, model_msg: NFPMessage, inputs: list[dict], batch_size: int = 64, padded_size: int | None = None,
+              **kwargs) -> np.ndarray:
+        """Assign a score to molecules
+
+        Args:
+            model_msg: Model in a transmittable format
+            inputs: Batch of inputs ready for the model (in dictionary format)
+            batch_size: Number of molecules to evaluate at each time
+            padded_size: Size to which to pad molecules so that each batch has the same array size
+        Returns:
+            The scores to a set of records
+        """
+        model = model_msg.get_model()
+        loader = make_data_loader(inputs, batch_size=batch_size, max_size=padded_size)
+        return model.predict(loader, verbose=False)
 
     def retrain(self, model_msg: dict | NFPMessage, inputs: list, outputs: list, **kwargs) -> object:
         pass

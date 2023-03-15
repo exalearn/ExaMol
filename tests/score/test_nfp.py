@@ -82,10 +82,18 @@ def test_padded_outputs(atomwise: bool, training_set, scorer):
 
     # Run it with padded arrays
     loader = make_data_loader(parsed_inputs)
-    outputs_nopad = model.predict(loader, verbose=False)
+    outputs_nopad = model.predict(loader, verbose=False, workers=0)
 
     # Run it without
     loader = make_data_loader(parsed_inputs, max_size=64)
-    outputs_pad = model.predict(loader, verbose=False)
+    outputs_pad = model.predict(loader, verbose=False, workers=0)
 
     assert np.isclose(outputs_pad, outputs_nopad).all()
+
+
+def test_score(model, scorer, training_set):
+    parsed_inputs = scorer.transform_inputs(training_set)
+    model_msg = scorer.prepare_message(model)
+
+    outputs = scorer.score(model_msg, parsed_inputs)
+    assert len(outputs) == len(training_set)
