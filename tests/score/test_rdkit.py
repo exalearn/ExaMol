@@ -25,8 +25,8 @@ def pipeline() -> Pipeline:
 
 
 @fixture()
-def scorer(pipeline) -> RDKitScorer:
-    return RDKitScorer('test', 'fast', pipeline)
+def scorer() -> RDKitScorer:
+    return RDKitScorer('test', 'fast')
 
 
 def test_transform(training_set, scorer):
@@ -34,17 +34,17 @@ def test_transform(training_set, scorer):
     assert np.isclose(scorer.transform_outputs(training_set), [1, 2, 3]).all()
 
 
-def test_functions(training_set, scorer):
-    model_msg = scorer.get_model_state()
-    assert isinstance(model_msg, bytes)
+def test_functions(training_set, scorer, pipeline):
+    model_msg = scorer.prepare_message(pipeline)
+    assert isinstance(model_msg, Pipeline)
 
     # Test training
     inputs = scorer.transform_inputs(training_set)
     outputs = scorer.transform_outputs(training_set)
     update_msg = scorer.retrain(model_msg, inputs, outputs)
-    scorer.update(update_msg)
+    pipeline, scorer.update(pipeline, update_msg)
 
     # Test scoring
-    model_msg = scorer.get_model_state()
+    model_msg = scorer.prepare_message(pipeline)
     scores = scorer.score(model_msg, inputs)
     assert np.isclose(scores, outputs).all()
