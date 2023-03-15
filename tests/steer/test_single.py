@@ -7,6 +7,7 @@ from parsl.executors import HighThroughputExecutor
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
 from pytest import fixture, mark
+from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
@@ -38,9 +39,9 @@ def search_space() -> list[MoleculeRecord]:
 
 
 @fixture()
-def scorer(recipe) -> RDKitScorer:
+def scorer(recipe) -> tuple[RDKitScorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe.name, recipe.level, pipeline=pipeline)
+    return RDKitScorer(recipe), pipeline
 
 
 @fixture()
@@ -51,7 +52,10 @@ def simulator(tmp_path) -> ASESimulator:
 @fixture()
 def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     """Make a start the task server"""
+    # Unpack inputs
+    scorer, _ = scorer
 
+    # Make the queues
     queues = PipeQueues(topics=['inference', 'simulation', 'train'])
 
     # Make parsl configuration
@@ -76,12 +80,14 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 @fixture()
 def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleObjectiveThinker:
     run_dir = tmp_path / 'run'
+    scorer, model = scorer
     return SingleObjectiveThinker(
         queues=queues,
         run_dir=run_dir,
         recipe=recipe,
         database=training_set,
-        models=[scorer],
+        scorer=scorer,
+        models=[model],
         selector=RandomSelector(10),
         num_workers=1,
         num_to_run=2,
