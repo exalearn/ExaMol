@@ -4,7 +4,6 @@ from datetime import datetime
 import logging
 
 import pandas as pd
-from colmena.models import Result
 
 from examol.reporting.base import BaseReporter
 from examol.steer.base import MoleculeThinker

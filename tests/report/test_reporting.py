@@ -3,7 +3,7 @@ from pathlib import Path
 from pytest import fixture
 
 from examol.steer.base import MoleculeThinker
-from examol.reporting.markdown import BaseReporter, MarkdownReporter
+from examol.reporting.markdown import MarkdownReporter
 
 example_dir = Path(__file__).parent / 'example'
 
