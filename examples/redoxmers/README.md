@@ -12,6 +12,8 @@ Navigate to this directory and then call
 examol run spec.py:spec
 ```
 
+It will output to `run` and eventually produce a file, `report.md`, that contains a summary of run.
+
 ## Set Up
 
 The `generate_database.py` script produces the initial database and search space for the molecules.
