@@ -12,6 +12,7 @@ from colmena.task_server.base import BaseTaskServer
 from more_itertools import batched
 from parsl import Config
 
+from examol.reporting.base import BaseReporter
 from examol.score.base import Scorer
 from examol.select.base import Selector
 from examol.simulate.base import BaseSimulator
@@ -54,6 +55,9 @@ class ExaMolSpecification:
     # Define how we create the thinker
     thinker: type[SingleObjectiveThinker] = ...
     thinker_options: dict[str, object] = field(default_factory=dict)
+
+    # Define how we communicate to the user
+    reporter: BaseReporter | None = None
 
     # Define the computing resources
     compute_config: Config = ...

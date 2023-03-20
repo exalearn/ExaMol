@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 
+from pytest import mark
+
 from examol.cli import main
 from examol import __version__
 
@@ -19,6 +21,7 @@ def test_dryrun(caplog, capsys):
     assert 'dry run' in caplog.messages[-1]
 
 
+@mark.timeout(240)
 def test_full(caplog):
     with caplog.at_level(logging.INFO):
         main(['run', f'{_spec_dir / "spec.py"}:spec'])
