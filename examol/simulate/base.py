@@ -66,8 +66,8 @@ class BaseSimulator:
         """
         raise NotImplementedError()
 
-    def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
-                       charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
+    def compute_energy(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
+                       **kwargs) -> tuple[SimResult, str | None]:
         """Get the energy and forces of a structure
 
         Args:

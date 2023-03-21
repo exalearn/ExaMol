@@ -257,8 +257,8 @@ METHOD ANDREUSSI
         elif 'xtb' in config_name:
             utils.initialize_charges(atoms, charge)
 
-    def compute_energy(self, xyz: str, config_name: str, forces: bool = True,
-                       charge: int = 0, solvent: str | None = None, **kwargs) -> tuple[SimResult, str | None]:
+    def compute_energy(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
+                       **kwargs) -> tuple[SimResult, str | None]:
         # Make the configuration
         start_time = perf_counter()  # Measure when we started
 
