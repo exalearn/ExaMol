@@ -1,8 +1,30 @@
 """Tools for computing the properties of molecules from their record"""
+from dataclasses import dataclass
+
 from ase import units
 import numpy as np
 
+from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.store.models import MoleculeRecord
+
+
+@dataclass
+class SimulationRequest:
+    """Request for a specific simulation type
+
+    Attributes:
+        xyz: XYZ structure to use as the starting point
+        optimize: Whether to perform an optimization
+        config_name: Name of the computation
+        charge: Charge on the molecule
+        solvent: Name of solvent, if any
+    """
+
+    xyz: str = ...
+    optimize: bool = ...
+    config_name: str = ...
+    charge: int = ...
+    solvent: str | None = ...
 
 
 class PropertyRecipe:
@@ -57,9 +79,22 @@ class PropertyRecipe:
 
         Args:
             record: Data about the molecule
-
         Returns:
             Property value
+        """
+        raise NotImplementedError()
+
+    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
+        """Generate a list of computations that should be performed next on a molecule
+
+        The list of computations may not be sufficient to complete a recipe.
+        For example, you may need to first relax a structure and then compute the energy of the relaxed
+        structure under different conditions.
+
+        Args:
+            record: Data about the molecule
+        Returns:
+            List of computations to perform
         """
         raise NotImplementedError()
 
@@ -90,6 +125,22 @@ class SolvationEnergy(PropertyRecipe):
 
         assert output is not None, f'Missing data for config="{self.config_name}", solvent={self.solvent}'
         return output * units.mol / units.kcal
+
+    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
+        try:
+            # Find the lowest-energy conformer
+            conf, _ = record.find_lowest_conformer(self.config_name, charge=0, solvent=None)
+
+            # If there is a structure, see if have the energy in the solvent
+            energy_ind = conf.get_energy_index(self.config_name, 0, solvent=self.solvent)
+            if energy_ind is None:
+                return [SimulationRequest(xyz=conf.xyz, optimize=False, config_name=self.config_name, charge=0, solvent=self.solvent)]
+            else:
+                return []
+        except ValueError:  # TODO (wardlt): Avoid using exceptions, especially such general ones. I _assume_ ValueError means no structure
+            # Make a XYZ structure
+            _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
+            return [SimulationRequest(xyz=xyz, optimize=True, config_name=self.config_name, charge=0, solvent=None)]
 
 
 class RedoxEnergy(PropertyRecipe):
@@ -146,3 +197,46 @@ class RedoxEnergy(PropertyRecipe):
             assert charged_conf.xyz_hash != neutral_conf.xyz_hash, 'We do not have a relaxed charged molecule'
 
         return charged_energy - neutral_energy
+
+    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
+        output = []
+        # Determine if we need to perform a neutral relaxation
+        neutral_conf = None
+        try:
+            neutral_conf, _ = record.find_lowest_conformer(self.energy_config, 0, solvent=None)
+        except ValueError:  # TODO (wardlt): As above, avoid exceptions
+            # If fails, request a relaxation
+            _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
+            output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=0, solvent=None))
+
+        # See if we need a charged relaxation or single point
+        charged_conf = None
+        if self.vertical:
+            if neutral_conf is not None:
+                charged_conf = neutral_conf
+                if neutral_conf.get_energy_index(self.energy_config, self.charge, solvent=None) is None:
+                    output.append(
+                        SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=None)
+                    )
+        else:
+            try:
+                charged_conf, _ = record.find_lowest_conformer(self.energy_config, self.charge, solvent=None)
+                if charged_conf.xyz_hash == neutral_conf.xyz_hash and not self.vertical:
+                    raise ValueError('We need to do a relaxation')
+            except ValueError:
+                if neutral_conf is None:
+                    _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
+                else:
+                    starting_xyz = neutral_conf.xyz
+                output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=self.charge, solvent=None))
+
+        # Solvation computations if needed and ready
+        if self.solvent is None:
+            return output
+
+        for conf, chg in zip([neutral_conf, charged_conf], [0, self.charge]):
+            if conf is not None and conf.get_energy_index(self.energy_config, chg, self.solvent) is None:
+                output.append(
+                    SimulationRequest(xyz=conf.xyz, optimize=False, config_name=self.energy_config, charge=chg, solvent=self.solvent)
+                )
+        return output
