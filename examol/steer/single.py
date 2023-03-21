@@ -2,6 +2,7 @@
 from pathlib import Path
 from threading import Event, Condition
 from typing import Iterable, Iterator
+from dataclasses import asdict
 
 import numpy as np
 from colmena.models import Result
@@ -11,9 +12,8 @@ from colmena.thinker import event_responder, task_submitter, ResourceCounter, re
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
-from ..simulate.initialize import generate_inchi_and_xyz
 from ..store.models import MoleculeRecord
-from ..store.recipes import RedoxEnergy
+from ..store.recipes import PropertyRecipe, SimulationRequest
 
 
 class SingleObjectiveThinker(MoleculeThinker):
@@ -22,7 +22,7 @@ class SingleObjectiveThinker(MoleculeThinker):
     def __init__(self,
                  queues: ColmenaQueues,
                  run_dir: Path,
-                 recipe: RedoxEnergy,
+                 recipe: PropertyRecipe,
                  database: list[MoleculeRecord],
                  scorer: Scorer,
                  models: list[object],
@@ -71,7 +71,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Start by training
         self.start_training.set()
 
-    def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, str, int, str]]:
+    def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
         """Iterate over the next tasks in the task queue"""
 
         while True:
@@ -91,26 +91,27 @@ class SingleObjectiveThinker(MoleculeThinker):
                 self.database[record.key] = record
 
             # Have it run a relaxation task for both neutral and charged
-            #  TODO (wardlt): Let the recipe tell me what to do
             try:
-                _, xyz = generate_inchi_and_xyz(smiles)
+                for suggestion in self.recipe.suggest_computations(record):
+                    yield record, suggestion
             except ValueError as exc:
                 self.logger.warning(f'Creating an XYZ for {smiles} failed. Skipping. Reason: {exc}')
-                continue
-            yield record, xyz, 0, None
-            yield record, xyz, self.recipe.charge, None
 
     @task_submitter()
     def submit_simulation(self):
         """Submit a simulation task when resources are available"""
-        record, xyz, charge, solvent = next(self.task_iterator)
-        self.logger.info(f'Optimizing structure for {record.key} with a charge of {charge}')
-        self.queues.send_inputs(
-            xyz, self.recipe.energy_config, charge, solvent,
-            method='optimize_structure',
-            topic='simulation',
-            task_info={'key': record.key, 'config_name': self.recipe.energy_config, 'charge': charge}
-        )
+        record, suggestion = next(self.task_iterator)
+        self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
+
+        if suggestion.optimize:
+            self.queues.send_inputs(
+                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                method='optimize_structure',
+                topic='simulation',
+                task_info={'key': record.key, **asdict(suggestion)}
+            )
+        else:
+            raise NotImplementedError()
 
     @result_processor(topic='simulation')
     def store_simulation(self, result: Result):
