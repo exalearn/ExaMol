@@ -107,7 +107,7 @@ def test_solvent(strc, tmpdir):
         assert len(list(Path(tmpdir).glob('ase_*'))) == 0
 
         # Run the calculation
-        result, metadata = sim.compute_energy(strc, 'cp2k_blyp_szv', solvent='acn', charge=0)
+        result, metadata = sim.compute_energy(strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
         assert result.energy
 
         # Check that the data was added

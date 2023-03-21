@@ -1,11 +1,16 @@
 # Run Report
-Report time: 2023-03-20 17:18:14.228584
+Report time: 2023-03-21 18:39:45.644876
 
 ## Task Summary
 Measures how many tasks have run as part of the application
 
 | Task Type   |   Count |   Node Hours | Failures   |
 |-------------|---------|--------------|------------|
-| inference   |     338 |      0.0072  | 0 (0.0%)   |
-| train       |     347 |      0.00032 | 0 (0.0%)   |
-| simulation  |     725 |      0.32    | 38 (5.2%)  |
+| inference   |       9 |      0.00024 | 0 (0.0%)   |
+| train       |       9 |      7.5e-06 | 0 (0.0%)   |
+| simulation  |      39 |      0.0079  | 0 (0.0%)   |
+
+## Outcomes over Time
+The property of the molecules over time.
+
+![simulation](simulation-outputs.png)

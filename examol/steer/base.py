@@ -8,6 +8,8 @@ from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter
 
+from examol.store.models import MoleculeRecord
+
 
 class MoleculeThinker(BaseThinker):
     """Base for a thinker which performs molecular design
@@ -16,6 +18,7 @@ class MoleculeThinker(BaseThinker):
         run_dir: Directory in which to store outputs
         search_space_keys: Keys associated with each molecule in the search space, broken into chunks
         search_space_inputs: Inputs to the ML models for each molecule in the search space, broken into chucks
+        database: Map between molecule InChI key and currently-known information about it
     """
 
     def __init__(self,
@@ -23,6 +26,7 @@ class MoleculeThinker(BaseThinker):
                  rec: ResourceCounter,
                  run_dir: Path,
                  search_space: Iterable[tuple[str, object]],
+                 database: list[MoleculeRecord],
                  inference_chunk_size: int = 10000):
         """
         Args:
@@ -31,6 +35,7 @@ class MoleculeThinker(BaseThinker):
             run_dir: Directory in which to store results
         """
         super().__init__(queues, resource_counter=rec)
+        self.database: dict[str, MoleculeRecord] = dict((record.key, record) for record in database)
         self.run_dir = run_dir
         self.run_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,4 +1,7 @@
 """Specification of the optimization problem"""
+from pathlib import Path
+import shutil
+
 from parsl import Config, HighThroughputExecutor
 
 from examol.reporting.markdown import MarkdownReporter
@@ -8,13 +11,17 @@ from examol.steer.single import SingleObjectiveThinker
 from examol.store.recipes import RedoxEnergy
 from examol.select.baseline import GreedySelector
 from examol.specify import ExaMolSpecification
-from pathlib import Path
 
 # Get my path. We'll want to provide everything as absolute paths, as they are relative to this file
 my_path = Path().absolute()
 
+# Delete the old run
+run_dir = my_path / 'run'
+if run_dir.is_dir():
+    shutil.rmtree(run_dir)
+
 # Make the recipe
-recipe = RedoxEnergy(1, energy_config='xtb')
+recipe = RedoxEnergy(1, energy_config='xtb', solvent='acn')
 
 # Make the scorer
 pipeline = make_knn_model()
@@ -41,5 +48,5 @@ spec = ExaMolSpecification(
     thinker=SingleObjectiveThinker,
     compute_config=config,
     reporter=reporter,
-    run_dir=(my_path / 'run')
+    run_dir=run_dir,
 )
