@@ -124,3 +124,10 @@ def test_redox(record, sim_result):
 
     requests = recipe.suggest_computations(record)
     assert len(requests) == 0
+
+
+def test_adia_redox(record):
+    """Make sure we can cold-start an adiabatic redox energy computation"""
+    recipe = RedoxEnergy(1, 'test', vertical=False)
+    suggestions = recipe.suggest_computations(record)
+    assert len(suggestions) == 2
