@@ -46,10 +46,9 @@ class SingleObjectiveThinker(MoleculeThinker):
             num_workers: Number of simulation tasks to run in parallel
             inference_chunk_size: Number of molecules to run inference on per task
         """
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, inference_chunk_size)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, database, inference_chunk_size)
 
         # Store the selection equipment
-        self.database: dict[str, MoleculeRecord] = dict((record.key, record) for record in database)
         self.models = models.copy()
         self.scorer = scorer
         self.selector = selector
