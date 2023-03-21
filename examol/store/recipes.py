@@ -221,7 +221,7 @@ class RedoxEnergy(PropertyRecipe):
         else:
             try:
                 charged_conf, _ = record.find_lowest_conformer(self.energy_config, self.charge, solvent=None)
-                if charged_conf.xyz_hash == neutral_conf.xyz_hash and not self.vertical:
+                if neutral_conf is None or charged_conf.xyz_hash == neutral_conf.xyz_hash:
                     raise ValueError('We need to do a relaxation')
             except ValueError:
                 if neutral_conf is None:
