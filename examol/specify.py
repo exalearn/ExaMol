@@ -69,7 +69,7 @@ class ExaMolSpecification:
         queues = PipeQueues(topics=['inference', 'simulation', 'train'])
         doer = ParslTaskServer(
             queues=queues,
-            methods=[self.scorer.score, self.simulator.optimize_structure, self.scorer.retrain],
+            methods=[self.scorer.score, self.scorer.retrain, self.simulator.optimize_structure, self.simulator.compute_energy],
             config=self.compute_config,
         )
 
