@@ -4,7 +4,7 @@ from pathlib import Path
 from csv import writer
 import json
 
-from parsl import Config
+from parsl import Config, HighThroughputExecutor
 from parsl.configs import htex_local
 from pytest import fixture, raises
 from sklearn.pipeline import Pipeline
@@ -73,9 +73,20 @@ def simulator(tmp_path):
     return ASESimulator(scratch_dir=tmp_path)
 
 
-@fixture()
-def config(tmp_path) -> Config:
-    config = htex_local.config
+@fixture(params=['single', 'split'])
+def config(request, tmp_path) -> Config:
+    if request.param == 'single':
+        config = htex_local.config
+    elif request.param == 'split':
+        config = Config(
+            executors=[
+                HighThroughputExecutor(label='learning', max_workers=1),
+                HighThroughputExecutor(label='simulation', max_workers=1)
+            ]
+        )
+    else:
+        raise NotImplementedError()
+
     config.run_dir = tmp_path
     return config
 
