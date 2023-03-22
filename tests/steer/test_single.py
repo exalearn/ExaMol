@@ -95,7 +95,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
     )
 
 
-@mark.timeout(10)
+@mark.timeout(45)
 def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
@@ -115,7 +115,7 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
 
 
-@mark.timeout(10)
+@mark.timeout(45)
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 

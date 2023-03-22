@@ -67,6 +67,18 @@ def run_examol(args):
         thinker.queues.send_kill_signal()
         doer.join()
     logger.info('All processes have completed.')
+
+    # Save the database
+    with open(thinker.run_dir / 'database.json', 'w') as fp:
+        for record in thinker.database.values():
+            print(record.to_json(), file=fp)
+    logger.info(f'Saved {len(thinker.database)} records to disk')
+
+    # Once complete, run the reporting one last time
+    if spec.reporter is not None:
+        logger.info('Writing report on the run performance')
+        spec.reporter.report(thinker)
+
     logger.info(f'Find run details in {spec.run_dir.absolute()}')
 
 

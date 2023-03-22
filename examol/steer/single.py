@@ -1,7 +1,9 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
-from pathlib import Path
 from threading import Event, Condition
 from typing import Iterable, Iterator
+from collections import defaultdict
+from dataclasses import asdict
+from pathlib import Path
 
 import numpy as np
 from colmena.models import Result
@@ -11,9 +13,8 @@ from colmena.thinker import event_responder, task_submitter, ResourceCounter, re
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
-from ..simulate.initialize import generate_inchi_and_xyz
 from ..store.models import MoleculeRecord
-from ..store.recipes import RedoxEnergy
+from ..store.recipes import PropertyRecipe, SimulationRequest
 
 
 class SingleObjectiveThinker(MoleculeThinker):
@@ -22,7 +23,7 @@ class SingleObjectiveThinker(MoleculeThinker):
     def __init__(self,
                  queues: ColmenaQueues,
                  run_dir: Path,
-                 recipe: RedoxEnergy,
+                 recipe: PropertyRecipe,
                  database: list[MoleculeRecord],
                  scorer: Scorer,
                  models: list[object],
@@ -46,10 +47,9 @@ class SingleObjectiveThinker(MoleculeThinker):
             num_workers: Number of simulation tasks to run in parallel
             inference_chunk_size: Number of molecules to run inference on per task
         """
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, inference_chunk_size)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, database, inference_chunk_size)
 
         # Store the selection equipment
-        self.database: dict[str, MoleculeRecord] = dict((record.key, record) for record in database)
         self.models = models.copy()
         self.scorer = scorer
         self.selector = selector
@@ -63,6 +63,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Track progress
         self.num_to_run: int = num_to_run
         self.completed: int = 0
+        self.molecules_in_progress: dict[str, int] = defaultdict(int)  # Map of InChI Key -> number of ongoing computations
 
         # Coordination tools
         self.start_inference: Event = Event()
@@ -71,7 +72,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Start by training
         self.start_training.set()
 
-    def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, str, int, str]]:
+    def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
         """Iterate over the next tasks in the task queue"""
 
         while True:
@@ -90,33 +91,44 @@ class SingleObjectiveThinker(MoleculeThinker):
             else:
                 self.database[record.key] = record
 
-            # Have it run a relaxation task for both neutral and charged
-            #  TODO (wardlt): Let the recipe tell me what to do
+            # Determine which computations to run next
             try:
-                _, xyz = generate_inchi_and_xyz(smiles)
+                suggestions = self.recipe.suggest_computations(record)
             except ValueError as exc:
-                self.logger.warning(f'Creating an XYZ for {smiles} failed. Skipping. Reason: {exc}')
+                self.logger.warning(f'Generating computations for {smiles} failed. Skipping. Reason: {exc}')
                 continue
-            yield record, xyz, 0, None
-            yield record, xyz, self.recipe.charge, None
+            self.logger.info(f'Found {len(suggestions)} more computations to do for {smiles}')
+            self.molecules_in_progress[record.key] += len(suggestions)  # Update the number of computations in progress for this molecule
+
+            for suggestion in suggestions:
+                yield record, suggestion
 
     @task_submitter()
     def submit_simulation(self):
         """Submit a simulation task when resources are available"""
-        record, xyz, charge, solvent = next(self.task_iterator)
-        self.logger.info(f'Optimizing structure for {record.key} with a charge of {charge}')
-        self.queues.send_inputs(
-            xyz, self.recipe.energy_config, charge, solvent,
-            method='optimize_structure',
-            topic='simulation',
-            task_info={'key': record.key, 'config_name': self.recipe.energy_config, 'charge': charge}
-        )
+        record, suggestion = next(self.task_iterator)
+
+        if suggestion.optimize:
+            self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
+            self.queues.send_inputs(
+                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                method='optimize_structure',
+                topic='simulation',
+                task_info={'key': record.key, **asdict(suggestion)}
+            )
+        else:
+            self.logger.info(f'Getting single-point energy for {record.key} with a charge of {suggestion.charge} ' +
+                             ('' if suggestion.solvent is None else f'in {suggestion.solvent}'))
+            self.queues.send_inputs(
+                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                method='compute_energy',
+                topic='simulation',
+                task_info={'key': record.key, **asdict(suggestion)}
+            )
 
     @result_processor(topic='simulation')
     def store_simulation(self, result: Result):
         """Store the output of a simulation"""
-        assert result.method == 'optimize_structure', 'We only support optimization tasks for now'
-
         # Trigger a new simulation to start
         self.rec.release()
 
@@ -125,18 +137,41 @@ class SingleObjectiveThinker(MoleculeThinker):
         record = self.database[mol_key]
         self.logger.info(f'Received a result for {mol_key}. Runtime={result.time_running:.1f}s, success={result.success}')
 
+        # Update the number of computations in progress
+        self.molecules_in_progress[mol_key] -= 1
+
         # Add our result, see if finished
         if result.success:
-            sim_result, steps, metadata = result.value
-            record.add_energies(sim_result, steps)
+            if result.method == 'optimize_structure':
+                sim_result, steps, metadata = result.value
+                record.add_energies(sim_result, steps)
+            elif result.method == 'compute_energy':
+                sim_result, metadata = result.value
+                record.add_energies(sim_result)
+            else:
+                raise NotImplementedError()
 
+            # If we can compute then property than we are done
             value = self.recipe.lookup(record, recompute=True)
             if value is not None:
+                # If so, mark that we have finished computing the property
                 self.completed += 1
                 if self.completed == self.num_to_run:
                     self.done.set()
                 self.logger.info(f'Finished computing recipe for {mol_key}')
                 self.start_training.set()
+
+                # Mark that we've finished with this recipe
+                result.task_info['status'] = 'finished'
+                result.task_info['result'] = value
+            else:
+                # If not, see if we need to resubmit to finish the computation
+                result.task_info['status'] = 'in progress'
+                if self.molecules_in_progress[mol_key] == 0:
+                    self.logger.info('We must submit new computations for this molecule. Re-adding it to the front of the task queue')
+                    with self.task_queue_lock:
+                        self.task_queue.insert(0, (record.identifier.smiles, np.inf))
+                        self.task_queue_lock.notify_all()
 
         self._write_result(result, 'simulation')
 
