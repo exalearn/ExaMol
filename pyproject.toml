@@ -31,6 +31,8 @@ dependencies = [
     "more_itertools==9.*",
     "foundry_ml",
     "mongoengine>=0.27",
+    "tensorflow>=2.7,<3",
+    "nfp",
     "tabulate>=0.9",
     "tqdm"
 ]

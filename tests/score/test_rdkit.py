@@ -5,26 +5,6 @@ from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
-
-
-class FakeRecipe(PropertyRecipe):
-    pass
-
-
-_recipe = FakeRecipe('test', 'fast')
-
-
-@fixture()
-def training_set() -> list[MoleculeRecord]:
-    """Fake training set"""
-
-    output = []
-    for s, y in zip(['C', 'CC', 'CCC'], [1, 2, 3]):
-        record = MoleculeRecord.from_identifier(s)
-        record.properties[_recipe.name] = {_recipe.level: y}
-        output.append(record)
-    return output
 
 
 @fixture()
@@ -33,8 +13,8 @@ def pipeline() -> Pipeline:
 
 
 @fixture()
-def scorer() -> RDKitScorer:
-    return RDKitScorer(_recipe)
+def scorer(recipe) -> RDKitScorer:
+    return RDKitScorer(recipe)
 
 
 def test_process_failure(scorer):
