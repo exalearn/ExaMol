@@ -97,3 +97,16 @@ def test_score(model, scorer, training_set):
 
     outputs = scorer.score(model_msg, parsed_inputs)
     assert len(outputs) == len(training_set)
+
+
+@mark.parametrize('retrain', [True, False])
+def test_train(model, scorer: NFPScorer, training_set, retrain: bool):
+    scorer.retrain_from_scratch = retrain
+    parsed_inputs = scorer.transform_inputs(training_set)
+    parsed_outputs = scorer.transform_outputs(training_set)
+    model_msg = scorer.prepare_message(model, training=True)
+
+    update_msg = scorer.retrain(model_msg, parsed_inputs, parsed_outputs, timeout=1, batch_size=1)
+    assert len(update_msg) == 2  # Weights and log
+
+    scorer.update(model, update_msg)
