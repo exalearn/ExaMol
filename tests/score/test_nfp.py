@@ -1,8 +1,10 @@
-import numpy as np
-from pytest import raises, fixture, mark
-import tensorflow as tf
+import pickle as pkl
 
-from examol.score.nfp import convert_string_to_dict, make_simple_network, NFPScorer, make_data_loader
+import numpy as np
+import tensorflow as tf
+from pytest import raises, fixture, mark
+
+from examol.score.nfp import convert_string_to_dict, make_simple_network, NFPScorer, make_data_loader, NFPMessage
 
 
 @fixture()
@@ -110,3 +112,17 @@ def test_train(model, scorer: NFPScorer, training_set, retrain: bool):
     assert len(update_msg) == 2  # Weights and log
 
     scorer.update(model, update_msg)
+
+
+def test_message(model):
+    """Make sure we can serialize"""
+    # Create the message
+    msg = NFPMessage(model)
+    assert msg._model is not None  # At this point, we have a cached copy
+
+    # Serialize it and make sure it reconstitutes
+    copied_msg: NFPMessage = pkl.loads(pkl.dumps(msg))
+    assert copied_msg._model is None  # Should not have rebuilt the model yet
+
+    copied_model = copied_msg.get_model()
+    assert np.isclose(copied_model.weights[0], model.weights[0]).all()
