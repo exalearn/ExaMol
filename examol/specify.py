@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ExaMolSpecification:
-    """Specification for a molecular design application that can set up then start it
+    """Specification for a molecular design application that can set up then start it.
+
+    **Creating a Compute Configuration**
+
+    The :attr:`compute_config` option accepts a subset of Parsl's configuration options:
+
+    - *Single Executor*: Specify a single executor and have ExaMol use that executor for all tasks
+    - *Split Executor*: Specify two executors and label one "learning" and the other "simulation"
+      to have the AI tasks be placed on one resource and simulation on the other.
 
     Attributes:
         simulator: Tool used to perform quantum chemistry computations
@@ -66,13 +74,28 @@ class ExaMolSpecification:
     def assemble(self) -> tuple[BaseTaskServer, MoleculeThinker]:
         """Assemble the Colmena application"""
 
+        # Use pipe queues for simplicity
+        # TODO (wardlt): Add proxystore support
         queues = PipeQueues(topics=['inference', 'simulation', 'train'])
+
+        # Determine how methods are partitioned to executors
+        exec_names = set(x.label for x in self.compute_config.executors)
+        if len(exec_names) == 1:  # Case 1: All to the
+            methods = [self.scorer.score, self.scorer.retrain, self.simulator.optimize_structure, self.simulator.compute_energy]
+        elif exec_names == {'learning', 'simulation'}:
+            methods = [(x, {'executors': 'learning'}) for x in [self.scorer.score, self.scorer.retrain]]
+            methods += [(x, {'executors': 'simulation'}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
+        else:
+            raise NotImplementedError(f'We do not support the executor layout: {",".join(exec_names)}')
+
+        # Create the doer
         doer = ParslTaskServer(
             queues=queues,
-            methods=[self.scorer.score, self.scorer.retrain, self.simulator.optimize_structure, self.simulator.compute_energy],
+            methods=methods,
             config=self.compute_config,
         )
 
+        # Create the thinker
         thinker = self.thinker(
             queues=queues,
             run_dir=self.run_dir,
