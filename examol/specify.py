@@ -84,8 +84,8 @@ class ExaMolSpecification:
         if len(exec_names) == 1:  # Case 1: All to the
             methods = [self.scorer.score, self.scorer.retrain, self.simulator.optimize_structure, self.simulator.compute_energy]
         elif exec_names == {'learning', 'simulation'}:
-            methods = [(x, {'executors': 'learning'}) for x in [self.scorer.score, self.scorer.retrain]]
-            methods += [(x, {'executors': 'simulation'}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
+            methods = [(x, {'executors': ['learning']}) for x in [self.scorer.score, self.scorer.retrain]]
+            methods += [(x, {'executors': ['simulation']}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
         else:
             raise NotImplementedError(f'We do not support the executor layout: {",".join(exec_names)}')
 

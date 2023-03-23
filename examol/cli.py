@@ -62,11 +62,15 @@ def run_examol(args):
     doer.start()  # Run the doer as a subprocess
     reporter_threads = []
     try:
-        thinker.run()  # Run the thinker on the main thread
+        thinker.start()  # Start the thinker
+        logger.info('Launched the thinker. Waiting a second before launching the reporters')
 
         # Start the monitors
         for reporter in spec.reporters:
             reporter_threads.append(reporter.monitor(thinker, args.report_freq))
+        logger.info('Launched the reporting threads')
+
+        thinker.join()  # Wait until it completes
     finally:
         logger.info('Thinker complete, sending a signal to shut down the doer')
         thinker.done.set()  # Make sure it is set
