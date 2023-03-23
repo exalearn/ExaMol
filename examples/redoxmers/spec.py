@@ -4,6 +4,7 @@ import shutil
 
 from parsl import Config, HighThroughputExecutor
 
+from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
@@ -29,6 +30,7 @@ scorer = RDKitScorer(recipe)
 
 # Mark how we report outcomes
 reporter = MarkdownReporter()
+writer = DatabaseWriter()
 
 # Make the parsl configuration
 config = Config(
@@ -47,6 +49,6 @@ spec = ExaMolSpecification(
     num_to_run=8,
     thinker=SingleObjectiveThinker,
     compute_config=config,
-    reporters=[reporter],
+    reporters=[reporter, writer],
     run_dir=run_dir,
 )

@@ -74,18 +74,12 @@ def run_examol(args):
         doer.join()
     logger.info('All processes have completed.')
 
-    # Save the database
-    with open(thinker.run_dir / 'database.json', 'w') as fp:
-        for record in thinker.database.values():
-            print(record.to_json(), file=fp)
-    logger.info(f'Saved {len(thinker.database)} records to disk')
-
     # Once complete, run the reporting one last time
     for reporter, thread in zip(spec.reporters, reporter_threads):
         logger.info(f'Waiting for {reporter} thread to complete.')
         thread.join()
 
-        logger.info(f'Running {reporter} on last time.')
+        logger.info(f'Running {reporter} a last time.')
         reporter.report(thinker)
 
     logger.info(f'Find run details in {spec.run_dir.absolute()}')

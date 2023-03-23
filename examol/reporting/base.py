@@ -1,10 +1,12 @@
 """Base class for reporting implementations"""
+from dataclasses import dataclass
 from threading import Thread
 from time import sleep
 
 from examol.steer.base import MoleculeThinker
 
 
+@dataclass()
 class BaseReporter:
     """Base class for all reporter functions"""
 
