@@ -47,6 +47,6 @@ spec = ExaMolSpecification(
     num_to_run=8,
     thinker=SingleObjectiveThinker,
     compute_config=config,
-    reporter=reporter,
+    reporters=[reporter],
     run_dir=run_dir,
 )
