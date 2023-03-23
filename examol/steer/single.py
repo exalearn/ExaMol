@@ -158,7 +158,7 @@ class SingleObjectiveThinker(MoleculeThinker):
                 self.completed += 1
                 if self.completed == self.num_to_run:
                     self.done.set()
-                self.logger.info(f'Finished computing recipe for {mol_key}')
+                self.logger.info(f'Finished computing recipe for {mol_key}. Completed {self.completed}/{self.num_to_run} molecules')
                 self.start_training.set()
 
                 # Mark that we've finished with this recipe
