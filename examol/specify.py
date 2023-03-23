@@ -47,6 +47,7 @@ class ExaMolSpecification:
             is the smiles string and the second is a form ready for inference with :attr:`scorer`.
         thinker: Tool used to schedule computations
         compute_config: Description of the available resources via Parsl. See :class:`~parsl.config.Config`.
+        reporters: List of classes which provide users with real-time information
         num_to_run: Number of quantum chemistry computations to perform
     """
 
@@ -65,7 +66,7 @@ class ExaMolSpecification:
     thinker_options: dict[str, object] = field(default_factory=dict)
 
     # Define how we communicate to the user
-    reporter: BaseReporter | None = None
+    reporters: list[BaseReporter] = field(default_factory=list)
 
     # Define the computing resources
     compute_config: Config = ...

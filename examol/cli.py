@@ -60,24 +60,27 @@ def run_examol(args):
 
     # Launch them
     doer.start()  # Run the doer as a subprocess
+    reporter_threads = []
     try:
         thinker.run()  # Run the thinker on the main thread
+
+        # Start the monitors
+        for reporter in spec.reporters:
+            reporter_threads.append(reporter.monitor(thinker, args.report_freq))
     finally:
         logger.info('Thinker complete, sending a signal to shut down the doer')
+        thinker.done.set()  # Make sure it is set
         thinker.queues.send_kill_signal()
         doer.join()
     logger.info('All processes have completed.')
 
-    # Save the database
-    with open(thinker.run_dir / 'database.json', 'w') as fp:
-        for record in thinker.database.values():
-            print(record.to_json(), file=fp)
-    logger.info(f'Saved {len(thinker.database)} records to disk')
-
     # Once complete, run the reporting one last time
-    if spec.reporter is not None:
-        logger.info('Writing report on the run performance')
-        spec.reporter.report(thinker)
+    for reporter, thread in zip(spec.reporters, reporter_threads):
+        logger.info(f'Waiting for {reporter} thread to complete.')
+        thread.join()
+
+        logger.info(f'Running {reporter} a last time.')
+        reporter.report(thinker)
 
     logger.info(f'Find run details in {spec.run_dir.absolute()}')
 
@@ -93,6 +96,7 @@ def main(args: list[str] | None = None):
 
     subparser = subparsers.add_parser('run', help='Run ExaMol')
     subparser.add_argument('--dry-run', action='store_true', help='Load in configuration but do not start computing')
+    subparser.add_argument('--report-freq', default=10, type=float, help='How often to write run status (units: s)')
     subparser.add_argument('spec', help='Path to the run specification. Format is the path to a Python file containing the spec, '
                                         'followed by a colon and the name of the variable defining the specification (e.g., `spec.py:spec`)')
 
