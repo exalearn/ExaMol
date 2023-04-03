@@ -1,5 +1,5 @@
 """Tools for computing the properties of molecules from their record"""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ase import units
 import numpy as np
@@ -20,7 +20,7 @@ class SimulationRequest:
         solvent: Name of solvent, if any
     """
 
-    xyz: str = ...
+    xyz: str = field(repr=False)
     optimize: bool = ...
     config_name: str = ...
     charge: int = ...

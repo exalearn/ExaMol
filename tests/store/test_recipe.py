@@ -49,7 +49,7 @@ def test_solvation(record, sim_result):
     assert len(requests) == 0
 
 
-def test_redox(record, sim_result):
+def test_redox_vacuum(record, sim_result):
     recipe = RedoxEnergy(1, 'test', vertical=True)
     requests = recipe.suggest_computations(record)
     assert len(requests) == 1
@@ -100,30 +100,26 @@ def test_redox(record, sim_result):
     requests = recipe.suggest_computations(record)
     assert len(requests) == 0
 
-    # Start assessing the energy in solvent
-    recipe = RedoxEnergy(1, 'test', solvent='acn', vertical=False)
+
+def test_redox_solvent(record, sim_result):
+    """Assess whether we compute the properties of redox in solvent correcly"""
+    recipe = RedoxEnergy(1, 'test', solvent='acn', vertical=True)
+
+    # For vertical, we only need a relaxation to start
+    requests = recipe.suggest_computations(record)
+    assert len(requests) == 1
+    assert requests[0].optimize
+    assert requests[0].config_name == 'test'
+    assert requests[0].charge == 0
+
+    # Once we add that, we will need 2 computations (neutral solvent, charged solvent)
+    record.add_energies(sim_result)
 
     requests = recipe.suggest_computations(record)
-    assert len(requests) == 2
-    assert not any(x.optimize for x in requests)
-    assert any(x.solvent == 'acn' for x in requests)
-    assert requests[0].charge == 0 and requests[0].xyz == sim_result.xyz
-    assert requests[1].charge == 1 and requests[1].xyz == adia_sim_result.xyz
-
-    adia_sim_result.solvent = 'acn'
-    adia_sim_result.energy -= 2
-    assert not record.add_energies(adia_sim_result)
-
-    sim_result.charge = 0
-    sim_result.solvent = 'acn'
-    sim_result.energy -= 2
-    assert not record.add_energies(sim_result)
-
-    assert 'acn' in recipe.level
-    assert isclose(recipe.compute_property(record), -0.5)
-
-    requests = recipe.suggest_computations(record)
-    assert len(requests) == 0
+    assert len(requests) == 2, requests
+    assert requests[0].optimize
+    assert requests[0].config_name == 'test'
+    assert requests[0].charge == 0
 
 
 def test_adia_redox(record):
