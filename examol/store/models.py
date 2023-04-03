@@ -127,7 +127,7 @@ class Conformer(EmbeddedDocument):
         """
 
         ind = self.get_energy_index(config_name, charge, solvent)
-        assert ind is not None, f'No energy available for config="{config_name}", charge={charge}, solvent={solvent}'
+        assert ind is not None, f'No energy available for config="{config_name}", charge={charge}, solvent={solvent}'  # TODO (wardlt): Use ValueError for users
         return self.energies[ind].energy
 
 

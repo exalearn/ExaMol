@@ -209,34 +209,33 @@ class RedoxEnergy(PropertyRecipe):
             _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
             output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=0, solvent=None))
 
-        # See if we need a charged relaxation or single point
-        charged_conf = None
-        if self.vertical:
-            if neutral_conf is not None:
-                charged_conf = neutral_conf
-                if neutral_conf.get_energy_index(self.energy_config, self.charge, solvent=None) is None:
-                    output.append(
-                        SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=None)
-                    )
-        else:
+        # If we are doing a redox energy in solvent, check that we have one
+        if self.solvent is not None \
+                and neutral_conf is not None \
+                and neutral_conf.get_energy_index(self.energy_config, charge=0, solvent=self.solvent) is None:
+            output.append(SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=0, solvent=self.solvent))
+
+        # Determine which charged configurations we need
+        if self.vertical and neutral_conf is not None:  # For verticals, only if we're ready
+            # For vertical, a single energy computation
+            if neutral_conf.get_energy_index(self.energy_config, charge=self.charge, solvent=self.solvent) is None:
+                output.append(SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent))
+        elif not self.vertical:
+            # Determine if a relaxation is needed
+            charged_conf = None
             try:
                 charged_conf, _ = record.find_lowest_conformer(self.energy_config, self.charge, solvent=None)
                 if neutral_conf is None or charged_conf.xyz_hash == neutral_conf.xyz_hash:
                     raise ValueError('We need to do a relaxation')
-            except ValueError:
+            except ValueError:  # TODO (wardlt): Avoid using exceptions to communicate to communicate a conformer is missing
                 if neutral_conf is None:
                     _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
                 else:
                     starting_xyz = neutral_conf.xyz
                 output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=self.charge, solvent=None))
 
-        # Solvation computations if needed and ready
-        if self.solvent is None:
-            return output
+            # If relaxation is done, start a solvent calculation
+            if charged_conf is not None and self.solvent is not None:
+                output.append(SimulationRequest(xyz=charged_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent))
 
-        for conf, chg in zip([neutral_conf, charged_conf], [0, self.charge]):
-            if conf is not None and conf.get_energy_index(self.energy_config, chg, self.solvent) is None:
-                output.append(
-                    SimulationRequest(xyz=conf.xyz, optimize=False, config_name=self.energy_config, charge=chg, solvent=self.solvent)
-                )
         return output

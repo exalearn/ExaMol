@@ -117,9 +117,9 @@ def test_redox_solvent(record, sim_result):
 
     requests = recipe.suggest_computations(record)
     assert len(requests) == 2, requests
-    assert requests[0].optimize
-    assert requests[0].config_name == 'test'
-    assert requests[0].charge == 0
+    assert not any(r.optimize for r in requests)
+    assert all(r.config_name == 'test' for r in requests)
+    assert set(r.charge for r in requests) == {0, 1}
 
 
 def test_adia_redox(record):
