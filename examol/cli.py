@@ -70,7 +70,11 @@ def run_examol(args):
             reporter_threads.append(reporter.monitor(thinker, args.report_freq))
         logger.info('Launched the reporting threads')
 
-        thinker.join()  # Wait until it completes
+        thinker.join(timeout=args.timeout)  # Wait until it completes
+    except TimeoutError:
+        logger.info('Hit timeout. Sending stop signal to Thinker then blocking until all ongoing tasks complete')
+        thinker.done.set()  # If it hits the timeout
+        thinker.join()
     finally:
         logger.info('Thinker complete, sending a signal to shut down the doer')
         thinker.done.set()  # Make sure it is set
@@ -101,6 +105,7 @@ def main(args: list[str] | None = None):
     subparser = subparsers.add_parser('run', help='Run ExaMol')
     subparser.add_argument('--dry-run', action='store_true', help='Load in configuration but do not start computing')
     subparser.add_argument('--report-freq', default=10, type=float, help='How often to write run status (units: s)')
+    subparser.add_argument('--timeout', default=None, type=float, help='Maximum time to let ExaMol run (units: s)')
     subparser.add_argument('spec', help='Path to the run specification. Format is the path to a Python file containing the spec, '
                                         'followed by a colon and the name of the variable defining the specification (e.g., `spec.py:spec`)')
 
