@@ -116,7 +116,7 @@ class ASESimulator(BaseSimulator):
             if solvent is not None:
                 assert solvent in _xtb_solv_names
                 kwargs['solvent'] = _xtb_solv_names[solvent]
-            return {'name': 'xtb', 'kwargs': kwargs}
+            return {'name': 'xtb', 'kwargs': kwargs, 'accuracy': 0.05}
         elif name.startswith('cp2k_blyp'):
             # Get the name the basis set
             basis_set_id = name.rsplit('_')[-1]
