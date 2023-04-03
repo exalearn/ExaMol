@@ -306,8 +306,7 @@ class NFPScorer(RecipeBasedScorer):
                 patience: int = None,
                 timeout: float = None,
                 verbose: bool = False,
-                max_size: int | None = None,
-                **kwargs) -> tuple[list[np.ndarray], dict]:
+                max_size: int | None = None) -> tuple[list[np.ndarray], dict]:
         """Retrain the scorer based on new training records
 
         Args:
@@ -324,6 +323,7 @@ class NFPScorer(RecipeBasedScorer):
             patience: Number of epochs without improvement before terminating training.
             timeout: Maximum training time in seconds
             verbose: Whether to print training information to screen
+            max_size: Maximum size of molecules expected in training set
         Returns:
             Message defining how to update the model
         """

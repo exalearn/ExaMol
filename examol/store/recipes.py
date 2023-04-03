@@ -123,7 +123,8 @@ class SolvationEnergy(PropertyRecipe):
                 output = conf.energies[sol_ind].energy - conf.energies[vac_ind].energy
                 vacuum_energy = conf.energies[sol_ind].energy
 
-        assert output is not None, f'Missing data for config="{self.config_name}", solvent={self.solvent}'
+        if output is None:
+            raise ValueError(f'Missing data for config="{self.config_name}", solvent={self.solvent}')
         return output * units.mol / units.kcal
 
     def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
