@@ -79,7 +79,7 @@ def test_redox_vacuum(record, sim_result):
     recipe = RedoxEnergy(1, 'test', vertical=False)
     assert 'adiabatic' in recipe.level
     assert 'oxid' in recipe.name
-    with raises(AssertionError) as error:
+    with raises(ValueError) as error:
         recipe.compute_property(record)
     assert 'We do not have a relaxed charged molecule' in str(error)
 

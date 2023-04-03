@@ -194,7 +194,8 @@ class RedoxEnergy(PropertyRecipe):
         else:
             # Ge the lowest-energy conformer for the charged molecule
             charged_conf, charged_energy = record.find_lowest_conformer(self.energy_config, self.charge, self.solvent)
-            assert charged_conf.xyz_hash != neutral_conf.xyz_hash, 'We do not have a relaxed charged molecule'
+            if charged_conf.xyz_hash == neutral_conf.xyz_hash:
+                raise ValueError('We do not have a relaxed charged molecule')
 
         return charged_energy - neutral_energy
 
