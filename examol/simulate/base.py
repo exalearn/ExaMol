@@ -1,5 +1,5 @@
 """Base class defining the interfaces for common simulation operations"""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -13,12 +13,12 @@ from examol.utils.conversions import read_from_string
 class SimResult:
     """Stores the results from a calculation in a code-agnostic format"""
     # Information about the result
-    config_name: str = ...  # Name of the configuration
-    charge: int = ...  # Charge of the molecule
-    solvent: str | None = ...  # Solvent around the molecule, if any
+    config_name: str = field()  # Name of the configuration
+    charge: int = field()  # Charge of the molecule
+    solvent: str | None = field()  # Solvent around the molecule, if any
 
     # Outputs
-    xyz: str = ...  # 3D geometry of the molecule
+    xyz: str = field(repr=False)  # 3D geometry of the molecule
     energy: float | None = None  # Energy of the molecule (units: eV)
     forces: np.ndarray | None = None  # Forces acting on each atom  (units: eV/Ang)
 

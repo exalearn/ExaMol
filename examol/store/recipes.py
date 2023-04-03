@@ -236,6 +236,9 @@ class RedoxEnergy(PropertyRecipe):
 
             # If relaxation is done, start a solvent calculation
             if charged_conf is not None and self.solvent is not None:
-                output.append(SimulationRequest(xyz=charged_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent))
+                if charged_conf.get_energy_index(self.energy_config, charge=self.charge, solvent=self.solvent) is None:
+                    output.append(
+                        SimulationRequest(xyz=charged_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent)
+                    )
 
         return output
