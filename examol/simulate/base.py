@@ -6,25 +6,40 @@ from typing import Any
 import ase
 import numpy as np
 
-from examol.utils.conversions import read_from_string
+from examol.utils.conversions import read_from_string, write_to_string
 
 
-@dataclass
+@dataclass()
 class SimResult:
-    """Stores the results from a calculation in a code-agnostic format"""
+    """Stores the results from a calculation in a code-agnostic format
+
+    Attributes:
+        config_name: Name of the configuration used to compute the energy
+        charge: Charge of the molecule
+        solvent: Solvent around the molecule, if any
+        xyz: XYZ-format structure, adjusted such that the center of mass is zero
+        energy: Energy of the molecule (units: eV)
+        forces: Forces acting on each atom  (units: eV/Ang)
+    """
     # Information about the result
-    config_name: str = field()  # Name of the configuration
-    charge: int = field()  # Charge of the molecule
-    solvent: str | None = field()  # Solvent around the molecule, if any
+    config_name: str = field()
+    charge: int = field()
+    solvent: str | None = field()
 
     # Outputs
-    xyz: str = field(repr=False)  # 3D geometry of the molecule
-    energy: float | None = None  # Energy of the molecule (units: eV)
-    forces: np.ndarray | None = None  # Forces acting on each atom  (units: eV/Ang)
+    xyz: str = field(repr=False)
+    energy: float | None = None
+    forces: np.ndarray | None = None
+
+    def __post_init__(self):
+        # Ensure the XYZ is centered about zero
+        atoms = read_from_string(self.xyz, 'xyz')
+        atoms.center()
+        self.xyz = write_to_string(atoms, 'xyz')
 
     @property
     def atoms(self) -> ase.Atoms:
-        """ASE Atoms object of """
+        """ASE Atoms object representation of the structure"""
         return read_from_string(self.xyz, 'xyz')
 
 

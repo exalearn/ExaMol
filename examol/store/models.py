@@ -67,7 +67,7 @@ class Conformer(EmbeddedDocument):
         Returns:
             An initialized conformer record
         """
-
+        # Convert the sim result to a database record
         new_record = cls(
             xyz=sim_result.xyz,
             xyz_hash=md5(sim_result.xyz.encode()).hexdigest(),
