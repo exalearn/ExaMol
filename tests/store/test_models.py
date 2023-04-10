@@ -3,7 +3,6 @@ from copy import copy
 
 from pytest import raises
 
-from examol.simulate.base import SimResult
 from examol.store.models import Conformer, MoleculeRecord
 from examol.utils.conversions import write_to_string
 
