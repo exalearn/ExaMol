@@ -3,6 +3,7 @@ from copy import copy
 
 from pytest import raises
 
+from examol.simulate.base import SimResult
 from examol.store.models import Conformer, MoleculeRecord
 from examol.utils.conversions import write_to_string
 
@@ -26,10 +27,7 @@ def test_make_conformer(sim_result):
     assert conf.add_energy(sim_result)
     assert len(conf.energies) == 3
 
-    # Change the solvent and translate the coordinates
-    new_atoms = sim_result.atoms
-    new_atoms.translate([1, 1, 1])
-    sim_result.xyz = write_to_string(new_atoms, 'xyz')
+    # Change the solvent
     sim_result.solvent = 'acn'
     assert conf.add_energy(sim_result)
     assert len(conf.energies) == 4
@@ -66,6 +64,18 @@ def test_add_conformer(record, sim_result):
     assert len(record.conformers) == 2
     assert record.conformers[0].energies[1].charge == 1
     assert record.conformers[0].energies[1].energy == charged_vert.energy
+
+
+def test_translated_sim(record, sim_result):
+    """Ensure that we can still match conformers even if coordinates are translated"""
+    assert record.add_energies(sim_result)
+
+    # Make a translated copy
+    atoms = sim_result.atoms
+    atoms.translate([1, 1, 1])
+    new_sim_result = SimResult(xyz=write_to_string(atoms, 'xyz'), energy=1, config_name='test-2', charge=0, solvent=None)
+    assert not record.add_energies(new_sim_result)
+    assert len(record.conformers[0].energies) == 2
 
 
 def test_find_lowest_conformer(record, sim_result):
