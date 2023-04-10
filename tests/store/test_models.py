@@ -3,7 +3,9 @@ from copy import copy
 
 from pytest import raises
 
+from examol.simulate.base import SimResult
 from examol.store.models import Conformer, MoleculeRecord
+from examol.utils.conversions import write_to_string
 
 
 def test_make_conformer(sim_result):
@@ -18,6 +20,20 @@ def test_make_conformer(sim_result):
     # Change the configuration name, make sure it add something else
     sim_result.config_name = 'other_method'
     assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 2
+
+    # Change the charge
+    sim_result.charge = 1
+    assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 3
+
+    # Change the solvent and translate the coordinates
+    new_atoms = sim_result.atoms
+    new_atoms.translate([1, 1, 1])
+    sim_result.xyz = write_to_string(new_atoms, 'xyz')
+    sim_result.solvent = 'acn'
+    assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 4
 
 
 def test_identifiers():
