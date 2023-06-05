@@ -38,11 +38,23 @@ What and How to Compute
 The ``recipe`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
 
+Both recipes and simulator are designed to ensure all calculations in a set are performed with consistent settings.
+ExaMol defines a set of pre-defined levels of accuracies, which are enumerated in
+`the Simulate documentation <design/simulate.html#levels>`_.
+Choose a level, then use it when defining your recipe and
+ensure the simulator can run the required codes.
+
 Recipes are based on the :class:`~examol.store.recipes.PropertyRecipe` class,
 and implement methods to compute a certain property and determine which computations are needed.
+Your specification will contain the details of what you wish to compute (e.g., which solvent for a solvation energy)
+and the level of accuracy to compute it (e.g., which XC functional)?
 See the list recipes and learn how to make your own `in the component documentation <components/store.html#recipes>`_.
 
-simulator ... TBD
+The simulator is based on :class:`~examol.simulate.BaseSimulator` class and
+defines an interface to the computational chemistry code used to assess molecular energies.
+Your specification will contain information on h
+ow to run each supported code on a specific supercomputer,
+such as the path to its executable and how many nodes to use for each task.
 
 Starting Data
 -------------

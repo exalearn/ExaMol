@@ -50,7 +50,43 @@ so that they are easy to store in MongoDB, convert to JSON objects, etc.
 Recipes
 -------
 
-TBD
+Recipes define how to compute property of a molecule from multiple energy computations.
+All are based on the :class:`~examol.store.recipes.PropertyRecipe` object, and provide a
+function to compute the property from a molecule data record
+and second to generate the list of computations required to complete a computation.
+
+Use an existing recipe by specifying details on the property (e.g., which solvent?) and
+the target level of accuracy.
+Consult the `API docs <../api/examol.store.html#module-examol.store.recipes>`_ for properties available in ExaMol.
+
+The recipe will then create an informative name for the property and a level of accuracy:
+
+.. code-block:: python
+
+    recipe = RedoxEnergy(charge=1, config_name='test', solvent='acn', vertical=False)
+    print(recipe.name)  # reduction_potential
+    print(recipe.level)  # test_acn_vertical
+
+
+You can then use the recipe to determine what is left to do for a recipe
+
+.. code-block:: python
+
+    to_do = recipe.suggest_computations(record)
+
+or compute the property then store it in a data record.
+
+.. code-block:: python
+
+    recipe.update_record(record)
+    print(record.properties['reduction_potential']['test_acn_vertical'])  # Value of the property
+
+
+
+.. note::
+    Creating a new recipe is a work in progress.
+    Open an issue, and a developer will help figure out how to make a new recipe.
+
 
 .. [1] We define a molecule as unique based on its chemical formula (including H's), connectivity, and stereochemistry.
     Stereoisomers are different molecules, molecules that only differ by charge are the same.

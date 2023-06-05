@@ -17,17 +17,24 @@ class Identifiers(DynamicEmbeddedDocument):
     """IDs known for a molecule"""
 
     smiles = StringField(required=True)
+    """A SMILES string"""
     inchi = StringField(required=True)
+    """The InChI string"""
     pubchem_id = IntField()
+    """PubChem ID, if known"""
 
 
 class EnergyEvaluation(EmbeddedDocument):
     """Energy of a conformer under a certain condition"""
 
-    energy = FloatField(required=True, help_text='Energy of the conformer (eV)')
-    config_name = StringField(required=True, help_text='Configuration used to compute the energy')
-    charge = IntField(required=True, help_text='Charge used when computing the energy')
-    solvent = StringField(help_text='Solvent used, if any')
+    energy = FloatField(required=True)
+    """Energy of the conformer (eV)"""
+    config_name = StringField(required=True)
+    """Configuration used to compute the energy"""
+    charge = IntField(required=True)
+    """Charge used when computing the energy"""
+    solvent = StringField()
+    """Solvent used, if any"""
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -41,17 +48,24 @@ class Conformer(EmbeddedDocument):
     """Describes a single conformer of a molecule"""
 
     # Define the structure
-    xyz = StringField(required=True, help_text='XYZ-format description of the atomic coordinates')
-    xyz_hash = StringField(required=True, help_text='MD5 hash of xyz')
+    xyz = StringField(required=True)
+    """XYZ-format description of the atomic coordinates"""
+    xyz_hash = StringField(required=True)
+    """MDF hash of the XYZ coordinates"""
 
     # Provenance of the structure
-    date_created = DateTimeField(required=True, help_text='Date this conformer was inserted')
-    source = StringField(required=True, choices=['relaxation', 'other'], help_text='Method used to generate this structure')
-    config_name = StringField(help_text='Configuration used to relax the structure')
-    charge = IntField(help_text='Charge used when relaxing the structure')
+    date_created = DateTimeField(required=True)
+    """Date this conformer was inserted"""
+    source = StringField(required=True, choices=['relaxation', 'other'])
+    """Method used to generate this structure (e.g., via relaxation)"""
+    config_name = StringField()
+    """Configuration used to relax the structure, if applicable"""
+    charge = IntField()
+    """Charge used when relaxing the structure"""
 
     # Energies of the structure
-    energies: list[EnergyEvaluation] = ListField(EmbeddedDocumentField(EnergyEvaluation), help_text='List of energies for this structure')
+    energies: list[EnergyEvaluation] = ListField(EmbeddedDocumentField(EnergyEvaluation))
+    """List of energies for this structure"""
 
     @property
     def atoms(self) -> ase.Atoms:
@@ -136,16 +150,22 @@ class MoleculeRecord(Document):
     """Defines whatever we know about a molecule"""
 
     # Identifiers
-    key = StringField(min_length=27, max_length=27, required=True, primary_key=True, help_text='InChI key')
-    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='Collection of identifiers which define the molecule')
-    names = ListField(StringField(), help_text='Names this molecule is known by')
-    subsets = ListField(StringField(), help_text='List of subsets this molecule is part of')
+    key = StringField(min_length=27, max_length=27, required=True, primary_key=True)
+    """InChI key"""
+    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='')
+    """Collection of identifiers which define the molecule"""
+    names = ListField(StringField())
+    """Names this molecule is known by"""
+    subsets = ListField(StringField())
+    """List of subsets this molecule is part of"""
 
     # Data about the molecule
     conformers: list[Conformer] = ListField(EmbeddedDocumentField(Conformer))
+    """All known conformers for this molecule"""
 
     # Characteristics
-    properties: dict[str, dict[str, float]] = DictField(help_text='Properties available for the molecule')
+    properties: dict[str, dict[str, float]] = DictField()
+    """Properties available for the molecule"""
 
     @classmethod
     def from_identifier(cls, smiles: str | None = None, inchi: str | None = None):

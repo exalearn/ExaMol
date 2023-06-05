@@ -6,4 +6,5 @@ The ExaMol library is built around components each dedicated to different aspect
 .. toctree::
     :maxdepth: 1
 
+    simulate
     store

@@ -10,21 +10,18 @@ from examol.store.models import MoleculeRecord
 
 @dataclass
 class SimulationRequest:
-    """Request for a specific simulation type
-
-    Attributes:
-        xyz: XYZ structure to use as the starting point
-        optimize: Whether to perform an optimization
-        config_name: Name of the computation
-        charge: Charge on the molecule
-        solvent: Name of solvent, if any
-    """
+    """Request for a specific simulation type"""
 
     xyz: str = field(repr=False)
+    """XYZ structure to use as the starting point"""
     optimize: bool = ...
+    """Whether to perform an optimization"""
     config_name: str = ...
+    """Name of the computation configuration"""
     charge: int = ...
+    """Charge on the molecule"""
     solvent: str | None = ...
+    """Name of solvent, if any"""
 
 
 class PropertyRecipe:
