@@ -5,3 +5,4 @@ API Documentation
     :maxdepth: 2
 
     examol.specify
+    examol.store

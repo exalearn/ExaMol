@@ -24,8 +24,9 @@ if your science requires new capabilities.
 
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents:
 
    quickstart
+   components/index
    api/examol

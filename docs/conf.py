@@ -14,7 +14,10 @@ html_title = 'ExaMol'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.napoleon']
+extensions = ['sphinx.ext.napoleon', 'sphinx.ext.intersphinx']
+
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
+                       'mongoengine': ('https://docs.mongoengine.org/', None)}
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
