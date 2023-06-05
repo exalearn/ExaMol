@@ -28,3 +28,4 @@ if your science requires new capabilities.
    :caption: Contents:
 
    quickstart
+   api/examol

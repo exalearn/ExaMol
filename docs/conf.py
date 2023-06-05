@@ -9,11 +9,12 @@
 project = 'ExaMol'
 copyright = '2023, Logan Ward'
 author = 'Logan Ward'
+html_title = 'ExaMol'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = ['sphinx.ext.napoleon']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
