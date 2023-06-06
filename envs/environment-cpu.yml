@@ -15,4 +15,5 @@ dependencies:
   - pip
   - pip:
     - tensorflow-cpu
+    - nfp
     - -e ..
