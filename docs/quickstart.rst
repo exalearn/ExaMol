@@ -40,9 +40,7 @@ and an interface for ExaMol to compute it, respectively.
 
 Both recipes and simulator are designed to ensure all calculations in a set are performed with consistent settings.
 ExaMol defines a set of pre-defined levels of accuracies, which are enumerated in
-`the Simulate documentation <design/simulate.html#levels>`_.
-Choose a level, then use it when defining your recipe and
-ensure the simulator can run the required codes.
+`the Simulate documentation <components/simulate.html#levels>`_.
 
 Recipes are based on the :class:`~examol.store.recipes.PropertyRecipe` class,
 and implement methods to compute a certain property and determine which computations are needed.
@@ -52,9 +50,9 @@ See the list recipes and learn how to make your own `in the component documentat
 
 The simulator is based on :class:`~examol.simulate.BaseSimulator` class and
 defines an interface to the computational chemistry code used to assess molecular energies.
-Your specification will contain information on h
-ow to run each supported code on a specific supercomputer,
+Your specification will contain information on how to run each supported code on a specific supercomputer,
 such as the path to its executable and how many nodes to use for each task.
+See how to create one in the `Simulate documentation <components/simulate.html#the-simulator-interface>`_.
 
 Starting Data
 -------------
