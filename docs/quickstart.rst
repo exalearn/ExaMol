@@ -32,8 +32,8 @@ A simple example looks something like:
 We'll go through each option briefly here,
 and link out to pages that describe the full options available for each.
 
-What and How to Compute
------------------------
+Quantum Chemistry
+-----------------
 
 The ``recipe`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
@@ -62,5 +62,13 @@ Each line of the file is a different molecule, with data following the :class:`~
 
 We recommend creating the initial database by running a seed set of molecules with a purpose-built scripts.
 
-.. note:: I'll upload some example scripts soon.
+.. note:: I'll upload some example scripts soon and describe them here.
+
+Machine Learning
+----------------
+
+ExaMol uses machine learning models to estimate the output of computations.
+The specification requires you to define an interface to run machine learning models and
+then a set of models to be trained using that interface.
+
 
