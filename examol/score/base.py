@@ -16,10 +16,10 @@ class Scorer:
     and the latter can run on larger remote resource.
     Running the scorer will then look something like
 
-    .. code-block::
-        python
+    .. code-block:: python
 
         scorer = Scorer()
+        recipe = PropertyRecipe()  # Recipe that we are trying to predict
         model = ...   # The model that we'll be sending to workers
         inputs = model.transform_inputs(records)  # Readies records to run inference
         model_msg = model.prepare_message(model)  # Readies model to be sent to a remote worker
@@ -34,7 +34,7 @@ class Scorer:
 
     .. code-block: python
 
-        outputs = scorer.transform_outputs(records)
+        outputs = scorer.transform_outputs(records, recipe)  # Prepares label for a specific recipe
         update_msg = scorer.retrain(model_msg, inputs, outputs)  # Run remotely
         model = scorer.update(model, update_msg)
     """
@@ -49,15 +49,20 @@ class Scorer:
         """
         raise NotImplementedError()
 
-    def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
+    def transform_outputs(self, records: list[MoleculeRecord], recipe: PropertyRecipe) -> np.ndarray:
         """Gather the target outputs of the model
 
         Args:
             records: List of records from which to extract outputs
+            recipe: Target recipe for the scorer
         Returns:
-            List of inputs ready for the
+            Outputs ready for model training
         """
-        raise NotImplementedError()
+        for record in records:
+            if recipe.name not in record.properties or recipe.level not in record.properties[recipe.name]:
+                raise ValueError(f'Record for {record.identifier.smiles} missing property {recipe.name} at level {recipe.level}')
+
+        return np.array([x.properties[recipe.name][recipe.level] for x in records])
 
     def prepare_message(self, model: object, training: bool = False) -> object:
         """Get the model state as a serializable object
@@ -103,23 +108,3 @@ class Scorer:
             Updated model
         """
         raise NotImplementedError()
-
-
-class RecipeBasedScorer(Scorer):
-    """A scorer which uses the output of a :class:`~examol.store.recipes.PropertyRecipe`
-
-    Provides a utility function for pulling training data"""
-
-    def __init__(self, recipe: PropertyRecipe):
-        """
-        Args:
-            recipe: Recipe to be predicted
-        """
-        self.recipe = recipe
-
-    def transform_outputs(self, records: list[MoleculeRecord]) -> np.ndarray:
-        for record in records:
-            if self.recipe.name not in record.properties or self.recipe.level not in record.properties[self.recipe.name]:
-                raise ValueError(f'Record for {record.identifier.smiles} missing property {self.recipe.name} at level {self.recipe.level}')
-
-        return np.array([x.properties[self.recipe.name][self.recipe.level] for x in records])

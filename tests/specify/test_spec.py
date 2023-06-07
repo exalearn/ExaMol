@@ -36,9 +36,9 @@ def recipe() -> RedoxEnergy:
 
 
 @fixture()
-def scorer(recipe) -> tuple[Scorer, Pipeline]:
+def scorer() -> tuple[Scorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe), pipeline
+    return RDKitScorer(), pipeline
 
 
 @fixture()

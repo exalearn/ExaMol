@@ -39,9 +39,9 @@ def search_space() -> list[MoleculeRecord]:
 
 
 @fixture()
-def scorer(recipe) -> tuple[RDKitScorer, Pipeline]:
+def scorer() -> tuple[RDKitScorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe), pipeline
+    return RDKitScorer(), pipeline
 
 
 @fixture()

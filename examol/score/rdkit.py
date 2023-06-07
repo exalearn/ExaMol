@@ -6,21 +6,16 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 
-from examol.score.base import RecipeBasedScorer
+from examol.score.base import Scorer
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
 
 
-class RDKitScorer(RecipeBasedScorer):
-    """Score molecules based on a model defined using RDKit and Scikit-Learn"""
+class RDKitScorer(Scorer):
+    """Score molecules based on a model defined using RDKit and Scikit-Learn
 
-    def __init__(self, recipe: PropertyRecipe):
-        """
-
-        Args:
-            recipe: Recipe to be predicted
-        """
-        super().__init__(recipe)
+    Models must take a SMILES string as input.
+    Use the :class:`~.MoleculeParserTransformer` to transform the SMILES into an RDKit Mol object if needed.
+    """
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
         return [x.identifier.smiles for x in record_batch]

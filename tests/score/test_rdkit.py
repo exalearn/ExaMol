@@ -13,36 +13,36 @@ def pipeline() -> Pipeline:
 
 
 @fixture()
-def scorer(recipe) -> RDKitScorer:
-    return RDKitScorer(recipe)
+def scorer() -> RDKitScorer:
+    return RDKitScorer()
 
 
-def test_process_failure(scorer):
+def test_process_failure(scorer, recipe):
     record = MoleculeRecord.from_identifier('O')
 
     # Missing record and property
     with raises(ValueError) as err:
-        scorer.transform_outputs([record])
+        scorer.transform_outputs([record], recipe)
     assert str(err.value).startswith('Record for')
 
-    record.properties[scorer.recipe] = {}
+    record.properties[recipe.name] = {}
     with raises(ValueError) as err:
-        scorer.transform_outputs([record])
+        scorer.transform_outputs([record], recipe)
     assert str(err.value).startswith('Record for')
 
 
-def test_transform(training_set, scorer):
+def test_transform(training_set, scorer, recipe):
     assert scorer.transform_inputs(training_set) == ['C', 'CC', 'CCC']
-    assert np.isclose(scorer.transform_outputs(training_set), [1, 2, 3]).all()
+    assert np.isclose(scorer.transform_outputs(training_set, recipe), [1, 2, 3]).all()
 
 
-def test_functions(training_set, scorer, pipeline):
+def test_functions(training_set, scorer, pipeline, recipe):
     model_msg = scorer.prepare_message(pipeline)
     assert isinstance(model_msg, Pipeline)
 
     # Test training
     inputs = scorer.transform_inputs(training_set)
-    outputs = scorer.transform_outputs(training_set)
+    outputs = scorer.transform_outputs(training_set, recipe)
     update_msg = scorer.retrain(model_msg, inputs, outputs)
     pipeline, scorer.update(pipeline, update_msg)
 
