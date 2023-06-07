@@ -6,10 +6,9 @@ import tensorflow as tf
 import numpy as np
 import nfp
 
-from .base import RecipeBasedScorer
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
 from examol.utils.conversions import convert_string_to_nx
+from .base import Scorer
 from .utils.tf import LRLogger, TimeLimitCallback, EpochTimeLogger
 
 
@@ -253,18 +252,16 @@ def make_data_loader(mol_dicts: list[dict],
     return loader
 
 
-class NFPScorer(RecipeBasedScorer):
+class NFPScorer(Scorer):
     """Train message-passing neural networks based on the `NFP <https://github.com/NREL/nfp>`_ library.
 
     NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware."""
 
-    def __init__(self, recipe: PropertyRecipe, retrain_from_scratch: bool = True):
+    def __init__(self, retrain_from_scratch: bool = True):
         """
         Args:
-            recipe: Recipe defining the property to be predicted
             retrain_from_scratch: Whether to retrain models from scratch or not
         """
-        super().__init__(recipe)
         self.retrain_from_scratch = retrain_from_scratch
 
     def prepare_message(self, model: tf.keras.models.Model, training: bool = False) -> dict | NFPMessage:

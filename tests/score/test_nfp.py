@@ -13,8 +13,8 @@ def model() -> tf.keras.Model:
 
 
 @fixture()
-def scorer(recipe) -> NFPScorer:
-    return NFPScorer(recipe)
+def scorer() -> NFPScorer:
+    return NFPScorer()
 
 
 def test_convert():
@@ -36,10 +36,10 @@ def test_parse_inputs(scorer, training_set):
     assert isinstance(parsed_inputs[0], dict)
 
 
-def test_data_loader(scorer, training_set, model):
+def test_data_loader(scorer, training_set, model, recipe):
     # Make the dictionary inputs
     parsed_inputs = scorer.transform_inputs(training_set)
-    values = scorer.transform_outputs(training_set)
+    values = scorer.transform_outputs(training_set, recipe)
 
     # Default options
     loader = make_data_loader(parsed_inputs)
@@ -102,10 +102,10 @@ def test_score(model, scorer, training_set):
 
 
 @mark.parametrize('retrain', [True, False])
-def test_train(model, scorer: NFPScorer, training_set, retrain: bool):
+def test_train(model, scorer: NFPScorer, training_set, retrain: bool, recipe):
     scorer.retrain_from_scratch = retrain
     parsed_inputs = scorer.transform_inputs(training_set)
-    parsed_outputs = scorer.transform_outputs(training_set)
+    parsed_outputs = scorer.transform_outputs(training_set, recipe)
     model_msg = scorer.prepare_message(model, training=True)
 
     update_msg = scorer.retrain(model_msg, parsed_inputs, parsed_outputs, timeout=1, batch_size=1)

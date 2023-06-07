@@ -250,7 +250,7 @@ class SingleObjectiveThinker(MoleculeThinker):
 
         # Process to form the inputs and outputs
         train_inputs = self.scorer.transform_inputs(train_set)
-        train_outputs = self.scorer.transform_outputs(train_set)
+        train_outputs = self.scorer.transform_outputs(train_set, self.recipe)
         self.logger.info('Pre-processed the training entries')
 
         # Submit all models

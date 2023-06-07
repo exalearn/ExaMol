@@ -26,7 +26,7 @@ recipe = RedoxEnergy(1, energy_config='xtb', solvent='acn')
 
 # Make the scorer
 pipeline = make_knn_model()
-scorer = RDKitScorer(recipe)
+scorer = RDKitScorer()
 
 # Mark how we report outcomes
 reporter = MarkdownReporter()
