@@ -1,8 +1,3 @@
-.. ExaMol documentation master file, created by
-   sphinx-quickstart on Wed Mar  8 16:51:45 2023.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 ExaMol
 ======
 
@@ -18,9 +13,9 @@ Once defined, execute by calling it from the command line:
 
    examol run examples/redoxmers/spec.py:spec
 
-Begin with our `Quickstart <quickstart.html>`_ to learn how to create the specification file,
+Begin with our `Quickstart <quickstart.html>`_ to learn how to create the specification file
 then continue with the following section about the components of an ExaMol application
-if your science requires new capabilities.
+before finding the components needed for your application in the API documentation.
 
 
 .. toctree::

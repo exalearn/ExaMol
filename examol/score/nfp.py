@@ -28,7 +28,12 @@ class ReduceAtoms(tf.keras.layers.Layer):
         config['reduction_op'] = self.reduction_op
         return config
 
-    def call(self, inputs, mask=None):  # pragma: no cover
+    def call(self, inputs, mask=None):
+        """
+        Args:
+            inputs: Matrix to be reduced
+            mask: Identifies which rows to sum are placeholders
+        """
         masked_tensor = tf.ragged.boolean_mask(inputs, mask)
         reduce_fn = getattr(tf.math, f'reduce_{self.reduction_op}')
         return reduce_fn(masked_tensor, axis=1)
@@ -47,13 +52,14 @@ def make_simple_network(
         atomwise: bool = True,
 ) -> tf.keras.models.Model:
     """Construct a Keras model using the settings provided by a user
+
     Args:
         atom_features: Number of features used per atom and bond
         message_steps: Number of message passing steps
         output_layers: Number of neurons in the readout layers
         reduce_op: Operation used to reduce from atom-level to molecule-level vectors
         atomwise: Whether to reduce atomwise contributions to form an output,
-            or reduce to a single vector per molecule before the output layers
+                  or reduce to a single vector per molecule before the output layers
     Returns:
         A model instantiated with the user-defined options
     """

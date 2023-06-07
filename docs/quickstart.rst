@@ -1,6 +1,13 @@
 Quickstart
 ==========
 
+Let us consider the
+`redoxmer design example <https://github.com/exalearn/ExaMol/tree/main/examples/redoxmers>`_
+as a way to learn how to use ExaMol.
+
+Configuring ExaMol
+------------------
+
 An ExaMol application is divided into a _Thinker_ which defines which tasks to run
 and a _Doer_ which executes them on HPC resources.
 Your task is to define the Thinker and Doer by a Python specification object.
@@ -21,7 +28,7 @@ A simple example looks something like:
         search_space='search_space.smi',
         selector=GreedySelector(n_to_select=8, maximize=True),
         simulator=ASESimulator(scratch_dir='/tmp'),
-        scorer=RDKitScorer(recipe),
+        scorer=RDKitScorer(),
         models=[KNeighborsRegressor()],
         num_to_run=8,
         thinker=SingleObjectiveThinker,
@@ -33,7 +40,7 @@ We'll go through each option briefly here,
 and link out to pages that describe the full options available for each.
 
 Quantum Chemistry
------------------
+~~~~~~~~~~~~~~~~~
 
 The ``recipe`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
@@ -55,7 +62,7 @@ such as the path to its executable and how many nodes to use for each task.
 See how to create one in the `Simulate documentation <components/simulate.html#the-simulator-interface>`_.
 
 Starting Data
--------------
+~~~~~~~~~~~~~
 
 The starting data for a project is a line-delimited JSON describing what molecular properties are already known.
 Each line of the file is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
@@ -65,10 +72,16 @@ We recommend creating the initial database by running a seed set of molecules wi
 .. note:: I'll upload some example scripts soon and describe them here.
 
 Machine Learning
-----------------
+~~~~~~~~~~~~~~~~
 
-ExaMol uses machine learning models to estimate the output of computations.
-The specification requires you to define an interface to run machine learning models and
-then a set of models to be trained using that interface.
+ExaMol uses machine learning (ML) to estimate the output of computations.
+The specification requires you to define an interface to run machine learning models (``scorer``) and
+then a set of models (``models``) to be trained using that interface.
 
+The Scorer, like the `Simulator used in quantum chemistry <#quantum-chemistry>`_, defines an interface
+for the ML computations should be configured with information about how to run the model on your resources.
+ExaMol provides interfaces for `a few common libraries <components/score.html>`_) used in ML for molecular properties.
 
+The ``models`` define specific architectures used by the scorer.
+Each model will be trained using a different subset of the training data,
+and the predictions of all models will be combined to produce predictions with uncertainties for each model.
