@@ -18,6 +18,7 @@ extensions = ['sphinx.ext.napoleon', 'sphinx.ext.intersphinx']
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'mongoengine': ('https://docs.mongoengine.org/', None)}
+autodoc_mock_imports = ["tensorflow", "sklearn"]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
