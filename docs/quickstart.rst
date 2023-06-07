@@ -85,3 +85,16 @@ ExaMol provides interfaces for `a few common libraries <components/score.html>`_
 The ``models`` define specific architectures used by the scorer.
 Each model will be trained using a different subset of the training data,
 and the predictions of all models will be combined to produce predictions with uncertainties for each model.
+
+Search Algorithm
+~~~~~~~~~~~~~~~~
+
+The design process is defined by the space of molecules (``search_space``),
+how to search through them (``selector``),
+and how many quantum chemistry computations will be run (``num_to_run``).
+
+The ``search_space`` option requires the path to a list of SMILES strings as a single file.
+
+The selector defines an adaptive experimental design algorithm -- an algorithm which uses the predictions
+from machine learning models to identify the best computations.
+ExaMol includes `several selection routines <components/select.html#available-selectors>`_.

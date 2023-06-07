@@ -7,5 +7,6 @@ The ExaMol library is built around components each dedicated to different aspect
     :maxdepth: 1
 
     score
+    select
     simulate
     store
