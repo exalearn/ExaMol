@@ -5,6 +5,52 @@ Let us consider the
 `redoxmer design example <https://github.com/exalearn/ExaMol/tree/main/examples/redoxmers>`_
 as a way to learn how to use ExaMol.
 
+Running ExaMol
+--------------
+
+Run ExaMol by calling a command-line executable which launches computations across many resources.
+
+The executable takes at least one argument: the path to a Python specification file and the name of the variable
+within that file which is the specification object.
+
+.. code-block:: shell
+
+    examol run examples/redoxmers/spec.py:spec
+
+ExaMol will start writing logging messages to the screen to tell you what it is doing,
+which is first to execute the specification file and load in the file you want
+
+.. code-block::
+
+    2023-06-08 12:57:10,063 - examol - INFO - Starting ExaMol v0.0.1
+    2023-06-08 12:57:11,916 - examol.cli - INFO - Loaded specification from spec.py, where it was named spec
+
+Once loaded, ExaMol will create the functions to be executed (e.g., "run quantum chemistry")
+and start a Parsl workflow engine in a subprocess.
+The program will then launch `a steering engine <#steering-strategy>`_ in a thread before beginning
+a series of monitoring routines as other threads.
+
+ExaMol will continue writing logging message to screen from all of these threads and will exit
+once the steering engine completes.
+
+Understanding Outputs
+---------------------
+
+All data from an ExaMol run is written to the output directory defined in the specification file.
+
+Common files for the workflow include:
+
+- ``run.log``: The logging messages
+- ``*-results.json``: Metadata about each task completed by ExaMol (e.g., if successful, when started) in
+  a line-delimited JSON format. Records follow Colmena's :class:`~colmena.models.Result` schema.
+- ``database.json``: Data about each molecule assessed by ExaMol where each line follows
+  the :class:`~examol.store.models.MoleculeRecord` format.
+- ``report.md``: A report of the workflow performance thus far.
+
+The run directory will contain data from all previous runs.
+
+.. note:: The example specification deletes any previous runs, but this is just for demonstration purposes.
+
 Configuring ExaMol
 ------------------
 
@@ -32,6 +78,7 @@ A simple example looks something like:
         models=[KNeighborsRegressor()],
         num_to_run=8,
         thinker=SingleObjectiveThinker,
+        thinker_options=dict(num_workers=2),
         compute_config=config,
         run_dir='run'
     )
@@ -113,4 +160,6 @@ Learn more in the `component documentation <components/steer.html>`_.
 Computational Resources
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-
+``compute_config`` requires a Parsl :class:`~parsl.config.Config` object describing the resources available to ExaMol.
+Parsl's `quickstart describes the basics <https://parsl.readthedocs.io/en/stable/quickstart.html>`_ of
+how to describe the queueing system and compute nodes of your supercomputer.
