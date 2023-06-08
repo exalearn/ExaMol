@@ -12,7 +12,7 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     """Make a calculator then tear it down after completion
 
     Args:
-        calc: Already-defined calculatori or a dict defining it.
+        calc: Already-defined calculator or a dict defining it.
             The dict must contain the key "name" to define the name
             of the code and could contain the keys "args" and "kwargs"
             to define the arguments and keyword arguments for creating

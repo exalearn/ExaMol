@@ -7,10 +7,13 @@ dependencies:
   - python==3.10.*
   - pandas==1.*
   - xtb-python==22.*
+  - scikit-learn>=1
   - pymongo
   - jupyterlab
   - matplotlib
   - pytest
   - pip
   - pip:
-      - -e ..
+    - tensorflow-cpu
+    - nfp
+    - -e ..

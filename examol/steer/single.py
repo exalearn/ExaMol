@@ -18,7 +18,21 @@ from ..store.recipes import PropertyRecipe, SimulationRequest
 
 
 class SingleObjectiveThinker(MoleculeThinker):
-    """A thinker which submits all computations needed to evaluate a molecule whenever it is selected"""
+    """A thinker which submits all computations needed to evaluate a molecule whenever it is selected
+
+    Args:
+        queues: Queues used to communicate with the task server
+        run_dir: Directory in which to store logs, etc.
+        recipe: Recipe used to compute the target property
+        database: List of molecules which are already known
+        scorer: Tool used as part of model training
+        models: Models used to predict target property
+        selector: Tool used to pick which computations to run
+        num_to_run: Number of molecules to evaluate
+        search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
+        num_workers: Number of simulation tasks to run in parallel
+        inference_chunk_size: Number of molecules to run inference on per task
+    """
 
     def __init__(self,
                  queues: ColmenaQueues,
@@ -32,21 +46,6 @@ class SingleObjectiveThinker(MoleculeThinker):
                  search_space: Iterable[tuple[str, object]],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        """
-
-        Args:
-            queues: Queues used to communicate with the task server
-            run_dir: Directory in which to store logs, etc.
-            recipe: Recipe used to compute the target property
-            database: List of molecules which are already known
-            scorer: Tool used as part of model training
-            models: Models used to predict target property
-            selector: Tool used to pick which computations to run
-            num_to_run: Number of molecules to evaluate
-            search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
-            num_workers: Number of simulation tasks to run in parallel
-            inference_chunk_size: Number of molecules to run inference on per task
-        """
         super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, database, inference_chunk_size)
 
         # Store the selection equipment

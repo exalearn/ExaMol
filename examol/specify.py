@@ -35,42 +35,41 @@ class ExaMolSpecification:
     - *Single Executor*: Specify a single executor and have ExaMol use that executor for all tasks
     - *Split Executor*: Specify two executors and label one "learning" and the other "simulation"
       to have the AI tasks be placed on one resource and simulation on the other.
-
-    Attributes:
-        simulator: Tool used to perform quantum chemistry computations
-        recipe: Definition for how to compute the target property
-        selector: How to identify which computation to perform next
-        scorer: Defines algorithms used to retrain :attr:`models`
-        models: List of models that will be trained to predict :attr:`recipe`
-        database: Path to the initial dataset
-        search_space: Path to the molecules over which to search. Can either be a `.smi` file or a `.csv` where the first column
-            is the smiles string and the second is a form ready for inference with :attr:`scorer`.
-        thinker: Tool used to schedule computations
-        compute_config: Description of the available resources via Parsl. See :class:`~parsl.config.Config`.
-        reporters: List of classes which provide users with real-time information
-        num_to_run: Number of quantum chemistry computations to perform
     """
 
     # Define the problem
     database: Path | str = ...
+    """Path to the initial dataset"""
     recipe: PropertyRecipe = ...
+    """Definition for how to compute the target property"""
     search_space: Path | str = ...
+    """Path to the molecules over which to search. Can either be a `.smi` file or a `.csv` where the first column
+    is the smiles string and the second is a form ready for inference with :attr:`scorer`."""
     selector: Selector = ...
+    """How to identify which computation to perform next"""
     scorer: Scorer = ...
+    """Defines algorithms used to retrain and run :attr:`models`"""
     models: list[object] = ...
+    """List of machine learning models used to predict outcome of :attr:`recipe`"""
     simulator: BaseSimulator = ...
+    """Tool used to perform quantum chemistry computations"""
     num_to_run: int = ...
+    """Number of quantum chemistry computations to perform"""
 
     # Define how we create the thinker
     thinker: type[SingleObjectiveThinker] = ...
+    """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
 
     # Define how we communicate to the user
     reporters: list[BaseReporter] = field(default_factory=list)
+    """List of classes which provide users with real-time information"""
 
     # Define the computing resources
     compute_config: Config = ...
+    """Description of the available resources via Parsl. See :class:`~parsl.config.Config`."""
     run_dir: Path | str = ...
+    """Path in which to write output files"""
 
     def assemble(self) -> tuple[BaseTaskServer, MoleculeThinker]:
         """Assemble the Colmena application"""

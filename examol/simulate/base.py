@@ -11,25 +11,22 @@ from examol.utils.conversions import read_from_string, write_to_string
 
 @dataclass()
 class SimResult:
-    """Stores the results from a calculation in a code-agnostic format
-
-    Attributes:
-        config_name: Name of the configuration used to compute the energy
-        charge: Charge of the molecule
-        solvent: Solvent around the molecule, if any
-        xyz: XYZ-format structure, adjusted such that the center of mass is zero
-        energy: Energy of the molecule (units: eV)
-        forces: Forces acting on each atom  (units: eV/Ang)
-    """
+    """Stores the results from a calculation in a code-agnostic format"""
     # Information about the result
     config_name: str = field()
+    """Name of the configuration used to compute the energy"""
     charge: int = field()
+    """Charge of the molecule"""
     solvent: str | None = field()
+    """Solvent around the molecule, if any"""
 
     # Outputs
     xyz: str = field(repr=False)
+    """XYZ-format structure, adjusted such that the center of mass is at the origin"""
     energy: float | None = None
+    """Energy of the molecule (units: eV)"""
     forces: np.ndarray | None = None
+    """Forces acting on each atom  (units: eV/Ang)"""
 
     def __post_init__(self):
         # Ensure the XYZ is centered about zero

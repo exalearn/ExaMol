@@ -1,8 +1,12 @@
 # ExaMol
 [![CI](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml/badge.svg)](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml)
+[![Deploy Docs](https://github.com/exalearn/ExaMol/actions/workflows/gh-pages.yml/badge.svg)](https://exalearn.github.io/ExaMol/)
 [![Coverage Status](https://coveralls.io/repos/github/exalearn/ExaMol/badge.svg?branch=main)](https://coveralls.io/github/exalearn/ExaMol?branch=main)
 
-Designing new molecules as fast as possible with AI and simulation
+Designing new molecules as fast as possible with AI and simulation.
+
+- Documentation: [exalearn.github.io/ExaMol/](https://exalearn.github.io/ExaMol/)
+- Source Code: [github.com/exalearn/ExaMol](https://github.com/exalearn/ExaMol)
 
 ## Installation
 
