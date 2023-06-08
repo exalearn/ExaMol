@@ -22,6 +22,7 @@ before finding the components needed for your application in the API documentati
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    quickstart
    components/index
    api/examol

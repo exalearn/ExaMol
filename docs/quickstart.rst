@@ -5,6 +5,10 @@ Let us consider the
 `redoxmer design example <https://github.com/exalearn/ExaMol/tree/main/examples/redoxmers>`_
 as a way to learn how to use ExaMol.
 
+.. note::
+    This example assumes you installed xTB and other optional dependencies.
+    We recommend you install the `CPU version of ExaMol via Anaconda <installation#recommended-anaconda>`_.
+
 Running ExaMol
 --------------
 
