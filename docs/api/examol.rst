@@ -10,3 +10,4 @@ API Documentation
     examol.specify
     examol.steer
     examol.store
+    examol.utils
