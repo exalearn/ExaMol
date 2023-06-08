@@ -6,14 +6,12 @@ from ase.calculators.lj import LennardJones
 from ase.build import molecule
 from pytest import mark, fixture
 
-from examol.simulate.ase.utils import make_ephemeral_calculator, buffer_cell, initialize_charges
+from examol.simulate.ase.utils import make_ephemeral_calculator, initialize_charges
 
 
 @fixture()
 def atoms():
-    atoms = molecule('H2O')
-    buffer_cell(atoms)
-    return atoms
+    return molecule('H2O')
 
 
 @mark.parametrize('calc', [
