@@ -98,3 +98,19 @@ The ``search_space`` option requires the path to a list of SMILES strings as a s
 The selector defines an adaptive experimental design algorithm -- an algorithm which uses the predictions
 from machine learning models to identify the best computations.
 ExaMol includes `several selection routines <components/select.html#available-selectors>`_.
+
+Steering Strategy
+~~~~~~~~~~~~~~~~~
+
+The ``thinker`` provides the core capability behind ExaMol scaling to large supercomputers:
+the ability to schedule many different different tasks at once.
+A Thinker strategy defines when to submit new tasks and what to do once they complete.
+There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleObjectiveThinker`,
+but more will become available as we build the library.
+
+Learn more in the `component documentation <components/steer.html>`_.
+
+Computational Resources
+~~~~~~~~~~~~~~~~~~~~~~~
+
+

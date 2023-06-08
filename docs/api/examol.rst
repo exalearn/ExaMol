@@ -8,4 +8,5 @@ API Documentation
     examol.select
     examol.simulate
     examol.specify
+    examol.steer
     examol.store
