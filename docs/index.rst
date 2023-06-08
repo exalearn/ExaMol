@@ -17,6 +17,8 @@ Begin with our `Quickstart <quickstart.html>`_ to learn how to create the specif
 then continue with the following section about the components of an ExaMol application
 before finding the components needed for your application in the API documentation.
 
+Source Code: https://github.com/exalearn/ExaMol
+
 
 .. toctree::
    :maxdepth: 2
