@@ -14,7 +14,11 @@ html_title = 'ExaMol'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.napoleon', 'sphinx.ext.intersphinx']
+extensions = [
+    'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.viewcode'
+]
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'mongoengine': ('https://docs.mongoengine.org/', None),
