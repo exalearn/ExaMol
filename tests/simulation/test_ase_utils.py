@@ -11,7 +11,9 @@ from examol.simulate.ase.utils import make_ephemeral_calculator, initialize_char
 
 @fixture()
 def atoms():
-    return molecule('H2O')
+    atoms = molecule('H2O')
+    atoms.center(vacuum=5)
+    return atoms
 
 
 @mark.parametrize('calc', [
