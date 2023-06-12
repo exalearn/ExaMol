@@ -51,19 +51,6 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         raise ValueError('No such calculator')
 
 
-def buffer_cell(atoms, buffer_size: float = 6.):
-    """Buffer the cell such that it has a vacuum layer around the side
-
-    Args:
-        atoms: Atoms to be centered
-        buffer_size: Size of the buffer to place around the atoms
-    """
-
-    atoms.positions -= atoms.positions.min(axis=0)
-    atoms.cell = atoms.positions.max(axis=0) + buffer_size * 2
-    atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
-
-
 def initialize_charges(atoms: ase.Atoms, charge: int):
     """Set initial charges to sum up to a certain value
 

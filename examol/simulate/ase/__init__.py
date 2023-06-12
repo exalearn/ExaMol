@@ -5,7 +5,6 @@ from hashlib import sha512
 from pathlib import Path
 from shutil import rmtree, move
 from time import perf_counter
-from typing import Any
 
 import ase
 from ase import units
@@ -87,30 +86,26 @@ def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: s
 
 
 class ASESimulator(BaseSimulator):
-    """Use ASE to perform simulations"""
+    """Use ASE to perform quantum chemistry calculations
 
+    Args:
+        cp2k_command: Command to launch CP2K
+        scratch_dir: Path in which to create temporary directories
+        clean_after_run: Whether to clean output files after a run exits successfully
+        ase_db_path: Path to an ASE db in which to store results
+
+    """
     def __init__(self,
                  cp2k_command: str | None = None,
-                 cp2k_buffer: float = 6.0,
                  scratch_dir: Path | str | None = None,
                  clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None):
-        """
-
-        Args:
-            cp2k_command: Command to launch CP2K
-            cp2k_buffer: Length of buffer to place around molecule for CP2K (units: Ang)
-            scratch_dir: Path in which to create temporary directories
-            clean_after_run: Whether to clean output files after a run exits successfully
-            ase_db_path: Path to an ASE db in which to store results
-        """
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
-        self.cp2k_buffer = cp2k_buffer
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
 
-    def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
+    def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> dict:
         if name == 'xtb':
             kwargs = {}
             if solvent is not None:
@@ -147,6 +142,7 @@ METHOD ANDREUSSI
 
             return {
                 'name': 'cp2k',
+                'buffer_size': 10.0,
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
@@ -183,7 +179,7 @@ METHOD ANDREUSSI
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
                 # Buffer the cell if using CP2K
-                self._prepare_atoms(atoms, config_name, charge)
+                self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Recover the history from a previous run
                 traj_path = Path('lbfgs.traj')
@@ -250,11 +246,17 @@ METHOD ANDREUSSI
             # Make sure we end back where we started
             os.chdir(old_path)
 
-    def _prepare_atoms(self, atoms: ase.Atoms, config_name: str, charge: int):
-        """Make the atoms object ready for the simulation"""
-        if 'cp2k' in config_name:
-            utils.buffer_cell(atoms, self.cp2k_buffer)
-        elif 'xtb' in config_name:
+    def _prepare_atoms(self, atoms: ase.Atoms, charge: int, config: dict):
+        """Make the atoms object ready for the simulation
+
+        Args:
+            atoms: Atoms object to be adjusted
+            charge: Charge on the system
+            config: Configuration detail
+        """
+        if 'cp2k' in config['name']:
+            atoms.center(vacuum=config['buffer_size'])
+        elif 'xtb' in config['name']:
             utils.initialize_charges(atoms, charge)
 
     def compute_energy(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
@@ -280,8 +282,8 @@ METHOD ANDREUSSI
 
             # Prepare to run the cell
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
-                # Buffer the cell if using CP2K
-                self._prepare_atoms(atoms, config_name, charge)
+                # Make any changes to cell needed by the calculator
+                self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Run a single point
                 atoms.calc = calc
