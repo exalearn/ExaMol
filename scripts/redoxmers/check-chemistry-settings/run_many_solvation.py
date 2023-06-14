@@ -19,7 +19,6 @@ import json
 
 if __name__ == "__main__":
     # Parse the inputs
-    # Parse the inputs
     parser = ArgumentParser()
     parser.add_argument('--system', choices=['bebop', 'local', 'polaris'], help='The system on which we are running')
     parser.add_argument('--configuration', default='cp2k_blyp_szv', help='Name of the ExaMol configuration')
@@ -30,8 +29,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_name = args.cp2k_configuration
 
-    # Make the ASE calculator
-    #  Call with a local host file defined by the worker's rank
     # Make the ASE calculator
     #  Call with a local host file defined by the worker's rank
     #  See: https://docs.alcf.anl.gov/polaris/queueing-and-running-jobs/example-job-scripts/#multi-node-ensemble-calculations-example
