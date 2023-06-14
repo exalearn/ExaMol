@@ -66,3 +66,9 @@ examol run examples/redoxmers/spec.py:spec
 
 The above command simply tells ExaMol the name of the file containing the run spec, and the name of the spec within that file.
 ExaMol will then run it for you.
+
+## Project Support
+
+Initial development of ExaMol was funded jointly by 
+the ExaLearn Co-design Center of the Department of Energy Exascale Computing Project 
+and the Joint Center for Energy Storage Research (JCESR), an Energy Innovation Hub funded by the Department of Energy.
