@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('--num-parallel', default=2, type=int, help='Number of nodes to run in parallel')
     parser.add_argument('--max-to-run', default=None, type=int, help='Maximum number of tasks to run')
     args = parser.parse_args()
-    config_name = args.cp2k_configuration
+    config_name = args.configuration
 
     # Load in the molecules to be evaluated
     to_run = pd.read_json('data/g4mp2-mols.json', lines=True)
@@ -39,11 +39,11 @@ if __name__ == "__main__":
     #  See: https://docs.alcf.anl.gov/polaris/queueing-and-running-jobs/example-job-scripts/#multi-node-ensemble-calculations-example
     cwd = Path().cwd().absolute()
     sim = ASESimulator(
-        scratch_dir='cp2k-files',
+        scratch_dir='ase-files',
         ase_db_path='data.db',
         gaussian_command='g16',  # Hard-coded for Bebop
-        cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                     f'--hostfile {cwd}/hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.`printf %02d $((PARSL_WORKER_RANK+1))` '
+        cp2k_command=f'mpiexec -n {args.nodes_per_task * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
+                     f'--hostfile /tmp/hostfiles/$PBS_JOBID/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',  # Hard-coded for polaris for now
 
@@ -94,18 +94,18 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
             address=address_by_hostname(),
             max_workers=1,  # Only one task per job
             provider=SlurmProvider(
-                partition='bdwall',
+                partition='knlall',
                 launcher=SrunLauncher(),
                 nodes_per_block=args.nodes_per_task,
                 init_blocks=args.num_parallel,
                 min_blocks=0,
                 max_blocks=args.num_parallel,
-                scheduler_options="#SBATCH --account=ML-for-Electrolytes",
+                scheduler_options="#SBATCH --account=ML-for-Redox",
                 worker_init='''
 module load gaussian/16-a.03
 export GAUSS_SCRDIR=/scratch
 export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
-export GAUSS_CDEF=0-35
+export GAUSS_CDEF=0-63
 export GAUSS_MDEF=30GB
 export GAUSS_SDEF=ssh
 export GAUSS_LFLAGS="-vv"''',
