@@ -143,6 +143,7 @@ class ASESimulator(BaseSimulator):
                 'name': 'gaussian',
                 'kwargs': {
                     'command': self.gaussian_command,
+                    'chk': 'gauss.chk',
                     'basis': basis,
                     'method': xc,
                     'charge': charge,
