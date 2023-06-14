@@ -3,12 +3,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ase import units
+from ase.calculators.gaussian import Gaussian
 from ase.db import connect
 from pytest import mark, fixture, raises
 from ase.build import molecule
 from ase.calculators.lj import LennardJones
 
 from examol.simulate.ase import ASESimulator
+from examol.simulate.ase.utils import make_ephemeral_calculator
 from examol.utils.conversions import write_to_string
 
 
@@ -129,3 +131,30 @@ def test_xtb(tmpdir, strc):
     charged_opt, _, _ = sim.optimize_structure(strc, config_name='xtb', charge=-1)
     charged_opt_neutral, _ = sim.compute_energy(charged_opt.xyz, config_name='xtb', charge=0)
     assert charged_opt.energy != charged_opt_neutral.energy
+
+
+def test_gaussian_configs(strc):
+    sim = ASESimulator(gaussian_command='g09')
+    assert sim.gaussian_command == 'g09 < PREFIX.com > PREFIX.log'
+
+    # Make a regular configuration
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, None)
+    assert config['name'] == 'gaussian'
+    assert config['kwargs']['method'] == 'b3lyp'
+    assert config['kwargs']['basis'] == '6-31g(2df,p)'
+
+    # Make one with a solvent
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn')
+    assert config['kwargs']['SCRF'] == '(Solvent=acetonitrile)'
+
+    # Make sure extra arguments get passed through
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn', test='yeah')
+    assert config['kwargs']['test'] == 'yeah'
+
+    # Make sure it errors as necessary
+    with raises(ValueError):
+        sim.create_configuration('gaussian_b3lyp_fake_3-21g', 0, None)
+
+    # Make sure the configuration can be mapped to a Gaussian calculator
+    with make_ephemeral_calculator(config) as calc:
+        assert isinstance(calc, Gaussian)

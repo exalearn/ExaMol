@@ -44,6 +44,9 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         #  when the object is finally garbage collected
         calc.__del__()
         calc._shell = None
+    elif name == 'gaussian':
+        from ase.calculators.gaussian import Gaussian
+        yield Gaussian(*args, **kwargs)
     elif name == 'xtb':
         from xtb.ase.calculator import XTB
         yield XTB(*args, **kwargs)
