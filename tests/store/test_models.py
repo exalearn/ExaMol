@@ -70,11 +70,14 @@ def test_translated_sim(record, sim_result):
     """Ensure that we can still match conformers even if coordinates are translated"""
     assert record.add_energies(sim_result)
 
-    # Make a translated copy
+    # Move the xyz
     atoms = sim_result.atoms
     atoms.translate([1, 1, 1])
-    new_sim_result = SimResult(xyz=write_to_string(atoms, 'xyz'), energy=1, config_name='test-2', charge=0, solvent=None)
-    assert not record.add_energies(new_sim_result)
+    sim_result.xyz = write_to_string(atoms, 'xyz')
+    sim_result.config_name = 'test-2'
+
+    # Make sure we don't add an atom in
+    assert not record.add_energies(sim_result)
     assert len(record.conformers[0].energies) == 2
 
 
