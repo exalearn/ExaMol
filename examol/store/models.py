@@ -10,7 +10,7 @@ from mongoengine.fields import StringField, ListField
 from rdkit import Chem
 
 from examol.simulate.base import SimResult
-from examol.utils.conversions import read_from_string
+from examol.utils.conversions import read_from_string, write_to_string
 
 
 class Identifiers(DynamicEmbeddedDocument):
@@ -81,10 +81,16 @@ class Conformer(EmbeddedDocument):
         Returns:
             An initialized conformer record
         """
+
+        # Make sure the simulation results is center
+        atoms = read_from_string(sim_result.xyz, 'xyz')
+        atoms.center()
+        xyz = write_to_string(atoms, 'xyz')
+
         # Convert the sim result to a database record
         new_record = cls(
-            xyz=sim_result.xyz,
-            xyz_hash=md5(sim_result.xyz.encode()).hexdigest(),
+            xyz=xyz,
+            xyz_hash=md5(xyz.encode()).hexdigest(),
             date_created=datetime.now(),
             source=source,
             config_name=sim_result.config_name,
@@ -200,18 +206,21 @@ class MoleculeRecord(Document):
         # Prepare to match conformers
         conf_pos = [c.atoms.positions for c in self.conformers]
 
-        def _match_conformers(positions: np.ndarray) -> int | None:
+        def _match_conformers(atoms: ase.Atoms) -> int | None:
+            atoms = atoms.copy()
+            atoms.center()
+            positions = atoms.positions
             for i, c in enumerate(conf_pos):
                 if np.isclose(positions, c, atol=match_tol).all():
                     return i
 
         # First try to add optimization steps
         for step in opt_steps:
-            if (match_id := _match_conformers(step.atoms.positions)) is not None:
+            if (match_id := _match_conformers(step.atoms)) is not None:
                 self.conformers[match_id].add_energy(step)
 
         # Get the atomic positions for me
-        my_match = _match_conformers(result.atoms.positions)
+        my_match = _match_conformers(result.atoms)
         if my_match is None:
             self.conformers.append(Conformer.from_simulation_result(result))
             return True
