@@ -147,6 +147,11 @@ def test_gaussian_configs(strc):
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn')
     assert config['kwargs']['SCRF'] == '(Solvent=acetonitrile)'
 
+    # Make one with a charge
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', -1, 'acn')
+    assert config['kwargs']['charge'] == -1
+    assert config['kwargs']['multiplicity'] == 2
+
     # Make sure extra arguments get passed through
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn', test='yeah')
     assert config['kwargs']['test'] == 'yeah'

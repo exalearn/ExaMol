@@ -146,6 +146,7 @@ class ASESimulator(BaseSimulator):
                     'basis': basis,
                     'method': xc,
                     'charge': charge,
+                    'multiplicity': abs(charge) + 1,  # Assume the worst
                     **add_options,
                     **kwargs
                 }
