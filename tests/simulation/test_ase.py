@@ -145,7 +145,7 @@ def test_gaussian_configs(strc):
 
     # Make one with a solvent
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn')
-    assert config['kwargs']['SCRF'] == '(Solvent=acetonitrile)'
+    assert config['kwargs']['SCRF'] == 'Solvent=acetonitrile'
 
     # Make one with a charge
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', -1, 'acn')
