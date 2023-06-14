@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('--configuration', default='cp2k_blyp_szv', help='Name of the ExaMol configuration')
     parser.add_argument('--nodes-per-task', default=1, type=int, help='Number of nodes to use per task')
     parser.add_argument('--num-parallel', default=2, type=int, help='Number of nodes to run in parallel')
-    parser.add_argument('--max-to-run', default=None, type=int, help='Maximum number of tasks to run in parallel')
+    parser.add_argument('--max-to-run', default=None, type=int, help='Maximum number of tasks to run')
     args = parser.parse_args()
     config_name = args.cp2k_configuration
 
