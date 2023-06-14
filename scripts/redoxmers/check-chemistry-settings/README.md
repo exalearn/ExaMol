@@ -1,3 +1,3 @@
 # Check Accuracy of Quantum Chemistry
 
-We need to compute the redox potentials2
+Benchmark different configurations for quantum chemistry codes and establish initial training sets.
