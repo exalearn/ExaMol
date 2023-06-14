@@ -1,11 +1,10 @@
 """Evaluate the molecules from a list prepared by Naveen Dandu"""
 from examol.simulate.ase import ASESimulator
 from examol.simulate.base import SimResult
-from examol.simulate.initialize import generate_inchi_and_xyz
 from parsl.executors import HighThroughputExecutor
 from parsl.addresses import address_by_hostname
-from parsl.launchers import SimpleLauncher
-from parsl.providers import PBSProProvider
+from parsl.launchers import SimpleLauncher, SrunLauncher
+from parsl.providers import PBSProProvider, SlurmProvider
 from parsl.app.python import PythonApp
 from parsl import Config
 from concurrent.futures import as_completed
@@ -17,7 +16,6 @@ import pickle as pkl
 import pandas as pd
 import parsl
 import json
-import os
 
 if __name__ == "__main__":
     # Parse the inputs
@@ -72,18 +70,18 @@ if __name__ == "__main__":
                 provider=PBSProProvider(
                     account="CSC249ADCD08",
                     worker_init=f"""
-    module reset
-    module swap PrgEnv-nvhpc PrgEnv-gnu
-    module load conda
-    module load cudatoolkit-standalone/11.4.4
-    module load cray-libsci cray-fftw
-    module list
-    cd {cwd}
-    hostname
-    pwd
-    mkdir -p /tmp/hostfiles/$PBS_JOBID
-    split --lines={args.nodes_per_task} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE /tmp/hostfiles/$PBS_JOBID/local_hostfile.
-    conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
+module reset
+module swap PrgEnv-nvhpc PrgEnv-gnu
+module load conda
+module load cudatoolkit-standalone/11.4.4
+module load cray-libsci cray-fftw
+module list
+cd {cwd}
+hostname
+pwd
+mkdir -p /tmp/hostfiles/$PBS_JOBID
+split --lines={args.nodes_per_task} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE /tmp/hostfiles/$PBS_JOBID/local_hostfile.
+conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
                     walltime="6:00:00",
                     queue="preemptable",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
@@ -109,13 +107,13 @@ if __name__ == "__main__":
                     max_blocks=args.num_parallel,
                     scheduler_options="#SBATCH --account=ML-for-Electrolytes",
                     worker_init='''
-    module load gaussian/16-a.03
-    export GAUSS_SCRDIR=/scratch
-    export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
-    export GAUSS_CDEF=0-35
-    export GAUSS_MDEF=30GB
-    export GAUSS_SDEF=ssh
-    export GAUSS_LFLAGS="-vv"''',
+module load gaussian/16-a.03
+export GAUSS_SCRDIR=/scratch
+export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
+export GAUSS_CDEF=0-35
+export GAUSS_MDEF=30GB
+export GAUSS_SDEF=ssh
+export GAUSS_LFLAGS="-vv"''',
                     walltime="20:00:00"
                 )
             )
