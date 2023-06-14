@@ -150,7 +150,7 @@ def test_gaussian_configs(strc):
     # Make one with a charge
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', -1, 'acn')
     assert config['kwargs']['charge'] == -1
-    assert config['kwargs']['multiplicity'] == 2
+    assert config['kwargs']['mult'] == 2
 
     # Make sure extra arguments get passed through
     config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn', test='yeah')
