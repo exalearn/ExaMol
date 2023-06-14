@@ -92,11 +92,11 @@ class ASESimulator(BaseSimulator):
 
     The calculator supports calculations with the following codes:
 
-    - _XTB_: Tight binding using the GFN2-xTB parameterization
-    - _Gaussian_: Supports any of the methods and basis sets of Gaussian
+    - *XTB*: Tight binding using the GFN2-xTB parameterization
+    - *Gaussian*: Supports any of the methods and basis sets of Gaussian
       using names of the format ``gaussian_[method]_[basis]``. Supply
       additional arguments to Gaussian as keyword arguments.
-    - _CP2K_: Supports only a few combinations of basis sets and XC functions,
+    - *CP2K*: Supports only a few combinations of basis sets and XC functions,
       those for which we have determined appropriate cutoff energies:
       ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
 

@@ -119,8 +119,8 @@ The starting data for a project is a line-delimited JSON describing what molecul
 Each line of the file is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
 
 We recommend creating the initial database by running a seed set of molecules with a purpose-built scripts.
-
-.. note:: I'll upload some example scripts soon and describe them here.
+See our `validation scripts from the redoxmer example <https://github.com/exalearn/ExaMol/tree/main/scripts/redoxmers/check-chemistry-settings>`_
+to see how to run simulations outside of the ``examol`` CLI then compile them into a database.
 
 Machine Learning
 ~~~~~~~~~~~~~~~~
