@@ -12,6 +12,7 @@ from ase.db import connect
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGSLineSearch
+from ase.calculators.gaussian import Gaussian
 
 import examol.utils.conversions
 from . import utils
@@ -54,7 +55,7 @@ _cp2k_inp = """&FORCE_EVAL
 &END FORCE_EVAL
 """
 
-# Solvent data (solvent name -> (gamma, e0) for CP2K, solvent name - xTB name for xTB)
+# Solvent data (solvent name -> (gamma, e0) for CP2K, solvent name - xTB/G name for xTB/G)
 _solv_data = {
     'acn': (
         29.4500,  # http://www.ddbst.com/en/EED/PCP/SFT_C3.php
@@ -62,6 +63,7 @@ _solv_data = {
     )
 }
 _xtb_solv_names = {'acn': 'acetonitrile'}
+_gaussian_solv_names = {'acn': 'acetonitrile'}
 
 
 def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: str) -> str:
@@ -88,20 +90,33 @@ def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: s
 class ASESimulator(BaseSimulator):
     """Use ASE to perform quantum chemistry calculations
 
+    The calculator supports calculations with the following codes:
+
+    - _XTB_: Tight binding using the GFN2-xTB parameterization
+    - _Gaussian_: Supports any of the methods and basis sets of Gaussian
+      using names of the format ``gaussian_[method]_[basis]``. Supply
+      additional arguments to Gaussian as keyword arguments.
+    - _CP2K_: Supports only a few combinations of basis sets and XC functions,
+      those for which we have determined appropriate cutoff energies:
+      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
+
+
     Args:
         cp2k_command: Command to launch CP2K
+        gaussian_command: Command to launch Gaussian. Only the path to the executable is generally needed
         scratch_dir: Path in which to create temporary directories
         clean_after_run: Whether to clean output files after a run exits successfully
         ase_db_path: Path to an ASE db in which to store results
-
     """
     def __init__(self,
                  cp2k_command: str | None = None,
+                 gaussian_command: str | None = None,
                  scratch_dir: Path | str | None = None,
                  clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None):
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
+        self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
 
@@ -112,6 +127,31 @@ class ASESimulator(BaseSimulator):
                 assert solvent in _xtb_solv_names
                 kwargs['solvent'] = _xtb_solv_names[solvent]
             return {'name': 'xtb', 'kwargs': kwargs, 'accuracy': 0.05}
+        elif name.startswith('gaussian_'):
+            # Unpack the name
+            if name.count("_") != 2:
+                raise ValueError('Detected the wrong number of separators. Names for the XC function and basis set should not include underscores.')
+            _, xc, basis = name.split("_")
+
+            # Create additional options
+            add_options = {}
+            if solvent is not None:
+                add_options['SCRF'] = f'Solvent={_gaussian_solv_names.get(solvent, solvent)}'
+
+            # Build the specification
+            return {
+                'name': 'gaussian',
+                'kwargs': {
+                    'command': self.gaussian_command,
+                    'chk': 'gauss.chk',
+                    'basis': basis,
+                    'method': xc,
+                    'charge': charge,
+                    'mult': abs(charge) + 1,  # Assume the worst
+                    **add_options,
+                    **kwargs
+                }
+            }
         elif name.startswith('cp2k_blyp'):
             # Get the name the basis set
             basis_set_id = name.rsplit('_')[-1]

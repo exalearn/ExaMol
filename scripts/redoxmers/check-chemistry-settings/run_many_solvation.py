@@ -1,11 +1,10 @@
 """Evaluate the molecules from a list prepared by Naveen Dandu"""
 from examol.simulate.ase import ASESimulator
 from examol.simulate.base import SimResult
-from examol.simulate.initialize import generate_inchi_and_xyz
 from parsl.executors import HighThroughputExecutor
 from parsl.addresses import address_by_hostname
-from parsl.launchers import SimpleLauncher
-from parsl.providers import PBSProProvider
+from parsl.launchers import SimpleLauncher, SrunLauncher
+from parsl.providers import PBSProProvider, SlurmProvider
 from parsl.app.python import PythonApp
 from parsl import Config
 from concurrent.futures import as_completed
@@ -17,30 +16,32 @@ import pickle as pkl
 import pandas as pd
 import parsl
 import json
-import os
 
 if __name__ == "__main__":
     # Parse the inputs
     parser = ArgumentParser()
-    parser.add_argument('--cp2k-configuration', default='cp2k_blyp_szv')
-    parser.add_argument('--nodes-per-cp2k', default=1, type=int)
-    parser.add_argument('--num-parallel', default=2, type=int)
-    parser.add_argument('--max-to-run', default=None, type=int)
+    parser.add_argument('--system', choices=['bebop', 'local', 'polaris'], help='The system on which we are running')
+    parser.add_argument('--configuration', default='cp2k_blyp_szv', help='Name of the ExaMol configuration')
+    parser.add_argument('--nodes-per-task', default=1, type=int, help='Number of nodes to use per task')
+    parser.add_argument('--num-parallel', default=2, type=int, help='Number of nodes to run in parallel')
+    parser.add_argument('--max-to-run', default=None, type=int, help='Maximum number of tasks to run')
     parser.add_argument('--solvent', default='acn', help='Which solvent to use')
     args = parser.parse_args()
-    config_name = args.cp2k_configuration
+    config_name = args.configuration
 
     # Make the ASE calculator
     #  Call with a local host file defined by the worker's rank
     #  See: https://docs.alcf.anl.gov/polaris/queueing-and-running-jobs/example-job-scripts/#multi-node-ensemble-calculations-example
     cwd = Path().cwd().absolute()
     sim = ASESimulator(
-        scratch_dir='cp2k-files',
-        cp2k_buffer=6.0,
-        cp2k_command=f'mpiexec -n {args.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                     f'--hostfile {cwd}/hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.`printf %02d $((PARSL_WORKER_RANK+1))` '
+        scratch_dir='ase-files',
+        ase_db_path='data.db',
+        gaussian_command='g16',  # Hard-coded for Bebop
+        cp2k_command=f'mpiexec -n {args.nodes_per_task * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
+                     f'--hostfile /tmp/hostfiles/$PBS_JOBID/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
-                     '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',
+                     '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',  # Hard-coded for polaris for now
+
     )
 
     # Load in the geometries
@@ -56,17 +57,15 @@ if __name__ == "__main__":
         already_ran = set()
 
     # Make the parsl configuration
-    config = Config(
-        retries=1,
-        executors=[
-            HighThroughputExecutor(
-                address=address_by_hostname(),
-                prefetch_capacity=0,  # Increase if you have many more tasks than workers
-                start_method="fork",  # Needed to avoid interactions between MPI and os.fork
-                max_workers=args.num_parallel,
-                provider=PBSProProvider(
-                    account="CSC249ADCD08",
-                    worker_init=f"""
+    if args.system == 'polaris':
+        htex = HighThroughputExecutor(
+            address=address_by_hostname(),
+            prefetch_capacity=0,  # Increase if you have many more tasks than workers
+            start_method="fork",  # Needed to avoid interactions between MPI and os.fork
+            max_workers=args.num_parallel,
+            provider=PBSProProvider(
+                account="CSC249ADCD08",
+                worker_init=f"""
 module reset
 module swap PrgEnv-nvhpc PrgEnv-gnu
 module load conda
@@ -76,21 +75,51 @@ module list
 cd {cwd}
 hostname
 pwd
-mkdir -p hostfiles/$PBS_JOBID
-split --lines={args.nodes_per_cp2k} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE hostfiles/$PBS_JOBID/local_hostfile.{args.cp2k_configuration}.
+mkdir -p /tmp/hostfiles/$PBS_JOBID
+split --lines={args.nodes_per_task} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE /tmp/hostfiles/$PBS_JOBID/local_hostfile.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                    walltime="6:00:00",
-                    queue="preemptable",
-                    scheduler_options="#PBS -l filesystems=home:eagle:grand",
-                    launcher=SimpleLauncher(),
-                    select_options="ngpus=4",
-                    nodes_per_block=args.num_parallel * args.nodes_per_cp2k,
-                    min_blocks=0,
-                    max_blocks=10,
-                    cpus_per_node=64,
-                ),
+                walltime="6:00:00",
+                queue="preemptable",
+                scheduler_options="#PBS -l filesystems=home:eagle:grand",
+                launcher=SimpleLauncher(),
+                select_options="ngpus=4",
+                nodes_per_block=args.num_parallel * args.nodes_per_task,
+                min_blocks=0,
+                max_blocks=10,
+                cpus_per_node=64,
             ),
-        ]
+        )
+    elif args.system == 'bebop':
+        htex = HighThroughputExecutor(
+            label='bebop_gaussian',
+            address=address_by_hostname(),
+            max_workers=1,  # Only one task per job
+            provider=SlurmProvider(
+                partition='knlall',
+                launcher=SrunLauncher(),
+                nodes_per_block=args.nodes_per_task,
+                init_blocks=args.num_parallel,
+                min_blocks=0,
+                max_blocks=args.num_parallel,
+                scheduler_options="#SBATCH --account=ML-for-Redox",
+                worker_init='''
+module load gaussian/16-a.03
+export GAUSS_SCRDIR=/scratch
+export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
+export GAUSS_CDEF=0-63
+export GAUSS_MDEF=30GB
+export GAUSS_SDEF=ssh
+export GAUSS_LFLAGS="-vv"''',
+                walltime="20:00:00"
+            )
+        )
+
+    else:
+        raise ValueError(f'System not recognized')
+
+    config = Config(
+        retries=1,
+        executors=[htex],
     )
     parsl.load(config)
 
@@ -126,6 +155,7 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
             res = future.result()
             print(json.dumps({
                 **future.info,
+                'system': args.system,
                 'config_name': config_name,
                 'solvent': args.solvent,
                 'energy': res[0].energy,
