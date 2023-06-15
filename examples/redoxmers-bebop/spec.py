@@ -1,6 +1,5 @@
 """Specification of the optimization problem"""
 from pathlib import Path
-import shutil
 
 from parsl import Config, HighThroughputExecutor
 from parsl.addresses import address_by_hostname

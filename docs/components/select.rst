@@ -25,6 +25,10 @@ ExaMol includes selectors that have a variety of characteristics
      - Baseline
      - ✘
      - ✘
+   * - :class:`~examol.select.bayes.ExpectedImprovement`
+     - Bayesian
+     - ✘
+     - ✘
 
 Using a Selector
 ----------------
