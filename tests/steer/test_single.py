@@ -61,7 +61,7 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     # Make parsl configuration
     config = Config(
         run_dir=str(tmp_path),
-        executors=[HighThroughputExecutor(start_method='thread', max_workers=1)]
+        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1)]
     )
 
     doer = ParslTaskServer(
