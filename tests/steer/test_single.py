@@ -62,7 +62,7 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     # Make parsl configuration
     config = Config(
         run_dir=str(tmp_path),
-        executors=[HighThroughputExecutor(start_method='thread', max_workers=1)]
+        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='localhost')]
     )
 
     doer = ParslTaskServer(
@@ -97,7 +97,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
     )
 
 
-@mark.timeout(45)
+@mark.timeout(120)
 def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
@@ -122,7 +122,7 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
 
 
-@mark.timeout(45)
+@mark.timeout(120)
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 
