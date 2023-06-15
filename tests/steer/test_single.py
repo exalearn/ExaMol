@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
+from examol.start.fast import RandomStarter
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
@@ -26,7 +27,7 @@ def recipe() -> RedoxEnergy:
 def training_set(recipe) -> list[MoleculeRecord]:
     """Make a starting training set"""
     output = []
-    for i, smiles in enumerate(['C', 'CC', 'CCC']):
+    for i, smiles in enumerate(['CCCC', 'CCO']):
         record = MoleculeRecord.from_identifier(smiles)
         record.properties[recipe.name] = {recipe.level: i}
         output.append(record)
@@ -35,7 +36,7 @@ def training_set(recipe) -> list[MoleculeRecord]:
 
 @fixture()
 def search_space() -> list[MoleculeRecord]:
-    return [MoleculeRecord.from_identifier(x) for x in ['CO', 'CCCC', 'CCO']]
+    return [MoleculeRecord.from_identifier(x) for x in ['C', 'N', 'O', 'Cl']]
 
 
 @fixture()
@@ -87,6 +88,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         recipe=recipe,
         database=training_set,
         scorer=scorer,
+        starter=RandomStarter(4, 1),
         models=[model],
         selector=RandomSelector(10),
         num_workers=1,
@@ -106,6 +108,11 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     # Run it
     thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
+
+    # Check if there are points where the
+    run_log = (thinker.run_dir / 'run.log').read_text().splitlines(keepends=False)
+    assert any('Training set is smaller than the threshold size (2<4)' in x for x in run_log)
+    assert any('Too few to entries to train. Waiting for 4' in x for x in run_log)
 
     # Check the output files
     with (thinker.run_dir / 'inference-results.json').open() as fp:

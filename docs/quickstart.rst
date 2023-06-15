@@ -118,9 +118,15 @@ Starting Data
 The starting data for a project is a line-delimited JSON describing what molecular properties are already known.
 Each line of the file is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
 
-We recommend creating the initial database by running a seed set of molecules with a purpose-built scripts.
-See our `validation scripts from the redoxmer example <https://github.com/exalearn/ExaMol/tree/main/scripts/redoxmers/check-chemistry-settings>`_
-to see how to run simulations outside of the ``examol`` CLI then compile them into a database.
+Use a `starter <components/start.html>`_ method if your dataset is too small to train machine learning models.
+The default for ExaMol is to train so long as there are 10 molecules available for training,
+and select computations randomly by default.
+
+.. tip::
+
+    We recommend creating the initial database by running a seed set of molecules with a purpose-built scripts.
+    See our `validation scripts from the redoxmer example <https://github.com/exalearn/ExaMol/tree/main/scripts/redoxmers/check-chemistry-settings>`_
+    to see how to run simulations outside of the ``examol`` CLI then compile them into a database.
 
 Machine Learning
 ~~~~~~~~~~~~~~~~

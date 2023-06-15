@@ -9,5 +9,6 @@ The ExaMol library is built around components each dedicated to different aspect
     score
     select
     simulate
+    start
     steer
     store
