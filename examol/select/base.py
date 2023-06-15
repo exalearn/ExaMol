@@ -5,6 +5,9 @@ from typing import Iterator
 
 import numpy as np
 
+from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe
+
 
 class Selector:
     """Base class for selection algorithms
@@ -56,6 +59,15 @@ class Selector:
         """Prepare to generate batches of new computations"""
         self.gathering = False
 
+    def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
+        """Update the selector given the current database
+
+        Args:
+            database: Known molecules
+            recipe: Recipe being optimized
+        """
+        pass
+
     def dispense(self) -> Iterator[tuple[object, float]]:
         """Dispense selected computations from highest- to least-rated.
 
@@ -83,8 +95,8 @@ class RankingSelector(Selector):
         self.maximize = maximize
         super().__init__(to_select)
 
-    def _update_best(self, keys: list, score: np.ndarray):
-        """Update the list of best choices"""
+    def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
+        score = self._assign_score(samples)
         nbest = heapq.nlargest if self.maximize else heapq.nsmallest
         self._options = nbest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
 
@@ -94,3 +106,6 @@ class RankingSelector(Selector):
     def start_gathering(self):
         super().start_gathering()
         self._options.clear()
+
+    def _assign_score(self, samples: np.ndarray) -> np.ndarray:
+        raise NotImplementedError()

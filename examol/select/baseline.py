@@ -28,6 +28,6 @@ class RandomSelector(Selector):
 class GreedySelector(RankingSelector):
     """Select computations which are rated the best without any regard to model uncertainty"""
 
-    def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
+    def _assign_score(self, samples):
         mean = np.mean(samples, axis=1)
-        self._update_best(keys, mean)
+        return mean
