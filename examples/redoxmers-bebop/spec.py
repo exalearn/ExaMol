@@ -69,7 +69,7 @@ run_dir = my_path / 'run'
 spec = ExaMolSpecification(
     database=run_dir / 'database.json',
     recipe=recipe,
-    search_space=(my_path / 'search_space.smi'),
+    search_space=(my_path / 'search-space.smi'),
     selector=GreedySelector(8, maximize=True),
     starter=RandomStarter(threshold=10, min_to_select=1),
     simulator=sim,
