@@ -124,10 +124,11 @@ class ExaMolSpecification:
         """
 
         output = []
-        with open(self.database) as fp:
-            for line in fp:
-                output.append(MoleculeRecord.from_json(line))
-        logger.info(f'Loaded {len(output)} records from {self.database}')
+        if self.database.exists():
+            with open(self.database) as fp:
+                for line in fp:
+                    output.append(MoleculeRecord.from_json(line))
+            logger.info(f'Loaded {len(output)} records from {self.database}')
         return output
 
     def load_search_space(self) -> Iterator[tuple[str, object]]:
