@@ -224,6 +224,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         n_tasks = n_models * n_chunks
 
         # Reset the selector
+        self.selector.update(self.database, self.recipe)
         self.selector.start_gathering()
 
         # Gather all inference results
