@@ -13,7 +13,7 @@ from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.recipes import RedoxEnergy
-from examol.select.baseline import GreedySelector
+from examol.select.bayes import ExpectedImprovement
 from examol.specify import ExaMolSpecification
 
 # Get my path. We'll want to provide everything as absolute paths, as they are relative to this file
@@ -69,7 +69,7 @@ spec = ExaMolSpecification(
     database=run_dir / 'database.json',
     recipe=recipe,
     search_space=(my_path / 'search-space.smi'),
-    selector=GreedySelector(8, maximize=True),
+    selector=ExpectedImprovement(1, maximize=True, epsilon=0.1),
     starter=RandomStarter(threshold=10, min_to_select=1),
     simulator=sim,
     scorer=scorer,
