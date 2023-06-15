@@ -1,4 +1,6 @@
 """Implementations of classes which identify which computations should be performed next"""
+import heapq
+from itertools import chain
 from typing import Iterator
 
 import numpy as np
@@ -66,3 +68,29 @@ class Selector:
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
         raise NotImplementedError()
+
+
+class RankingSelector(Selector):
+    """Base class where each option is assigned a single score,
+    and we pick the calculations with the highest or lowest score
+
+    Args:
+        to_select: How many computations to select per batch
+        maximize: Whether to select entries with the highest score
+    """
+    def __init__(self, to_select: int, maximize: bool = True):
+        self._options: list[tuple[object, float]] = []
+        self.maximize = maximize
+        super().__init__(to_select)
+
+    def _update_best(self, keys: list, score: np.ndarray):
+        """Update the list of best choices"""
+        nbest = heapq.nlargest if self.maximize else heapq.nsmallest
+        self._options = nbest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
+
+    def _dispense(self) -> Iterator[tuple[object, float]]:
+        yield from self._options
+
+    def start_gathering(self):
+        super().start_gathering()
+        self._options.clear()
