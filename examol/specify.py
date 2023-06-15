@@ -16,6 +16,8 @@ from examol.reporting.base import BaseReporter
 from examol.score.base import Scorer
 from examol.select.base import Selector
 from examol.simulate.base import BaseSimulator
+from examol.start.base import Starter
+from examol.start.fast import RandomStarter
 from examol.steer.base import MoleculeThinker
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
@@ -45,6 +47,8 @@ class ExaMolSpecification:
     search_space: Path | str = ...
     """Path to the molecules over which to search. Can either be a `.smi` file or a `.csv` where the first column
     is the smiles string and the second is a form ready for inference with :attr:`scorer`."""
+    starter: Starter = RandomStarter(threshold=10, min_to_select=1)
+    """How to initialize the database if too small. Default: Pick a single random molecule"""
     selector: Selector = ...
     """How to identify which computation to perform next"""
     scorer: Scorer = ...
@@ -101,6 +105,7 @@ class ExaMolSpecification:
             run_dir=self.run_dir,
             recipe=self.recipe,
             search_space=self.load_search_space(),
+            starter=self.starter,
             database=self.load_database(),
             scorer=self.scorer,
             models=self.models.copy(),

@@ -8,11 +8,13 @@ from pathlib import Path
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
-from colmena.thinker import event_responder, task_submitter, ResourceCounter, result_processor
+from colmena.thinker import event_responder, task_submitter, ResourceCounter, result_processor, agent
+from more_itertools import interleave_longest
 
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
+from ..start.base import Starter
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
 
@@ -28,6 +30,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         scorer: Tool used as part of model training
         models: Models used to predict target property
         selector: Tool used to pick which computations to run
+        starter: How to pick calculations before enough data are available
         num_to_run: Number of molecules to evaluate
         search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
         num_workers: Number of simulation tasks to run in parallel
@@ -41,6 +44,7 @@ class SingleObjectiveThinker(MoleculeThinker):
                  database: list[MoleculeRecord],
                  scorer: Scorer,
                  models: list[object],
+                 starter: Starter,
                  selector: Selector,
                  num_to_run: int,
                  search_space: Iterable[tuple[str, object]],
@@ -52,6 +56,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.models = models.copy()
         self.scorer = scorer
         self.selector = selector
+        self.starter = starter
 
         # Attributes related to simulation
         self.recipe = recipe
@@ -67,9 +72,6 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Coordination tools
         self.start_inference: Event = Event()
         self.start_training: Event = Event()
-
-        # Start by training
-        self.start_training.set()
 
     def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
         """Iterate over the next tasks in the task queue"""
@@ -101,6 +103,28 @@ class SingleObjectiveThinker(MoleculeThinker):
 
             for suggestion in suggestions:
                 yield record, suggestion
+
+    @agent(startup=True)
+    def startup(self):
+        """Pre-populate the database, if needed."""
+
+        # Determine how many training points are available
+        train_size = len(self._get_training_set())
+
+        # If enough, start by training
+        if train_size > self.starter.threshold:
+            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.starter.threshold}). Starting model training')
+            self.start_training.set()
+            return
+
+        # If not, pick some
+        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
+        needed = self.starter.threshold - train_size
+        subset = self.starter.select(interleave_longest(*self.search_space_keys), needed)
+        self.logger.info(f'Selected {len(subset)} molecules to run')
+        with self.task_queue_lock:
+            for key in subset:
+                self.task_queue.append((key, np.nan))  # All get the same score
 
     @task_submitter()
     def submit_simulation(self):
@@ -233,7 +257,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         with self.task_queue_lock:
             self.task_queue.clear()
             for key, score in self.selector.dispense():
-                self.task_queue.append((key, score))
+                self.task_queue.append((str(key), score))
 
             # Notify anyone waiting on more tasks
             self.task_queue_lock.notify_all()
@@ -244,8 +268,13 @@ class SingleObjectiveThinker(MoleculeThinker):
         """Retrain all models"""
 
         # Get the training set
-        train_set = [x for x in list(self.database.values()) if self.recipe.lookup(x) is not None]
+        train_set = self._get_training_set()
         self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining')
+
+        # If too small, stop
+        if len(train_set) < self.starter.threshold:
+            self.logger.info(f'Too few to entries to train. Waiting for {self.starter.threshold}')
+            return
 
         # Process to form the inputs and outputs
         train_inputs = self.scorer.transform_inputs(train_set)
@@ -277,3 +306,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.logger.info('Finished training all models')
 
         self.start_inference.set()
+
+    def _get_training_set(self) -> list[MoleculeRecord]:
+        """Gather molecules for which the target property is available"""
+        return [x for x in list(self.database.values()) if self.recipe.lookup(x) is not None]
