@@ -37,7 +37,7 @@ jobs:
         sudo apt-get update
         sudo apt install -y cp2k
     - name: Test with pytest
-      run: pytest --cov=examol --timeout=300 tests
+      run: pytest --cov=examol --forked --timeout=300 tests
     - name: Coveralls
       run: |
         pip install coveralls
