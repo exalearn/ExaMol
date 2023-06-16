@@ -34,7 +34,7 @@ def test_full(caplog):
 @mark.timeout(240)
 def test_timeout(caplog):
     with caplog.at_level(logging.INFO):
-        main(['run', '--timeout', '5', f'{_spec_dir / "spec.py"}:spec'])
+        main(['run', '--timeout', '0', f'{_spec_dir / "spec.py"}:spec'])
     assert any(m.startswith('Find run details in') for m in caplog.messages)
 
     # Make sure the database got reported

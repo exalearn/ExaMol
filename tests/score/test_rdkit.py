@@ -3,6 +3,7 @@ import numpy as np
 from pytest import fixture, raises
 from sklearn.pipeline import Pipeline
 
+from examol.score.rdkit.descriptors import compute_doan_2020_fingerprints
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.store.models import MoleculeRecord
 
@@ -50,3 +51,7 @@ def test_functions(training_set, scorer, pipeline, recipe):
     model_msg = scorer.prepare_message(pipeline)
     scores = scorer.score(model_msg, inputs)
     assert np.isclose(scores, outputs).all()
+
+
+def test_doan_descriptors():
+    compute_doan_2020_fingerprints('C')
