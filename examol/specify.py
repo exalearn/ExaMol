@@ -3,6 +3,7 @@ import json
 import logging
 from csv import reader
 from dataclasses import dataclass, field
+from functools import update_wrapper
 from pathlib import Path
 from typing import Iterator
 
@@ -11,6 +12,7 @@ from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from more_itertools import batched
 from parsl import Config
+from pydantic.main import partial
 
 from examol.reporting.base import BaseReporter
 from examol.score.base import Scorer
@@ -60,6 +62,10 @@ class ExaMolSpecification:
     num_to_run: int = ...
     """Number of quantum chemistry computations to perform"""
 
+    # Options for key operations
+    train_options: dict = field(default_factory=dict)
+    """Options passed to the :py:meth:`~examol.score.base.Scorer.retrain` function"""
+
     # Define how we create the thinker
     thinker: type[SingleObjectiveThinker] = ...
     """Policy used to schedule computations"""
@@ -82,12 +88,20 @@ class ExaMolSpecification:
         # TODO (wardlt): Add proxystore support
         queues = PipeQueues(topics=['inference', 'simulation', 'train'])
 
+        # Pin options to some functions
+        def _wrap_function(fun, options: dict):
+            wrapped_fun = partial(fun, **options)
+            update_wrapper(wrapped_fun, fun)
+            return wrapped_fun
+
+        train_func = _wrap_function(self.scorer.retrain, **self.train_options)
+
         # Determine how methods are partitioned to executors
         exec_names = set(x.label for x in self.compute_config.executors)
         if len(exec_names) == 1:  # Case 1: All to the
-            methods = [self.scorer.score, self.scorer.retrain, self.simulator.optimize_structure, self.simulator.compute_energy]
+            methods = [self.scorer.score, train_func, self.simulator.optimize_structure, self.simulator.compute_energy]
         elif exec_names == {'learning', 'simulation'}:
-            methods = [(x, {'executors': ['learning']}) for x in [self.scorer.score, self.scorer.retrain]]
+            methods = [(x, {'executors': ['learning']}) for x in [self.scorer.score, train_func]]
             methods += [(x, {'executors': ['simulation']}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
         else:
             raise NotImplementedError(f'We do not support the executor layout: {",".join(exec_names)}')
