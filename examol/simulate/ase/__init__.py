@@ -9,7 +9,7 @@ from time import perf_counter
 import ase
 from ase import units
 from ase.db import connect
-from ase.io import Trajectory, iread, read
+from ase.io import Trajectory, read
 from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGSLineSearch
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
@@ -236,33 +236,37 @@ METHOD ANDREUSSI
                     except InvalidULMFileError:
                         pass
 
+                # Special case: use Gaussian's optimizer
+                if isinstance(calc, Gaussian):
+                    # Start the optimization
+                    dyn = GaussianOptimizer(atoms, calc)
+                    dyn.run(fmax='tight', steps=100, opt='calcfc')
+
+                    # Read the energies from the output file
+                    traj = read('Gaussian.log', index=':')
+                    out_strc = examol.utils.conversions.write_to_string(traj[-1], 'xyz')
+                    out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                           xyz=out_strc, energy=traj[-1].get_potential_energy())
+                    return out_result, [], json.dumps({'runtime': perf_counter() - start_time})
+
                 # Attach the calculator
                 atoms.calc = calc
 
-                # Run the optimization
-                if isinstance(calc, Gaussian):
-                    dyn = GaussianOptimizer(atoms)
-                    dyn.run(fmax='tight', steps=100, opt='calcfc')
+                # Make the optimizer
+                dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
 
-                    # Read the trajectory
-                    traj_lst = read('Gaussian.log', index=':', format='gaussian-out')
-                else:
-                    # Make the optimizer
-                    dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
+                # Reply the trajectory
+                if Path('history.traj').is_file():
+                    dyn.replay_trajectory('history.traj')
+                    os.unlink('history.traj')
 
-                    # Reply the trajectory
-                    if Path('history.traj').is_file():
-                        dyn.replay_trajectory('history.traj')
-                        os.unlink('history.traj')
+                # Run an optimization
+                dyn.run(fmax=0.02, steps=250)
 
-                    # Run an optimization
-                    dyn.run(fmax=0.02, steps=250)
-
-                    # Get the trajectory
-                    out_traj = []
-                    with Trajectory(str(traj_path), mode='r') as traj:
-                        # Get all atoms in the trajectory
-                        traj_lst = [a for a in traj]
+                # Get the trajectory
+                with Trajectory(str(traj_path), mode='r') as traj:
+                    # Get all atoms in the trajectory
+                    traj_lst = [a for a in traj]
 
             # Store atoms in the database
             if self.ase_db_path is not None:
@@ -270,6 +274,7 @@ METHOD ANDREUSSI
                 self.update_database(traj_lst, config_name, charge, solvent)
 
             # Convert to the output format
+            out_traj = []
             out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
@@ -280,7 +285,8 @@ METHOD ANDREUSSI
                 out_traj.append(traj_res)
 
             # Read in the output log
-            out_log = Path('opt.log').read_text()
+            out_path = Path('opt.log')
+            out_log = out_path.read_text() if out_path.is_file() else None
 
             # Delete the run directory
             if self.clean_after_run:

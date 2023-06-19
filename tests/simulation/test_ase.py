@@ -163,3 +163,11 @@ def test_gaussian_configs(strc):
     # Make sure the configuration can be mapped to a Gaussian calculator
     with make_ephemeral_calculator(config) as calc:
         assert isinstance(calc, Gaussian)
+
+
+def test_gaussian_opt(strc):
+    sim = ASESimulator(gaussian_command='g16', clean_after_run=False)
+    init, _ = sim.compute_energy(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
+
+    relaxed, traj, _ = sim.optimize_structure(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
+    assert init.energy > relaxed.energy
