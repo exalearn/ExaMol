@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from shutil import which
 from unittest.mock import patch
 
 from ase import units
@@ -165,6 +166,7 @@ def test_gaussian_configs(strc):
         assert isinstance(calc, Gaussian)
 
 
+@mark.skipif(which('g16') is None, reason='Gaussian is not installed')
 def test_gaussian_opt(strc):
     sim = ASESimulator(gaussian_command='g16', clean_after_run=False)
     init, _ = sim.compute_energy(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
