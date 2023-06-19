@@ -136,7 +136,8 @@ class ASESimulator(BaseSimulator):
             # Create additional options
             add_options = {}
             if solvent is not None:
-                add_options['SCRF'] = f'Solvent={_gaussian_solv_names.get(solvent, solvent)}'
+                add_options['SCRF'] = f'PCM,Solvent={_gaussian_solv_names.get(solvent, solvent)}'
+            add_options['scf'] = 'xqc,MaxConventional=200'
 
             # Build the specification
             return {

@@ -20,3 +20,12 @@ examol.select.baseline
    :members:
    :undoc-members:
    :show-inheritance:
+
+examol.select.bayes
+-------------------
+
+.. automodule:: examol.select.bayes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

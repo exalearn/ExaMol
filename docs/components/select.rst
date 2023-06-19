@@ -25,17 +25,24 @@ ExaMol includes selectors that have a variety of characteristics
      - Baseline
      - ✘
      - ✘
+   * - :class:`~examol.select.bayes.ExpectedImprovement`
+     - Bayesian
+     - ✘
+     - ✘
 
 Using a Selector
 ----------------
 
 Selectors employ a batching strategy to work with very large search spaces.
 
-Start the selection process by creating the Selector then signaling that it should prepare to receive batches.
+Start the selection process by creating the Selector,
+updating it with the current database and objective function (i.e., recipe),
+then signaling that it should prepare to receive batches.
 
 .. code-block:: python
 
     selector = GreedySelector(to_select=2, maximize=True)
+    selector.update(database, recipe)
     selector.start_gathering()
 
 The Selector can then receive new predictions as a list of "keys" that define which computation

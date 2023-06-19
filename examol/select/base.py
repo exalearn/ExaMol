@@ -1,7 +1,12 @@
 """Implementations of classes which identify which computations should be performed next"""
+import heapq
+from itertools import chain
 from typing import Iterator
 
 import numpy as np
+
+from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe
 
 
 class Selector:
@@ -54,6 +59,15 @@ class Selector:
         """Prepare to generate batches of new computations"""
         self.gathering = False
 
+    def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
+        """Update the selector given the current database
+
+        Args:
+            database: Known molecules
+            recipe: Recipe being optimized
+        """
+        pass
+
     def dispense(self) -> Iterator[tuple[object, float]]:
         """Dispense selected computations from highest- to least-rated.
 
@@ -65,4 +79,33 @@ class Selector:
         yield from self._dispense()
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
+        raise NotImplementedError()
+
+
+class RankingSelector(Selector):
+    """Base class where each option is assigned a single score,
+    and we pick the calculations with the highest or lowest score
+
+    Args:
+        to_select: How many computations to select per batch
+        maximize: Whether to select entries with the highest score
+    """
+    def __init__(self, to_select: int, maximize: bool = True):
+        self._options: list[tuple[object, float]] = []
+        self.maximize = maximize
+        super().__init__(to_select)
+
+    def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
+        score = self._assign_score(samples)
+        nbest = heapq.nlargest if self.maximize else heapq.nsmallest
+        self._options = nbest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
+
+    def _dispense(self) -> Iterator[tuple[object, float]]:
+        yield from self._options
+
+    def start_gathering(self):
+        super().start_gathering()
+        self._options.clear()
+
+    def _assign_score(self, samples: np.ndarray) -> np.ndarray:
         raise NotImplementedError()
