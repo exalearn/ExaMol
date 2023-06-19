@@ -8,7 +8,7 @@ from parsl.providers import SlurmProvider
 
 from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
-from examol.score.rdkit import make_knn_model, RDKitScorer
+from examol.score.rdkit import RDKitScorer, make_gpr_model
 from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleObjectiveThinker
@@ -23,7 +23,7 @@ my_path = Path().absolute()
 recipe = RedoxEnergy(1, energy_config='gaussian_b3lyp_6-31(2df,p)', solvent='acn')
 
 # Make the scorer
-pipeline = make_knn_model()
+pipeline = make_gpr_model()
 scorer = RDKitScorer()
 
 # Mark how we report outcomes
