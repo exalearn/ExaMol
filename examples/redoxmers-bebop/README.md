@@ -7,10 +7,9 @@ We configured it to run on Bebop.
 
 ## Set Up
 
-Run `get_search_space.py` to get the search space.
+This example requires running a yet-unreleased version of ASE that supports Gaussian with >50 atoms. Install by
 
-Edit [`spec.py`](spec.py) to define how to launch Gaussian tasks
-
+`pip install git+https://gitlab.com/argon214/ase.git@gaussian`
 
 ## Running the example
 
@@ -21,3 +20,9 @@ examol run spec.py:spec
 ```
 
 It will output to `run` and eventually produce a file, `report.md`, that contains a summary of run.
+
+## Notes
+
+There are a few limitations to be aware of for now:
+
+1. We can only run a single Gaussian calculation per block of nodes

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from parsl import Config, HighThroughputExecutor
 from parsl.addresses import address_by_hostname
-from parsl.launchers import SrunLauncher
+from parsl.launchers import SimpleLauncher
 from parsl.providers import SlurmProvider
 
 from examol.reporting.database import DatabaseWriter
@@ -43,8 +43,8 @@ htex = HighThroughputExecutor(
     max_workers=1,  # Only one task per job
     provider=SlurmProvider(
         partition='knlall',
-        launcher=SrunLauncher(),
-        nodes_per_block=1,
+        launcher=SimpleLauncher(),
+        nodes_per_block=2,
         max_blocks=1,
         scheduler_options="#SBATCH --account=ML-for-Redox",
         worker_init='''
@@ -52,7 +52,7 @@ module load gaussian/16-a.03
 export GAUSS_SCRDIR=/scratch
 export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
 export GAUSS_CDEF=0-63
-export GAUSS_MDEF=30GB
+export GAUSS_MDEF=50GB
 export GAUSS_SDEF=ssh
 export GAUSS_LFLAGS="-vv"''',
         walltime="20:00:00"
