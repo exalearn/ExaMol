@@ -125,6 +125,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         with self.task_queue_lock:
             for key in subset:
                 self.task_queue.append((key, np.nan))  # All get the same score
+            self.task_queue_lock.notify_all()
 
     @task_submitter()
     def submit_simulation(self):
