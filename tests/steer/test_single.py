@@ -20,7 +20,7 @@ from examol.store.recipes import RedoxEnergy
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='xtb', vertical=False)
+    return RedoxEnergy(charge=1, energy_config='xtb', vertical=True)
 
 
 @fixture()
@@ -36,7 +36,7 @@ def training_set(recipe) -> list[MoleculeRecord]:
 
 @fixture()
 def search_space() -> list[MoleculeRecord]:
-    return [MoleculeRecord.from_identifier(x) for x in ['C', 'N', 'O', 'Cl']]
+    return [MoleculeRecord.from_identifier(x) for x in ['C', 'N', 'O', 'Cl', 'S']]
 
 
 @fixture()
@@ -67,7 +67,7 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 
     doer = ParslTaskServer(
         queues=queues,
-        methods=[scorer.score, simulator.optimize_structure, scorer.retrain],
+        methods=[scorer.score, simulator.optimize_structure, simulator.compute_energy, scorer.retrain],
         config=config,
         timeout=15,
     )
@@ -92,7 +92,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         models=[model],
         selector=RandomSelector(10),
         num_workers=1,
-        num_to_run=2,
+        num_to_run=3,
         search_space=zip([x.identifier.smiles for x in search_space], scorer.transform_inputs(search_space)),
     )
 
