@@ -1,7 +1,7 @@
 """Scorers that rely on RDKit and sklearn"""
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
-from typing import Callable
+from typing import Callable, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -60,7 +60,7 @@ def make_knn_model(n_neighbors: int = 2, length: int = 256, radius: int = 4, n_j
     ])
 
 
-def make_gpr_model(num_pcs: int | None = None, max_pcs: int = 10, k: int = 3) -> Pipeline | GridSearchCV:
+def make_gpr_model(num_pcs: int | None = None, max_pcs: int = 10, k: int = 3) -> Union[GridSearchCV, Pipeline]:
     """Make a Gaussian process regression model using the features of
     `Doan et al. <https://pubs.acs.org/doi/10.1021/acs.chemmater.0c00768>`_
     and feature selection based on PCA

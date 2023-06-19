@@ -26,6 +26,9 @@ ExaMol provides interfaces to several libraries which support ML on molecular pr
       - Neural networks based on the `Neural Fingerprints (nfp) library <https://github.com/NREL/nfp>`_,
         which is backed by Tensorflow
 
+Modules for each type of learning algorithms provide helper functions to generate models.
+For example, :py:meth:`~examol.score.rdkit.make_knn_model` creates a KNN model.
+
 Using Scorers
 -------------
 
