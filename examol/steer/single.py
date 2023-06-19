@@ -82,7 +82,7 @@ class SingleObjectiveThinker(MoleculeThinker):
                 if len(self.task_queue) == 0:
                     self.logger.info('No tasks available to run. Waiting')
                     while not self.task_queue_lock.wait(timeout=10):
-                        if self.done.set():
+                        if self.done.is_set():
                             yield None, None
                 smiles, score = self.task_queue.pop(0)  # Get the next task
                 self.logger.info(f'Selected {smiles} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
