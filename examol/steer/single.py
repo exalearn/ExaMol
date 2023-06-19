@@ -81,7 +81,9 @@ class SingleObjectiveThinker(MoleculeThinker):
             with self.task_queue_lock:
                 if len(self.task_queue) == 0:
                     self.logger.info('No tasks available to run. Waiting')
-                    self.task_queue_lock.wait()
+                    while not self.task_queue_lock.wait(timeout=10):
+                        if self.done.set():
+                            yield None, None
                 smiles, score = self.task_queue.pop(0)  # Get the next task
                 self.logger.info(f'Selected {smiles} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
 
@@ -131,6 +133,8 @@ class SingleObjectiveThinker(MoleculeThinker):
     def submit_simulation(self):
         """Submit a simulation task when resources are available"""
         record, suggestion = next(self.task_iterator)
+        if record is None:
+            return  # The thinker is done
 
         if suggestion.optimize:
             self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
