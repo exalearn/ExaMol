@@ -4,7 +4,7 @@ from pytest import fixture, raises
 from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit.descriptors import compute_doan_2020_fingerprints
-from examol.score.rdkit import make_knn_model, RDKitScorer
+from examol.score.rdkit import make_knn_model, RDKitScorer, make_gpr_model
 from examol.store.models import MoleculeRecord
 
 
@@ -55,3 +55,16 @@ def test_functions(training_set, scorer, pipeline, recipe):
 
 def test_doan_descriptors():
     compute_doan_2020_fingerprints('C')
+
+
+def test_gpr(training_set, scorer, recipe):
+    pipeline = make_gpr_model()
+
+    # Test training
+    model_msg = scorer.prepare_message(pipeline)
+    inputs = scorer.transform_inputs(training_set)
+    outputs = scorer.transform_outputs(training_set, recipe)
+    update_msg = scorer.retrain(model_msg, inputs, outputs)
+    pipeline, scorer.update(pipeline, update_msg)
+
+    assert pipeline.best_estimator_.steps[1][1].n_components < 10
