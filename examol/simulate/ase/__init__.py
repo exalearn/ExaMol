@@ -116,7 +116,7 @@ class ASESimulator(BaseSimulator):
                  ase_db_path: Path | str | None = None):
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
-        self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
+        self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log 2> PREFIX.stderr'
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
 
