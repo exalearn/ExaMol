@@ -94,7 +94,7 @@ class ExaMolSpecification:
             update_wrapper(wrapped_fun, fun)
             return wrapped_fun
 
-        train_func = _wrap_function(self.scorer.retrain, **self.train_options)
+        train_func = _wrap_function(self.scorer.retrain, self.train_options)
 
         # Determine how methods are partitioned to executors
         exec_names = set(x.label for x in self.compute_config.executors)

@@ -21,7 +21,7 @@ class RDKitScorer(Scorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn
 
     Models must take a SMILES string as input.
-    Use the :class:`~.MoleculeParserTransformer` to transform the SMILES into an RDKit Mol object if needed.
+    Use the :class:`~.FingerprintTransformer` to transform the SMILES into an RDKit Mol object if needed.
     """
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
@@ -112,10 +112,11 @@ def make_gpr_model(num_pcs: int | None = None, max_pcs: int = 10, k: int = 3) ->
 
 
 class FingerprintTransformer(BaseEstimator, TransformerMixin):
-    """Class that converts RDKit Mols to fingerprint vectors
+    """Pipeline step which converts SMILES strings to fingerprint vectors
 
     Args:
-        function: Function which takes a screen and generates a
+        function: Function which takes a SMILES string and generates a vector of fingerprints
+        n_jobs: Number of fingerprinting tasks to run in parallel
     """
 
     def __init__(self, function: Callable[[str], np.ndarray], n_jobs: int | None = None):
