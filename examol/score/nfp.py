@@ -302,7 +302,6 @@ class NFPScorer(Scorer):
                 num_epochs: int = 4,
                 batch_size: int = 32,
                 validation_split: float = 0.1,
-                random_state: int = 1,
                 learning_rate: float = 1e-3,
                 device_type: str = 'gpu',
                 steps_per_exec: int = 1,
@@ -319,7 +318,6 @@ class NFPScorer(Scorer):
             num_epochs: Maximum number of epochs to run
             batch_size: Number of molecules per training batch
             validation_split: Fraction of molecules used for the training/validation split
-            random_state: Seed to the random number generator used for splitting data
             learning_rate: Learning rate for the Adam optimizer
             device_type: Type of device used for training
             steps_per_exec: Number of training steps to run per execution on acceleration

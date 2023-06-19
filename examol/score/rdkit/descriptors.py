@@ -5,17 +5,15 @@ from typing import Callable
 
 import numpy as np
 from rdkit import Chem
-import rdkit.Chem.Fragments as Fragments
-import rdkit.Chem.Crippen as Crippen
-import rdkit.Chem.Lipinski as Lipinski
-import rdkit.Chem.rdMolDescriptors as MolDescriptors
+from rdkit.Chem import rdMolDescriptors, DataStructs
+from rdkit.Chem import Fragments, Crippen, Lipinski
 
 # List of descriptors, populated once
 _descriptor_list: list[tuple[str, Callable]] = []
 
 _descriptor_list.extend((name, getattr(Fragments, name)) for name in dir(Fragments) if "fr" in name)
 _descriptor_list.extend((name, getattr(Lipinski, name)) for name in dir(Lipinski) if ("Count" in name and "Smarts" not in name))
-_descriptor_list.extend((name, getattr(MolDescriptors, name)) for name in dir(MolDescriptors)
+_descriptor_list.extend((name, getattr(rdMolDescriptors, name)) for name in dir(rdMolDescriptors)
                         if (("CalcNum" in name or "CalcExact" in name or "CalcTPSA" in name or "CalcChi" in name or "Kappa" in name or "Labute" in name)
                             and "Stereo" not in name and "_" not in name and "ChiN" not in name))
 _descriptor_list.extend((name, getattr(Crippen, name)) for name in dir(Crippen)
@@ -46,3 +44,23 @@ def compute_doan_2020_fingerprints(smiles: str) -> np.ndarray:
         except Exception:
             pass
     return output
+
+
+def compute_morgan_fingerprints(smiles: str, length: int = 256, radius: int = 4) -> np.ndarray:
+    """Compute the Morgan fingerprints for a molecule
+
+    Args:
+        smiles: SMILES string of molecule to be fingerprinted
+        length: Number of elements in the fingerprint vector
+        radius: Number of nearest neighbors to include in fingerprints
+    Returns:
+        Fingerprint vector
+    """
+    # Compute the fingerprint
+    mol = Chem.MolFromSmiles(smiles)
+    fingerprint = rdMolDescriptors.GetMorganFingerprintAsBitVect(
+        mol, radius, length
+    )
+    arr = np.zeros((1,), dtype=bool)
+    DataStructs.ConvertToNumpyArray(fingerprint, arr)
+    return arr
