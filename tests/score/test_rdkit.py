@@ -44,13 +44,13 @@ def test_functions(training_set, scorer, pipeline, recipe):
     # Test training
     inputs = scorer.transform_inputs(training_set)
     outputs = scorer.transform_outputs(training_set, recipe)
-    update_msg = scorer.retrain(model_msg, inputs, outputs)
+    update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=False)
     pipeline, scorer.update(pipeline, update_msg)
 
     # Test scoring
     model_msg = scorer.prepare_message(pipeline)
     scores = scorer.score(model_msg, inputs)
-    assert np.isclose(scores, outputs).all()
+    assert np.isclose(scores, outputs).all()  # KNN should fit the dataset perfectly
 
 
 def test_doan_descriptors():
