@@ -120,7 +120,7 @@ class ASESimulator(BaseSimulator):
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
 
-    def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> dict:
+    def create_configuration(self, name: str, xyz: str, charge: int, solvent: str | None, **kwargs) -> dict:
         if name == 'xtb':
             kwargs = {}
             if solvent is not None:
@@ -139,9 +139,16 @@ class ASESimulator(BaseSimulator):
                 add_options['SCRF'] = f'PCM,Solvent={_gaussian_solv_names.get(solvent, solvent)}'
             add_options['scf'] = 'xqc,MaxConventional=200'
 
+            n_atoms = int(xyz.split("\n", maxsplit=2)[0])
+            if n_atoms > 50:
+                # ASE requires the structure to be printed, and Gaussian requires special options to print structures larger than 50 atoms
+                #  See: https://gitlab.com/ase/ase/-/merge_requests/2909 and https://gaussian.com/overlay2/
+                add_options['ioplist'] = ["2/9=2000"]
+
             # Build the specification
             return {
                 'name': 'gaussian',
+                'use_gaussian_opt': n_atoms <= 50,
                 'kwargs': {
                     'command': self.gaussian_command,
                     'chk': 'gauss.chk',
@@ -204,7 +211,7 @@ METHOD ANDREUSSI
         start_time = perf_counter()  # Measure when we started
 
         # Make the configuration
-        calc_cfg = self.create_configuration(config_name, charge, solvent)
+        calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Parse the XYZ file into atoms
         atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
@@ -237,7 +244,7 @@ METHOD ANDREUSSI
                         pass
 
                 # Special case: use Gaussian's optimizer
-                if isinstance(calc, Gaussian):
+                if isinstance(calc, Gaussian) and calc_cfg['use_gaussian_opt']:
                     # Start the optimization
                     dyn = GaussianOptimizer(atoms, calc)
                     dyn.run(fmax='tight', steps=100, opt='calcfc')
@@ -318,7 +325,7 @@ METHOD ANDREUSSI
         start_time = perf_counter()  # Measure when we started
 
         # Make the configuration
-        calc_cfg = self.create_configuration(config_name, charge, solvent)
+        calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Make the run directory based on a hash of the input configuration
         run_hash = _compute_run_hash(charge, config_name, solvent, xyz)

@@ -12,6 +12,7 @@ from ase.calculators.lj import LennardJones
 
 from examol.simulate.ase import ASESimulator
 from examol.simulate.ase.utils import make_ephemeral_calculator
+from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.conversions import write_to_string
 
 
@@ -30,28 +31,31 @@ def strc() -> str:
     return write_to_string(atoms, 'xyz')
 
 
-def test_config_maker(tmpdir):
+def test_cp2k_configs(tmpdir, strc):
     sim = ASESimulator(scratch_dir=tmpdir)
 
     # Easy example
-    config = sim.create_configuration('cp2k_blyp_szv', charge=0, solvent=None)
+    config = sim.create_configuration('cp2k_blyp_szv', strc, charge=0, solvent=None)
     assert config['kwargs']['cutoff'] == 600 * units.Ry
 
     # With a charge
-    config = sim.create_configuration('cp2k_blyp_szv', charge=1, solvent=None)
+    config = sim.create_configuration('cp2k_blyp_szv', strc, charge=1, solvent=None)
     assert config['kwargs']['cutoff'] == 600 * units.Ry
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
 
     # With an undefined basis set
     with raises(AssertionError):
-        sim.create_configuration('cp2k_blyp_notreal', charge=1, solvent=None)
+        sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
 
+
+def test_xtb_configs(tmpdir, strc):
+    sim = ASESimulator(scratch_dir=tmpdir)
     # For xTB
-    config = sim.create_configuration('xtb', charge=0, solvent=None)
+    config = sim.create_configuration('xtb', strc, charge=0, solvent=None)
     assert config['kwargs'] == {}
 
-    config = sim.create_configuration('xtb', charge=0, solvent='acn')
+    config = sim.create_configuration('xtb', strc, charge=0, solvent='acn')
     assert config['kwargs'] == {'solvent': 'acetonitrile'}
 
 
@@ -103,7 +107,7 @@ def test_solvent(strc, tmpdir):
         # Run a test with a patched executor
         db_path = str(tmpdir / 'data.db')
         sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=True)
-        config = sim.create_configuration('cp2k_blyp_szv', solvent='acn', charge=0)
+        config = sim.create_configuration('cp2k_blyp_szv', strc, solvent='acn', charge=0)
         assert 'ALPHA' in config['kwargs']['inp']
 
         # Make sure there are no directories left
@@ -139,36 +143,43 @@ def test_gaussian_configs(strc):
     assert sim.gaussian_command == 'g09 < PREFIX.com > PREFIX.log'
 
     # Make a regular configuration
-    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, None)
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', strc, 0, None)
     assert config['name'] == 'gaussian'
     assert config['kwargs']['method'] == 'b3lyp'
     assert config['kwargs']['basis'] == '6-31g(2df,p)'
+    assert config['use_gaussian_opt']
 
     # Make one with a solvent
-    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn')
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', strc, 0, 'acn')
     assert config['kwargs']['SCRF'] == 'PCM,Solvent=acetonitrile'
 
     # Make one with a charge
-    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', -1, 'acn')
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', strc, -1, 'acn')
     assert config['kwargs']['charge'] == -1
     assert config['kwargs']['mult'] == 2
 
     # Make sure extra arguments get passed through
-    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', 0, 'acn', test='yeah')
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', strc, 0, 'acn', test='yeah')
     assert config['kwargs']['test'] == 'yeah'
 
     # Make sure it errors as necessary
     with raises(ValueError):
-        sim.create_configuration('gaussian_b3lyp_fake_3-21g', 0, None)
+        sim.create_configuration('gaussian_b3lyp_fake_3-21g', strc, 0, None)
 
     # Make sure the configuration can be mapped to a Gaussian calculator
     with make_ephemeral_calculator(config) as calc:
         assert isinstance(calc, Gaussian)
 
+    # Make a huge structure
+    _, big_strc = generate_inchi_and_xyz('C' * 25)
+    config = sim.create_configuration('gaussian_b3lyp_6-31g(2df,p)', big_strc, 0, 'acn')
+    assert config['kwargs']['ioplist'] == ["2/9=2000"]
+    assert not config['use_gaussian_opt']
+
 
 @mark.skipif(which('g16') is None, reason='Gaussian is not installed')
 def test_gaussian_opt(strc):
-    sim = ASESimulator(gaussian_command='g16', clean_after_run=False)
+    sim = ASESimulator(gaussian_command='g16')
     init, _ = sim.compute_energy(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
 
     relaxed, traj, _ = sim.optimize_structure(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
