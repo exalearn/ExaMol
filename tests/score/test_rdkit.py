@@ -1,4 +1,7 @@
 """Tests for the RDKit scorer"""
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
+
 import numpy as np
 from pytest import fixture, raises
 from sklearn.pipeline import Pipeline
@@ -54,7 +57,10 @@ def test_functions(training_set, scorer, pipeline, recipe):
 
 
 def test_doan_descriptors():
-    compute_doan_2020_fingerprints('C')
+    x = compute_doan_2020_fingerprints('C')
+    with ProcessPoolExecutor(mp_context=get_context('spawn')) as p:
+        y = p.submit(compute_doan_2020_fingerprints, 'C').result()
+    assert np.isclose(x, y).all()
 
 
 def test_gpr(training_set, scorer, recipe):
