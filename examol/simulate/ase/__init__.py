@@ -9,10 +9,10 @@ from time import perf_counter
 import ase
 from ase import units
 from ase.db import connect
-from ase.io import Trajectory
+from ase.io import Trajectory, read
 from ase.io.ulm import InvalidULMFileError
 from ase.optimize import LBFGSLineSearch
-from ase.calculators.gaussian import Gaussian
+from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
 import examol.utils.conversions
 from . import utils
@@ -120,7 +120,7 @@ class ASESimulator(BaseSimulator):
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
 
-    def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> dict:
+    def create_configuration(self, name: str, xyz: str, charge: int, solvent: str | None, **kwargs) -> dict:
         if name == 'xtb':
             kwargs = {}
             if solvent is not None:
@@ -139,9 +139,16 @@ class ASESimulator(BaseSimulator):
                 add_options['SCRF'] = f'PCM,Solvent={_gaussian_solv_names.get(solvent, solvent)}'
             add_options['scf'] = 'xqc,MaxConventional=200'
 
+            n_atoms = int(xyz.split("\n", maxsplit=2)[0])
+            if n_atoms > 50:
+                # ASE requires the structure to be printed, and Gaussian requires special options to print structures larger than 50 atoms
+                #  See: https://gitlab.com/ase/ase/-/merge_requests/2909 and https://gaussian.com/overlay2/
+                add_options['ioplist'] = ["2/9=2000"]
+
             # Build the specification
             return {
                 'name': 'gaussian',
+                'use_gaussian_opt': n_atoms <= 50,
                 'kwargs': {
                     'command': self.gaussian_command,
                     'chk': 'gauss.chk',
@@ -204,7 +211,7 @@ METHOD ANDREUSSI
         start_time = perf_counter()  # Measure when we started
 
         # Make the configuration
-        calc_cfg = self.create_configuration(config_name, charge, solvent)
+        calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Parse the XYZ file into atoms
         atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
@@ -236,6 +243,23 @@ METHOD ANDREUSSI
                     except InvalidULMFileError:
                         pass
 
+                # Special case: use Gaussian's optimizer
+                if isinstance(calc, Gaussian) and calc_cfg['use_gaussian_opt']:
+                    # Start the optimization
+                    dyn = GaussianOptimizer(atoms, calc)
+                    dyn.run(fmax='tight', steps=100, opt='calcfc')
+
+                    # Read the energies from the output file
+                    traj = read('Gaussian.log', index=':')
+                    out_traj = []
+                    for atoms in traj:
+                        out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                        out_traj.append(SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                                  xyz=out_strc, energy=atoms.get_potential_energy(),
+                                                  forces=atoms.get_forces()))
+                    out_result = out_traj.pop(-1)
+                    return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time})
+
                 # Attach the calculator
                 atoms.calc = calc
 
@@ -250,31 +274,30 @@ METHOD ANDREUSSI
                 # Run an optimization
                 dyn.run(fmax=0.02, steps=250)
 
-            # Gather the outputs
-            #  Start with the output structure
+                # Get the trajectory
+                with Trajectory(str(traj_path), mode='r') as traj:
+                    # Get all atoms in the trajectory
+                    traj_lst = [a for a in traj]
+
+            # Store atoms in the database
             if self.ase_db_path is not None:
                 self.update_database([atoms], config_name, charge, solvent)
+                self.update_database(traj_lst, config_name, charge, solvent)
+
+            # Convert to the output format
+            out_traj = []
             out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
-
-            # Get the trajectory
-            out_traj = []
-            with Trajectory(str(traj_path), mode='r') as traj:
-                # Get all atoms in the trajectory
-                traj_lst = [a for a in traj]
-                if self.ase_db_path is not None:
-                    self.update_database(traj_lst, config_name, charge, solvent)
-
-                # Convert them to the output format
-                for atoms in traj_lst:
-                    traj_xyz = examol.utils.conversions.write_to_string(atoms, 'xyz')
-                    traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
-                                         xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
-                    out_traj.append(traj_res)
+            for atoms in traj_lst:
+                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                     xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
+                out_traj.append(traj_res)
 
             # Read in the output log
-            out_log = Path('opt.log').read_text()
+            out_path = Path('opt.log')
+            out_log = out_path.read_text() if out_path.is_file() else None
 
             # Delete the run directory
             if self.clean_after_run:
@@ -306,7 +329,7 @@ METHOD ANDREUSSI
         start_time = perf_counter()  # Measure when we started
 
         # Make the configuration
-        calc_cfg = self.create_configuration(config_name, charge, solvent)
+        calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Make the run directory based on a hash of the input configuration
         run_hash = _compute_run_hash(charge, config_name, solvent, xyz)

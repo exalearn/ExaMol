@@ -50,11 +50,12 @@ class BaseSimulator:
         """
         self.scratch_dir: Path | None = Path('tmp') if scratch_dir is None else Path(scratch_dir)
 
-    def create_configuration(self, name: str, charge: int, solvent: str | None, **kwargs) -> Any:
+    def create_configuration(self, name: str, xyz: str, charge: int, solvent: str | None, **kwargs) -> Any:
         """Create the configuration needed for a certain computation
 
         Args:
             name: Name of the computational method
+            xyz: Structure being evaluated in XYZ format
             charge: Charge on the system
             solvent: Name of any solvent
         """
