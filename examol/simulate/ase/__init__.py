@@ -251,10 +251,13 @@ METHOD ANDREUSSI
 
                     # Read the energies from the output file
                     traj = read('Gaussian.log', index=':')
-                    out_strc = examol.utils.conversions.write_to_string(traj[-1], 'xyz')
-                    out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
-                                           xyz=out_strc, energy=traj[-1].get_potential_energy())
-                    return out_result, [], json.dumps({'runtime': perf_counter() - start_time})
+                    out_traj = []
+                    for atoms in traj:
+                        out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                        out_traj.append(SimResult(config_name=config_name, charge=charge, solvent=solvent,
+                                                  xyz=out_strc, energy=atoms.get_potential_energy()))
+                    out_result = out_traj.pop(-1)
+                    return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time})
 
                 # Attach the calculator
                 atoms.calc = calc
