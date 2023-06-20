@@ -16,6 +16,9 @@ from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.conversions import write_to_string
 
 
+_files_dir = Path(__file__).parent / 'files'
+
+
 class FakeCP2K(LennardJones):
 
     def __init__(self, *args, **kwargs):
@@ -177,10 +180,12 @@ def test_gaussian_configs(strc):
     assert not config['use_gaussian_opt']
 
 
-@mark.skipif(which('g16') is None, reason='Gaussian is not installed')
-def test_gaussian_opt(strc):
-    sim = ASESimulator(gaussian_command='g16')
-    init, _ = sim.compute_energy(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
+def test_gaussian_opt(strc, tmpdir):
+    sim = ASESimulator(gaussian_command='g16', scratch_dir=tmpdir)
+
+    if shutil.which('g16') is None:
+        # Fake execution by having it copy a known output to a target directory
+        sim.gaussian_command = f'cp {(_files_dir / "Gaussian-relax.log").absolute()} Gaussian.log'
 
     relaxed, traj, _ = sim.optimize_structure(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
-    assert init.energy > relaxed.energy
+    assert relaxed.energy < traj[0].energy
