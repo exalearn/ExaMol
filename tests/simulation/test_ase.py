@@ -1,6 +1,5 @@
 import shutil
 from pathlib import Path
-from shutil import which
 from unittest.mock import patch
 
 from ase import units
