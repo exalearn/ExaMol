@@ -189,3 +189,4 @@ def test_gaussian_opt(strc, tmpdir):
 
     relaxed, traj, _ = sim.optimize_structure(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
     assert relaxed.energy < traj[0].energy
+    assert relaxed.forces.max() < 0.01

@@ -255,7 +255,8 @@ METHOD ANDREUSSI
                     for atoms in traj:
                         out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
                         out_traj.append(SimResult(config_name=config_name, charge=charge, solvent=solvent,
-                                                  xyz=out_strc, energy=atoms.get_potential_energy()))
+                                                  xyz=out_strc, energy=atoms.get_potential_energy(),
+                                                  forces=atoms.get_forces()))
                     out_result = out_traj.pop(-1)
                     return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time})
 
