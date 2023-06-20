@@ -6,7 +6,7 @@ from typing import Callable
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors, DataStructs
-from rdkit.Chem import Fragments, Crippen, Lipinski
+from rdkit.Chem import Fragments, Crippen, Lipinski, Descriptors
 
 # List of descriptors, populated once
 _descriptor_list: list[tuple[str, Callable]] = []
@@ -16,6 +16,8 @@ _descriptor_list.extend((name, getattr(Lipinski, name)) for name in dir(Lipinski
 _descriptor_list.extend((name, getattr(rdMolDescriptors, name)) for name in dir(rdMolDescriptors)
                         if (("CalcNum" in name or "CalcExact" in name or "CalcTPSA" in name or "CalcChi" in name or "Kappa" in name or "Labute" in name)
                             and "Stereo" not in name and "_" not in name and "ChiN" not in name))
+_descriptor_list.extend((name, getattr(Descriptors, name)) for name in dir(Descriptors)
+                        if ("Num" in name or "Min" in name or "Max" in name))
 _descriptor_list.extend((name, getattr(Crippen, name)) for name in dir(Crippen)
                         if (("MolLogP" in name or "MolMR" in name) and "_" not in name))
 
