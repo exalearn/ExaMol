@@ -103,18 +103,19 @@ def convert_nx_to_smiles(graph: nx.Graph) -> str:
     return Chem.MolToSmiles(mol, canonical=True)
 
 
-def write_to_string(atoms: Atoms, fmt: str) -> str:
+def write_to_string(atoms: Atoms, fmt: str, **kwargs) -> str:
     """Write an ASE atoms object to string
 
     Args:
         atoms: Structure to write
         fmt: Target format
+        kwargs: Passed to the write function
     Returns:
         Structure written in target format
     """
 
     out = StringIO()
-    atoms.write(out, fmt)
+    atoms.write(out, fmt, **kwargs)
     return out.getvalue()
 
 

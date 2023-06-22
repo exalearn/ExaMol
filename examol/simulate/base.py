@@ -1,5 +1,7 @@
 """Base class defining the interfaces for common simulation operations"""
+import json
 from dataclasses import dataclass, field
+from hashlib import sha512
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +52,27 @@ class BaseSimulator:
         """
         self.scratch_dir: Path | None = Path('tmp') if scratch_dir is None else Path(scratch_dir)
 
+    def _make_run_hash(self, xyz: str, config_name: str, charge: int, solvent: str | None) -> str:
+        """Generate a summary hash for a calculation
+
+        Args:
+            charge: Charge of the cell
+            config_name: Name of the configuration
+            solvent: Name of the solvent, if any
+            xyz: XYZ coordinates for the atoms
+        Returns:
+            Hash of the above contents
+        """
+        hasher = sha512()
+        hasher.update(self.__class__.__name__.encode())
+        hasher.update(xyz.encode())
+        hasher.update(config_name.encode())
+        hasher.update(str(charge).encode())
+        if solvent is not None:
+            hasher.update(solvent.encode())
+        run_hash = hasher.hexdigest()[:8]
+        return run_hash
+
     def create_configuration(self, name: str, xyz: str, charge: int, solvent: str | None, **kwargs) -> Any:
         """Create the configuration needed for a certain computation
 
@@ -61,11 +84,12 @@ class BaseSimulator:
         """
         raise NotImplementedError()
 
-    def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
+    def optimize_structure(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
         """Minimize the energy of a structure
 
         Args:
+            mol_key: InChI key of the molecule being evaluated
             xyz: 3D geometry of the molecule
             config_name: Name of the method
             charge: Charge on the molecule
@@ -79,16 +103,17 @@ class BaseSimulator:
         """
         raise NotImplementedError()
 
-    def compute_energy(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
+    def compute_energy(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
                        **kwargs) -> tuple[SimResult, str | None]:
         """Get the energy and forces of a structure
 
         Args:
-            Args:
+            mol_key: InChI key of the molecule being evaluated
             xyz: 3D geometry of the molecule
             config_name: Name of the method
             charge: Charge on the molecule
             solvent: Name of the solvent
+            forces: Whether to compute forces
             **kwargs: Any other arguments for the method
 
         Returns:
@@ -96,3 +121,32 @@ class BaseSimulator:
             - Other metadata produced by the computation
         """
         raise NotImplementedError()
+
+    def _make_run_directory(self, run_type: str, mol_key: str, xyz: str, charge: int, config_name: str, solvent: str | None) -> Path:
+        """Create a run directory for the calculation
+
+        Args:
+            run_type: Type of the run to perform (e.g., "opt", "single")
+            mol_key: InChI key of the molecule being evaluated
+            charge: Charge of the cell
+            config_name: Name of the configuration
+            solvent: Name of the solvent, if any
+            xyz: XYZ coordinates for the atoms
+        Returns:
+            Path in which to run the computation
+        """
+        # Make the directory
+        run_hash = self._make_run_hash(xyz, config_name, charge, solvent)
+        run_path = self.scratch_dir / mol_key / Path(f'{run_type}_{run_hash}')
+        run_path.mkdir(parents=True, exist_ok=True)
+
+        # Write a calculation summary to the run path
+        with open(run_path / 'summary.json', 'w') as fp:
+            json.dump({
+                'xyz': xyz,
+                'config_name': config_name,
+                'charge': charge,
+                'solvent': solvent
+            }, fp, indent=2)
+
+        return run_path

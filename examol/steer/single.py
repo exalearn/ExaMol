@@ -139,7 +139,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         if suggestion.optimize:
             self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
             self.queues.send_inputs(
-                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
                 method='optimize_structure',
                 topic='simulation',
                 task_info={'key': record.key, **asdict(suggestion)}
@@ -148,7 +148,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             self.logger.info(f'Getting single-point energy for {record.key} with a charge of {suggestion.charge} ' +
                              ('' if suggestion.solvent is None else f'in {suggestion.solvent}'))
             self.queues.send_inputs(
-                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
                 method='compute_energy',
                 topic='simulation',
                 task_info={'key': record.key, **asdict(suggestion)}
