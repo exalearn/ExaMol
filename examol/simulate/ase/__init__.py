@@ -66,27 +66,6 @@ _xtb_solv_names = {'acn': 'acetonitrile'}
 _gaussian_solv_names = {'acn': 'acetonitrile'}
 
 
-def _compute_run_hash(charge: int, config_name: str, solvent: str | None, xyz: str) -> str:
-    """Generate a summary hash for a calculation
-
-    Args:
-        charge: Charge of the cell
-        config_name: Name of the configuration
-        solvent: Name of the solvent, if any
-        xyz: XYZ coordinates for the atoms
-    Returns:
-        Hash of the above contents
-    """
-    hasher = sha512()
-    hasher.update(xyz.encode())
-    hasher.update(config_name.encode())
-    hasher.update(str(charge).encode())
-    if solvent is not None:
-        hasher.update(solvent.encode())
-    run_hash = hasher.hexdigest()[:8]
-    return run_hash
-
-
 class ASESimulator(BaseSimulator):
     """Use ASE to perform quantum chemistry calculations
 
@@ -108,6 +87,7 @@ class ASESimulator(BaseSimulator):
         clean_after_run: Whether to clean output files after a run exits successfully
         ase_db_path: Path to an ASE db in which to store results
     """
+
     def __init__(self,
                  cp2k_command: str | None = None,
                  gaussian_command: str | None = None,
@@ -206,7 +186,7 @@ METHOD ANDREUSSI
                     command=self.cp2k_command)
             }
 
-    def optimize_structure(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
+    def optimize_structure(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
         start_time = perf_counter()  # Measure when we started
 
@@ -217,9 +197,7 @@ METHOD ANDREUSSI
         atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
 
         # Make the run directory based on a hash of the input configuration
-        run_hash = _compute_run_hash(charge, config_name, solvent, xyz)
-        run_path = self.scratch_dir / Path(f'ase_opt_{run_hash}')
-        run_path.mkdir(exist_ok=True, parents=True)
+        run_path = self._make_run_directory('opt', mol_key, xyz, charge, config_name, solvent)
 
         # Run inside a temporary directory
         old_path = Path.cwd()
@@ -299,14 +277,14 @@ METHOD ANDREUSSI
             out_path = Path('opt.log')
             out_log = out_path.read_text() if out_path.is_file() else None
 
+            return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time, 'out_log': out_log})
+
+        finally:
             # Delete the run directory
             if self.clean_after_run:
                 os.chdir(old_path)
                 rmtree(run_path)
 
-            return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time, 'out_log': out_log})
-
-        finally:
             # Make sure we end back where we started
             os.chdir(old_path)
 
@@ -323,7 +301,7 @@ METHOD ANDREUSSI
         elif 'xtb' in config['name']:
             utils.initialize_charges(atoms, charge)
 
-    def compute_energy(self, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
+    def compute_energy(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
                        **kwargs) -> tuple[SimResult, str | None]:
         # Make the configuration
         start_time = perf_counter()  # Measure when we started
@@ -332,9 +310,7 @@ METHOD ANDREUSSI
         calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Make the run directory based on a hash of the input configuration
-        run_hash = _compute_run_hash(charge, config_name, solvent, xyz)
-        run_path = self.scratch_dir / Path(f'ase_single_{run_hash}')
-        run_path.mkdir(exist_ok=True, parents=True)
+        run_path = self._make_run_directory('single', mol_key, xyz, charge, config_name, solvent)
 
         # Parse the XYZ file into atoms
         atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
