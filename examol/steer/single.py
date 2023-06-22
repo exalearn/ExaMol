@@ -163,7 +163,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Get the molecule record
         mol_key = result.task_info["key"]
         record = self.database[mol_key]
-        self.logger.info(f'Received a result for {mol_key}. Runtime={result.time_running:.1f}s, success={result.success}')
+        self.logger.info(f'Received a result for {mol_key}. Runtime={(result.time_running or np.nan):.1f}s, success={result.success}')
 
         # Update the number of computations in progress
         self.molecules_in_progress[mol_key] -= 1
