@@ -66,6 +66,9 @@ class MarkdownReporter(BaseReporter):
 
         # Load in the simulation results. The computed property is stored in 'value'
         results = []
+        sim_file = thinker.run_dir / 'simulation-results.json'
+        if not sim_file.exists():
+            return
         with open(thinker.run_dir / 'simulation-results.json') as fp:
             for line in fp:
                 record = json.loads(line)
