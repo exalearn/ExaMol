@@ -27,13 +27,10 @@ dependencies = [
     "rdkit>=2022.9",
     "networkx>=2.8",
     "parsl>=2022.12",
-    "scikit-learn==1.2.*",
     "more_itertools==9.*",
-    "foundry_ml",
     "mongoengine>=0.27",
-    "tensorflow>=2.7,<3",
-    "nfp",
     "tabulate>=0.9",
+    "modAL-python==0.4.*",
     "tqdm"
 ]
 
@@ -47,6 +44,7 @@ repository = "https://github.com/exalearn/examol"
 test = [
     'flake8',
     'pytest',
+    'pytest-forked',
     'pytest-timeout',
     'pytest-cov',
 ]

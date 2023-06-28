@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
+from examol.start.fast import RandomStarter
 from examol.steer.single import SingleObjectiveThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
@@ -19,14 +20,14 @@ from examol.store.recipes import RedoxEnergy
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='xtb', vertical=False)
+    return RedoxEnergy(charge=1, energy_config='xtb', vertical=True)
 
 
 @fixture()
 def training_set(recipe) -> list[MoleculeRecord]:
     """Make a starting training set"""
     output = []
-    for i, smiles in enumerate(['C', 'CC', 'CCC']):
+    for i, smiles in enumerate(['CCCC', 'CCO']):
         record = MoleculeRecord.from_identifier(smiles)
         record.properties[recipe.name] = {recipe.level: i}
         output.append(record)
@@ -35,13 +36,13 @@ def training_set(recipe) -> list[MoleculeRecord]:
 
 @fixture()
 def search_space() -> list[MoleculeRecord]:
-    return [MoleculeRecord.from_identifier(x) for x in ['CO', 'CCCC', 'CCO']]
+    return [MoleculeRecord.from_identifier(x) for x in ['C', 'N', 'O', 'Cl', 'S']]
 
 
 @fixture()
-def scorer(recipe) -> tuple[RDKitScorer, Pipeline]:
+def scorer() -> tuple[RDKitScorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe), pipeline
+    return RDKitScorer(), pipeline
 
 
 @fixture()
@@ -61,12 +62,12 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     # Make parsl configuration
     config = Config(
         run_dir=str(tmp_path),
-        executors=[HighThroughputExecutor(start_method='thread', max_workers=1)]
+        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='localhost')]
     )
 
     doer = ParslTaskServer(
         queues=queues,
-        methods=[scorer.score, simulator.optimize_structure, scorer.retrain],
+        methods=[scorer.score, simulator.optimize_structure, simulator.compute_energy, scorer.retrain],
         config=config,
         timeout=15,
     )
@@ -87,15 +88,16 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         recipe=recipe,
         database=training_set,
         scorer=scorer,
+        starter=RandomStarter(4, 1),
         models=[model],
         selector=RandomSelector(10),
         num_workers=1,
-        num_to_run=2,
+        num_to_run=3,
         search_space=zip([x.identifier.smiles for x in search_space], scorer.transform_inputs(search_space)),
     )
 
 
-@mark.timeout(45)
+@mark.timeout(120)
 def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
@@ -107,6 +109,11 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
 
+    # Check if there are points where the
+    run_log = (thinker.run_dir / 'run.log').read_text().splitlines(keepends=False)
+    assert any('Training set is smaller than the threshold size (2<4)' in x for x in run_log)
+    assert any('Too few to entries to train. Waiting for 4' in x for x in run_log)
+
     # Check the output files
     with (thinker.run_dir / 'inference-results.json').open() as fp:
         record = json.loads(fp.readline())
@@ -115,7 +122,7 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
 
 
-@mark.timeout(45)
+@mark.timeout(120)
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 

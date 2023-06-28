@@ -12,7 +12,7 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     """Make a calculator then tear it down after completion
 
     Args:
-        calc: Already-defined calculatori or a dict defining it.
+        calc: Already-defined calculator or a dict defining it.
             The dict must contain the key "name" to define the name
             of the code and could contain the keys "args" and "kwargs"
             to define the arguments and keyword arguments for creating
@@ -44,24 +44,14 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         #  when the object is finally garbage collected
         calc.__del__()
         calc._shell = None
+    elif name == 'gaussian':
+        from ase.calculators.gaussian import Gaussian
+        yield Gaussian(*args, **kwargs)
     elif name == 'xtb':
         from xtb.ase.calculator import XTB
         yield XTB(*args, **kwargs)
     else:
         raise ValueError('No such calculator')
-
-
-def buffer_cell(atoms, buffer_size: float = 6.):
-    """Buffer the cell such that it has a vacuum layer around the side
-
-    Args:
-        atoms: Atoms to be centered
-        buffer_size: Size of the buffer to place around the atoms
-    """
-
-    atoms.positions -= atoms.positions.min(axis=0)
-    atoms.cell = atoms.positions.max(axis=0) + buffer_size * 2
-    atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
 
 
 def initialize_charges(atoms: ase.Atoms, charge: int):

@@ -64,12 +64,14 @@ class MarkdownReporter(BaseReporter):
     def _plot_over_time(self, fo: TextIO, thinker: SingleObjectiveThinker):
         """Plot the properties evaluated over time"""
 
+        # Exit if simulation results do not exist yet
+        simulation_results = thinker.run_dir / 'simulation-results.json'
+        if not simulation_results.exists():
+            return
+
         # Load in the simulation results. The computed property is stored in 'value'
         results = []
-        sim_file = thinker.run_dir / 'simulation-results.json'
-        if not sim_file.exists():
-            return
-        with open(thinker.run_dir / 'simulation-results.json') as fp:
+        with simulation_results.open() as fp:
             for line in fp:
                 record = json.loads(line)
                 if 'result' in record['task_info']:

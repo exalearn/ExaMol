@@ -8,17 +8,34 @@ from pathlib import Path
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
-from colmena.thinker import event_responder, task_submitter, ResourceCounter, result_processor
+from colmena.thinker import event_responder, task_submitter, ResourceCounter, result_processor, agent
+from more_itertools import interleave_longest
 
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
+from ..start.base import Starter
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
 
 
 class SingleObjectiveThinker(MoleculeThinker):
-    """A thinker which submits all computations needed to evaluate a molecule whenever it is selected"""
+    """A thinker which submits all computations needed to evaluate a molecule whenever it is selected
+
+    Args:
+        queues: Queues used to communicate with the task server
+        run_dir: Directory in which to store logs, etc.
+        recipe: Recipe used to compute the target property
+        database: List of molecules which are already known
+        scorer: Tool used as part of model training
+        models: Models used to predict target property
+        selector: Tool used to pick which computations to run
+        starter: How to pick calculations before enough data are available
+        num_to_run: Number of molecules to evaluate
+        search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
+        num_workers: Number of simulation tasks to run in parallel
+        inference_chunk_size: Number of molecules to run inference on per task
+    """
 
     def __init__(self,
                  queues: ColmenaQueues,
@@ -27,32 +44,19 @@ class SingleObjectiveThinker(MoleculeThinker):
                  database: list[MoleculeRecord],
                  scorer: Scorer,
                  models: list[object],
+                 starter: Starter,
                  selector: Selector,
                  num_to_run: int,
                  search_space: Iterable[tuple[str, object]],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        """
-
-        Args:
-            queues: Queues used to communicate with the task server
-            run_dir: Directory in which to store logs, etc.
-            recipe: Recipe used to compute the target property
-            database: List of molecules which are already known
-            scorer: Tool used as part of model training
-            models: Models used to predict target property
-            selector: Tool used to pick which computations to run
-            num_to_run: Number of molecules to evaluate
-            search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
-            num_workers: Number of simulation tasks to run in parallel
-            inference_chunk_size: Number of molecules to run inference on per task
-        """
         super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, database, inference_chunk_size)
 
         # Store the selection equipment
         self.models = models.copy()
         self.scorer = scorer
         self.selector = selector
+        self.starter = starter
 
         # Attributes related to simulation
         self.recipe = recipe
@@ -69,9 +73,6 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.start_inference: Event = Event()
         self.start_training: Event = Event()
 
-        # Start by training
-        self.start_training.set()
-
     def _task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
         """Iterate over the next tasks in the task queue"""
 
@@ -80,7 +81,9 @@ class SingleObjectiveThinker(MoleculeThinker):
             with self.task_queue_lock:
                 if len(self.task_queue) == 0:
                     self.logger.info('No tasks available to run. Waiting')
-                    self.task_queue_lock.wait()
+                    while not self.task_queue_lock.wait(timeout=10):
+                        if self.done.is_set():
+                            yield None, None
                 smiles, score = self.task_queue.pop(0)  # Get the next task
                 self.logger.info(f'Selected {smiles} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
 
@@ -103,15 +106,40 @@ class SingleObjectiveThinker(MoleculeThinker):
             for suggestion in suggestions:
                 yield record, suggestion
 
+    @agent(startup=True)
+    def startup(self):
+        """Pre-populate the database, if needed."""
+
+        # Determine how many training points are available
+        train_size = len(self._get_training_set())
+
+        # If enough, start by training
+        if train_size > self.starter.threshold:
+            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.starter.threshold}). Starting model training')
+            self.start_training.set()
+            return
+
+        # If not, pick some
+        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
+        needed = self.starter.threshold - train_size
+        subset = self.starter.select(interleave_longest(*self.search_space_keys), needed)
+        self.logger.info(f'Selected {len(subset)} molecules to run')
+        with self.task_queue_lock:
+            for key in subset:
+                self.task_queue.append((key, np.nan))  # All get the same score
+            self.task_queue_lock.notify_all()
+
     @task_submitter()
     def submit_simulation(self):
         """Submit a simulation task when resources are available"""
         record, suggestion = next(self.task_iterator)
+        if record is None:
+            return  # The thinker is done
 
         if suggestion.optimize:
             self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
             self.queues.send_inputs(
-                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
                 method='optimize_structure',
                 topic='simulation',
                 task_info={'key': record.key, **asdict(suggestion)}
@@ -120,7 +148,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             self.logger.info(f'Getting single-point energy for {record.key} with a charge of {suggestion.charge} ' +
                              ('' if suggestion.solvent is None else f'in {suggestion.solvent}'))
             self.queues.send_inputs(
-                suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
                 method='compute_energy',
                 topic='simulation',
                 task_info={'key': record.key, **asdict(suggestion)}
@@ -135,7 +163,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         # Get the molecule record
         mol_key = result.task_info["key"]
         record = self.database[mol_key]
-        self.logger.info(f'Received a result for {mol_key}. Runtime={result.time_running:.1f}s, success={result.success}')
+        self.logger.info(f'Received a result for {mol_key}. Runtime={(result.time_running or np.nan):.1f}s, success={result.success}')
 
         # Update the number of computations in progress
         self.molecules_in_progress[mol_key] -= 1
@@ -158,7 +186,7 @@ class SingleObjectiveThinker(MoleculeThinker):
                 self.completed += 1
                 if self.completed == self.num_to_run:
                     self.done.set()
-                self.logger.info(f'Finished computing recipe for {mol_key}')
+                self.logger.info(f'Finished computing recipe for {mol_key}. Completed {self.completed}/{self.num_to_run} molecules')
                 self.start_training.set()
 
                 # Mark that we've finished with this recipe
@@ -201,6 +229,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         n_tasks = n_models * n_chunks
 
         # Reset the selector
+        self.selector.update(self.database, self.recipe)
         self.selector.start_gathering()
 
         # Gather all inference results
@@ -234,7 +263,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         with self.task_queue_lock:
             self.task_queue.clear()
             for key, score in self.selector.dispense():
-                self.task_queue.append((key, score))
+                self.task_queue.append((str(key), score))
 
             # Notify anyone waiting on more tasks
             self.task_queue_lock.notify_all()
@@ -245,12 +274,17 @@ class SingleObjectiveThinker(MoleculeThinker):
         """Retrain all models"""
 
         # Get the training set
-        train_set = [x for x in list(self.database.values()) if self.recipe.lookup(x) is not None]
+        train_set = self._get_training_set()
         self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining')
+
+        # If too small, stop
+        if len(train_set) < self.starter.threshold:
+            self.logger.info(f'Too few to entries to train. Waiting for {self.starter.threshold}')
+            return
 
         # Process to form the inputs and outputs
         train_inputs = self.scorer.transform_inputs(train_set)
-        train_outputs = self.scorer.transform_outputs(train_set)
+        train_outputs = self.scorer.transform_outputs(train_set, self.recipe)
         self.logger.info('Pre-processed the training entries')
 
         # Submit all models
@@ -278,3 +312,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.logger.info('Finished training all models')
 
         self.start_inference.set()
+
+    def _get_training_set(self) -> list[MoleculeRecord]:
+        """Gather molecules for which the target property is available"""
+        return [x for x in list(self.database.values()) if self.recipe.lookup(x) is not None]

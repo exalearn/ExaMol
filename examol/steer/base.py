@@ -42,8 +42,9 @@ class MoleculeThinker(BaseThinker):
         # Mark where the logs should be stored
         handler = logging.FileHandler(self.run_dir / 'run.log')
         handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
+        for logger in [self.logger, logging.getLogger('colmena')]:
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
 
         # Partition the search space into smaller chunks
         self.search_space_keys: list[list[str]] = []

@@ -1,8 +1,12 @@
 # ExaMol
 [![CI](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml/badge.svg)](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml)
+[![Deploy Docs](https://github.com/exalearn/ExaMol/actions/workflows/gh-pages.yml/badge.svg)](https://exalearn.github.io/ExaMol/)
 [![Coverage Status](https://coveralls.io/repos/github/exalearn/ExaMol/badge.svg?branch=main)](https://coveralls.io/github/exalearn/ExaMol?branch=main)
 
-Designing new molecules as fast as possible with AI and simulation
+Designing new molecules as fast as possible with AI and simulation.
+
+- Documentation: [exalearn.github.io/ExaMol/](https://exalearn.github.io/ExaMol/)
+- Source Code: [github.com/exalearn/ExaMol](https://github.com/exalearn/ExaMol)
 
 ## Installation
 
@@ -62,3 +66,9 @@ examol run examples/redoxmers/spec.py:spec
 
 The above command simply tells ExaMol the name of the file containing the run spec, and the name of the spec within that file.
 ExaMol will then run it for you.
+
+## Project Support
+
+Initial development of ExaMol was funded jointly by 
+the ExaLearn Co-design Center of the Department of Energy Exascale Computing Project 
+and the Joint Center for Energy Storage Research (JCESR), an Energy Innovation Hub funded by the Department of Energy.

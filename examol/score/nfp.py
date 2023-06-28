@@ -6,10 +6,9 @@ import tensorflow as tf
 import numpy as np
 import nfp
 
-from .base import RecipeBasedScorer
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
 from examol.utils.conversions import convert_string_to_nx
+from .base import Scorer
 from .utils.tf import LRLogger, TimeLimitCallback, EpochTimeLogger
 
 
@@ -29,7 +28,12 @@ class ReduceAtoms(tf.keras.layers.Layer):
         config['reduction_op'] = self.reduction_op
         return config
 
-    def call(self, inputs, mask=None):  # pragma: no cover
+    def call(self, inputs, mask=None):
+        """
+        Args:
+            inputs: Matrix to be reduced
+            mask: Identifies which rows to sum are placeholders
+        """
         masked_tensor = tf.ragged.boolean_mask(inputs, mask)
         reduce_fn = getattr(tf.math, f'reduce_{self.reduction_op}')
         return reduce_fn(masked_tensor, axis=1)
@@ -48,13 +52,14 @@ def make_simple_network(
         atomwise: bool = True,
 ) -> tf.keras.models.Model:
     """Construct a Keras model using the settings provided by a user
+
     Args:
         atom_features: Number of features used per atom and bond
         message_steps: Number of message passing steps
         output_layers: Number of neurons in the readout layers
         reduce_op: Operation used to reduce from atom-level to molecule-level vectors
         atomwise: Whether to reduce atomwise contributions to form an output,
-            or reduce to a single vector per molecule before the output layers
+                  or reduce to a single vector per molecule before the output layers
     Returns:
         A model instantiated with the user-defined options
     """
@@ -253,18 +258,16 @@ def make_data_loader(mol_dicts: list[dict],
     return loader
 
 
-class NFPScorer(RecipeBasedScorer):
+class NFPScorer(Scorer):
     """Train message-passing neural networks based on the `NFP <https://github.com/NREL/nfp>`_ library.
 
     NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware."""
 
-    def __init__(self, recipe: PropertyRecipe, retrain_from_scratch: bool = True):
+    def __init__(self, retrain_from_scratch: bool = True):
         """
         Args:
-            recipe: Recipe defining the property to be predicted
             retrain_from_scratch: Whether to retrain models from scratch or not
         """
-        super().__init__(recipe)
         self.retrain_from_scratch = retrain_from_scratch
 
     def prepare_message(self, model: tf.keras.models.Model, training: bool = False) -> dict | NFPMessage:
@@ -299,15 +302,13 @@ class NFPScorer(RecipeBasedScorer):
                 num_epochs: int = 4,
                 batch_size: int = 32,
                 validation_split: float = 0.1,
-                random_state: int = 1,
                 learning_rate: float = 1e-3,
                 device_type: str = 'gpu',
                 steps_per_exec: int = 1,
                 patience: int = None,
                 timeout: float = None,
                 verbose: bool = False,
-                max_size: int | None = None,
-                **kwargs) -> tuple[list[np.ndarray], dict]:
+                max_size: int | None = None) -> tuple[list[np.ndarray], dict]:
         """Retrain the scorer based on new training records
 
         Args:
@@ -317,13 +318,13 @@ class NFPScorer(RecipeBasedScorer):
             num_epochs: Maximum number of epochs to run
             batch_size: Number of molecules per training batch
             validation_split: Fraction of molecules used for the training/validation split
-            random_state: Seed to the random number generator used for splitting data
             learning_rate: Learning rate for the Adam optimizer
             device_type: Type of device used for training
             steps_per_exec: Number of training steps to run per execution on acceleration
             patience: Number of epochs without improvement before terminating training.
             timeout: Maximum training time in seconds
             verbose: Whether to print training information to screen
+            max_size: Maximum size of molecules expected in training set
         Returns:
             Message defining how to update the model
         """
