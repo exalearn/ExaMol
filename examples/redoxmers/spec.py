@@ -34,19 +34,19 @@ writer = DatabaseWriter()
 
 # Make the parsl configuration
 config = Config(
-    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block')],
+    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block', address='localhost')],
     run_dir=str((my_path / 'parsl-logs')),
 )
 
 spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
     recipe=recipe,
-    search_space=(my_path / 'search_space.smi'),
+    search_space=[(my_path / 'search_space.smi')],
     selector=GreedySelector(8, maximize=True),
     simulator=ASESimulator(scratch_dir=(my_path / 'tmp')),
     scorer=scorer,
     models=[pipeline],
-    num_to_run=8,
+    num_to_run=4,
     thinker=SingleObjectiveThinker,
     compute_config=config,
     reporters=[reporter, writer],

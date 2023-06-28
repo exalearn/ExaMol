@@ -1,6 +1,7 @@
 """Test single objective optimizer"""
 import json
 import logging
+from pathlib import Path
 
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
@@ -35,8 +36,12 @@ def training_set(recipe) -> list[MoleculeRecord]:
 
 
 @fixture()
-def search_space() -> list[MoleculeRecord]:
-    return [MoleculeRecord.from_identifier(x) for x in ['C', 'N', 'O', 'Cl', 'S']]
+def search_space(tmp_path) -> Path:
+    path = tmp_path / 'search-space.smi'
+    with path.open('w') as fp:
+        for s in ['C', 'N', 'O', 'Cl', 'S']:
+            print(s, file=fp)
+    return path
 
 
 @fixture()
@@ -93,7 +98,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         selector=RandomSelector(10),
         num_workers=1,
         num_to_run=3,
-        search_space=zip([x.identifier.smiles for x in search_space], scorer.transform_inputs(search_space)),
+        search_space=[search_space],
     )
 
 

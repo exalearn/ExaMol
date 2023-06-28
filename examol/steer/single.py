@@ -1,6 +1,6 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
 from threading import Event, Condition
-from typing import Iterable, Iterator
+from typing import Iterator
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
@@ -32,7 +32,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         selector: Tool used to pick which computations to run
         starter: How to pick calculations before enough data are available
         num_to_run: Number of molecules to evaluate
-        search_space: Search space of molecules. Provided as an iterator over pairs of SMILES string and molecule in format ready for use with models
+        search_space: Search space of molecules. Provided as a list of paths to ".smi" files
         num_workers: Number of simulation tasks to run in parallel
         inference_chunk_size: Number of molecules to run inference on per task
     """
@@ -47,14 +47,13 @@ class SingleObjectiveThinker(MoleculeThinker):
                  starter: Starter,
                  selector: Selector,
                  num_to_run: int,
-                 search_space: Iterable[tuple[str, object]],
+                 search_space: list[Path | str],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, database, inference_chunk_size)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, scorer, database, inference_chunk_size)
 
         # Store the selection equipment
         self.models = models.copy()
-        self.scorer = scorer
         self.selector = selector
         self.starter = starter
 

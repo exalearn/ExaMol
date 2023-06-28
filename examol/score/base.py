@@ -1,10 +1,13 @@
 """Base classes for scoring functions"""
+from dataclasses import dataclass
+
 import numpy as np
 
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 
+@dataclass
 class Scorer:
     """Base class for algorithms which quickly assign a score to a molecule, typically using a machine learning model
 
