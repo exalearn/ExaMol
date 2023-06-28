@@ -75,7 +75,7 @@ A simple example looks something like:
     spec = ExaMolSpecification(
         database='training-data.json',
         recipe=recipe,
-        search_space='search_space.smi',
+        search_space=['search_space.smi'],
         selector=GreedySelector(n_to_select=8, maximize=True),
         simulator=ASESimulator(scratch_dir='/tmp'),
         scorer=RDKitScorer(),
@@ -150,7 +150,7 @@ The design process is defined by the space of molecules (``search_space``),
 how to search through them (``selector``),
 and how many quantum chemistry computations will be run (``num_to_run``).
 
-The ``search_space`` option requires the path to a list of SMILES strings as a single file.
+The ``search_space`` option requires the path to a list of SMILES strings as a list of files.
 
 The selector defines an adaptive experimental design algorithm -- an algorithm which uses the predictions
 from machine learning models to identify the best computations.

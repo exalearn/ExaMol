@@ -1,12 +1,9 @@
 """Tests for the specification class"""
 from random import random
 from pathlib import Path
-from csv import writer
-import json
 
 from parsl import Config, HighThroughputExecutor
-from parsl.configs import htex_local
-from pytest import fixture, raises
+from pytest import fixture
 from sklearn.pipeline import Pipeline
 
 from examol.score.base import Scorer
@@ -42,7 +39,7 @@ def scorer() -> tuple[Scorer, Pipeline]:
 
 
 @fixture()
-def search_space(scorer, tmp_path) -> tuple[Path, Path]:
+def search_space(scorer, tmp_path) -> Path:
     scorer, _ = scorer  # Unpack
 
     molecules = ['C', 'CO', 'CN', 'CCl']
@@ -52,15 +49,7 @@ def search_space(scorer, tmp_path) -> tuple[Path, Path]:
         for mol in molecules:
             print(mol, file=fp)
 
-    # Store another that's pre-processed
-    csv_path = Path(tmp_path) / 'search.csv'
-    records = [MoleculeRecord.from_identifier(s) for s in molecules]
-    inputs = [json.dumps(x) for x in scorer.transform_inputs(records)]
-    with csv_path.open('w') as fp:
-        csv = writer(fp)
-        for row in zip(molecules, inputs):
-            csv.writerow(row)
-    return smi_path, csv_path
+    return smi_path
 
 
 @fixture()
@@ -73,22 +62,15 @@ def simulator(tmp_path):
     return ASESimulator(scratch_dir=tmp_path)
 
 
-@fixture(params=['single', 'split'])
+@fixture()
 def config(request, tmp_path) -> Config:
-    if request.param == 'single':
-        config = htex_local.config
-    elif request.param == 'split':
-        config = Config(
-            executors=[
-                HighThroughputExecutor(label='learning', max_workers=1),
-                HighThroughputExecutor(label='simulation', max_workers=1)
-            ]
-        )
-    else:
-        raise NotImplementedError()
-
-    config.run_dir = tmp_path
-    return config
+    """A basic, single configuration"""
+    return Config(
+        run_dir=str(tmp_path),
+        executors=[
+            HighThroughputExecutor(max_workers=1, address='localhost'),
+        ]
+    )
 
 
 @fixture()
@@ -96,7 +78,7 @@ def spec(config, database, recipe, scorer, search_space, selector, simulator, tm
     scorer, pipeline = scorer
     return ExaMolSpecification(
         database=database,
-        search_space=search_space[0],
+        search_space=[search_space],
         selector=selector,
         scorer=scorer,
         models=[pipeline],
@@ -115,18 +97,32 @@ def test_database_load(spec):
     assert database[0].identifier.smiles == 'CC'
 
 
-def test_search_load(search_space, spec):
-    for path in search_space:
-        spec.search_space = path
-        space = list(spec.load_search_space())
-        assert len(space) == 4
-        assert space[0] == ('C', 'C')
-
-    with raises(ValueError):
-        spec.search_space = 'not.supported'
-        next(spec.load_search_space())
-
-
 def test_assemble(spec):
     doer, thinker = spec.assemble()
     assert 'train' in doer.queues.topics
+
+
+def test_split_config(spec):
+    spec.compute_config = Config(
+        executors=[
+            HighThroughputExecutor(label='learning', max_workers=1, address='localhost'),
+            HighThroughputExecutor(label='simulation', max_workers=1, address='localhost')
+        ],
+        run_dir=spec.compute_config.run_dir
+    )
+    spec.assemble()  # Should not error
+
+
+def test_cache(spec):
+    spec.assemble()
+    assert Path(spec.run_dir / 'search-space').is_dir()
+    last_config = Path(spec.run_dir / 'search-space' / 'settings.json').read_text()
+
+    spec.assemble()  # Should not rebuild
+    new_config = Path(spec.run_dir / 'search-space' / 'settings.json').read_text()
+    assert last_config == new_config
+
+    spec.thinker_options = {'inference_chunk_size': 2}  # Will force a rebuild
+    spec.assemble()
+    new_config = Path(spec.run_dir / 'search-space' / 'settings.json').read_text()
+    assert last_config != new_config
