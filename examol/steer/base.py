@@ -27,8 +27,11 @@ def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
         - Key for the molecule record
         - Inference-ready format
     """
-    record = MoleculeRecord.from_identifier(smiles=smiles.strip())
-    readied = scorer.transform_inputs([record])[0]
+    try:
+        record = MoleculeRecord.from_identifier(smiles=smiles.strip())
+        readied = scorer.transform_inputs([record])[0]
+    except ValueError as e:
+        raise ValueError(f'Failure for "{smiles}"') from e
     return smiles, readied
 
 
@@ -117,7 +120,7 @@ class MoleculeThinker(BaseThinker):
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)
-            with ProcessPoolExecutor() as pool:
+            with ProcessPoolExecutor(4) as pool:
                 for chunk_id, chunk in enumerate(batched(pool.map(input_func, _read_molecules(), chunksize=1000), inference_chunk_size)):
                     keys, objects = zip(*chunk)
                     chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
