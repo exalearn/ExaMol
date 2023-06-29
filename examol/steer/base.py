@@ -94,6 +94,8 @@ class MoleculeThinker(BaseThinker):
             if rebuild:
                 self.logger.info('Settings have changed. Rebuilding the cache')
                 shutil.rmtree(self.search_space_dir)
+        elif self.search_space_dir.exists():
+            shutil.rmtree(self.search_space_dir)
         self.search_space_dir.mkdir(exist_ok=True, parents=True)
 
         # Get the paths to inputs and keys, either by rebuilding or reading from disk
