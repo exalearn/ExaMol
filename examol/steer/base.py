@@ -2,6 +2,7 @@
 import gzip
 import json
 import logging
+import os
 import pickle as pkl
 import shutil
 from pathlib import Path
@@ -28,7 +29,7 @@ def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
         - Inference-ready format
     """
     try:
-        record = MoleculeRecord.from_identifier(smiles=smiles.strip())
+        record = MoleculeRecord.from_identifier(smiles.strip())
         readied = scorer.transform_inputs([record])[0]
     except ValueError as e:
         raise ValueError(f'Failure for "{smiles}"') from e
@@ -120,9 +121,12 @@ class MoleculeThinker(BaseThinker):
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)
-            with ProcessPoolExecutor(4) as pool:
-                for chunk_id, chunk in enumerate(batched(pool.map(input_func, _read_molecules(), chunksize=1000), inference_chunk_size)):
+            with ProcessPoolExecutor(max(4, os.cpu_count())) as pool:
+                mol_iter = pool.map(input_func, _read_molecules(), chunksize=1000)
+                mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
+                for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
                     keys, objects = zip(*chunk)
+                    search_size += len(keys)
                     chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
                     with gzip.open(chunk_path, 'wb') as fp:
                         pkl.dump(objects, fp)
