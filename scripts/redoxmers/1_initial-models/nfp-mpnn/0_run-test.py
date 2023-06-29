@@ -10,7 +10,7 @@ from pathlib import Path
 from hashlib import md5
 import json
 
-database = '../../check-chemistry-settings/database.json'
+database = '../../0_check-chemistry-settings/database.json'
 
 if __name__ == "__main__":
     # Parse input arguments
@@ -52,6 +52,8 @@ if __name__ == "__main__":
     # Make a run directory
     run_settings = args.__dict__.copy()
     run_settings.pop('overwrite')
+    run_settings['name'] = recipe.name
+    run_settings['level'] = recipe.level
     settings_hash = md5(json.dumps(args.__dict__).encode()).hexdigest()[-8:]
     run_dir = Path(f'runs/f={args.atom_features}-T={args.message_steps}-r={args.reduce_op}-atomwise={args.atomwise}-hash={settings_hash}')
     if run_dir.exists() and not args.overwrite:
