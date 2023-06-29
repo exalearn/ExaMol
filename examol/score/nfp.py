@@ -277,7 +277,7 @@ class NFPScorer(Scorer):
             return NFPMessage(model)
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
-        return [convert_string_to_dict(record.identifier.smiles) for record in record_batch]
+        return [convert_string_to_dict(record.identifier.inchi) for record in record_batch]
 
     def score(self, model_msg: NFPMessage, inputs: list[dict], batch_size: int = 64, padded_size: int | None = None,
               **kwargs) -> np.ndarray:
