@@ -32,7 +32,7 @@ def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
     try:
         record = MoleculeRecord.from_identifier(smiles.strip())
         readied = scorer.transform_inputs([record])[0]
-    except (ValueError, RuntimeError) as e:
+    except (ValueError, RuntimeError):
         return None
     return smiles, readied
 
