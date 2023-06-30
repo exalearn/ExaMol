@@ -27,12 +27,13 @@ def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
     Returns:
         - Key for the molecule record
         - Inference-ready format
+        Or None if the transformation fails
     """
     try:
         record = MoleculeRecord.from_identifier(smiles.strip())
         readied = scorer.transform_inputs([record])[0]
-    except ValueError as e:
-        raise ValueError(f'Failure for "{smiles}"') from e
+    except (ValueError, RuntimeError) as e:
+        return None
     return smiles, readied
 
 
@@ -121,7 +122,7 @@ class MoleculeThinker(BaseThinker):
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)
-            with ProcessPoolExecutor(max(4, os.cpu_count())) as pool:
+            with ProcessPoolExecutor(min(4, os.cpu_count())) as pool:
                 mol_iter = pool.map(input_func, _read_molecules(), chunksize=1000)
                 mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
                 for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
