@@ -1,16 +1,12 @@
 """Tool for defining then deploying an ExaMol application"""
-import json
 import logging
-from csv import reader
 from dataclasses import dataclass, field
 from functools import update_wrapper
 from pathlib import Path
-from typing import Iterator
 
 from colmena.queue import PipeQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
-from more_itertools import batched
 from parsl import Config
 from pydantic.main import partial
 
@@ -46,9 +42,8 @@ class ExaMolSpecification:
     """Path to the initial dataset"""
     recipe: PropertyRecipe = ...
     """Definition for how to compute the target property"""
-    search_space: Path | str = ...
-    """Path to the molecules over which to search. Can either be a `.smi` file or a `.csv` where the first column
-    is the smiles string and the second is a form ready for inference with :attr:`scorer`."""
+    search_space: list[Path | str] = ...
+    """Path to the molecules over which to search. Should be a list of ".smi" files"""
     starter: Starter = RandomStarter(threshold=10, min_to_select=1)
     """How to initialize the database if too small. Default: Pick a single random molecule"""
     selector: Selector = ...
@@ -118,7 +113,7 @@ class ExaMolSpecification:
             queues=queues,
             run_dir=self.run_dir,
             recipe=self.recipe,
-            search_space=self.load_search_space(),
+            search_space=self.search_space,
             starter=self.starter,
             database=self.load_database(),
             scorer=self.scorer,
@@ -144,25 +139,3 @@ class ExaMolSpecification:
                     output.append(MoleculeRecord.from_json(line))
             logger.info(f'Loaded {len(output)} records from {self.database}')
         return output
-
-    def load_search_space(self) -> Iterator[tuple[str, object]]:
-        """Load the search space incrementally"""
-
-        path = Path(self.search_space)
-        if path.name.lower().endswith('.smi'):
-            # Read then convert to inputs
-            with path.open() as fp:
-                # Generate the inputs in batches
-                for batch in batched(fp, 1024):  # TODO (wardlt): This could be configurable and parallelized
-                    batch = [MoleculeRecord.from_identifier(x.strip()) for x in batch]
-                    yield from zip(
-                        [record.identifier.smiles for record in batch],
-                        self.scorer.transform_inputs(batch)
-                    )
-        elif path.name.lower().endswith('.csv'):
-            with path.open() as fp:
-                csv = reader(fp)
-                for row in csv:
-                    yield row[0], json.loads(row[1])
-        else:
-            raise ValueError(f'File type is unrecognized for {path}')

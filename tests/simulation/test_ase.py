@@ -67,11 +67,11 @@ def test_optimization(config_name: str, strc, tmpdir):
         db_path = Path(tmpdir) / 'data.db'
         db_path.unlink(missing_ok=True)
         sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=str(db_path), clean_after_run=False)
-        out_res, traj_res, extra = sim.optimize_structure(strc, config_name, charge=1)
+        out_res, traj_res, extra = sim.optimize_structure('name', strc, config_name, charge=1)
         assert out_res.energy < traj_res[0].energy
 
         # Find the output directory
-        run_dir = next(Path(tmpdir).glob('ase_opt_*'))
+        run_dir = next(Path(tmpdir).glob('name/opt_*'))
         assert run_dir.is_dir()
 
         # Make sure everything is stored in the DB
@@ -80,14 +80,14 @@ def test_optimization(config_name: str, strc, tmpdir):
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it doesn't write new stuff
-        sim.optimize_structure(strc, config_name, charge=1)
+        sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
         (run_dir / 'lbfgs.traj').write_text('bad')  # Kill the restart file
-        sim.optimize_structure(strc, config_name, charge=1)
+        sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
             assert next(db.select())['total_charge'] == 1
@@ -95,7 +95,7 @@ def test_optimization(config_name: str, strc, tmpdir):
         # Make sure it cleans up after itself
         sim.clean_after_run = True
         shutil.rmtree(run_dir)
-        sim.optimize_structure(strc, config_name, charge=1)
+        sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
             assert next(db.select())['total_charge'] == 1
@@ -116,7 +116,7 @@ def test_solvent(strc, tmpdir):
         assert len(list(Path(tmpdir).glob('ase_*'))) == 0
 
         # Run the calculation
-        result, metadata = sim.compute_energy(strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
+        result, metadata = sim.compute_energy('name', strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
         assert result.energy
 
         # Check that the data was added
@@ -128,15 +128,15 @@ def test_xtb(tmpdir, strc):
     sim = ASESimulator(scratch_dir=tmpdir)
 
     # Ensure we get a different single point energy
-    neutral, _ = sim.compute_energy(strc, config_name='xtb', charge=0)
-    charged, _ = sim.compute_energy(strc, config_name='xtb', charge=1)
-    solvated, _ = sim.compute_energy(strc, config_name='xtb', charge=0, solvent='acn')
+    neutral, _ = sim.compute_energy('name', strc, config_name='xtb', charge=0)
+    charged, _ = sim.compute_energy('name', strc, config_name='xtb', charge=1)
+    solvated, _ = sim.compute_energy('name', strc, config_name='xtb', charge=0, solvent='acn')
     assert neutral.energy != charged.energy
     assert neutral.energy != solvated.energy
 
     # Ensure it relaxes under charge
-    charged_opt, _, _ = sim.optimize_structure(strc, config_name='xtb', charge=-1)
-    charged_opt_neutral, _ = sim.compute_energy(charged_opt.xyz, config_name='xtb', charge=0)
+    charged_opt, _, _ = sim.optimize_structure('name', strc, config_name='xtb', charge=-1)
+    charged_opt_neutral, _ = sim.compute_energy('name', charged_opt.xyz, config_name='xtb', charge=0)
     assert charged_opt.energy != charged_opt_neutral.energy
 
 
@@ -186,6 +186,6 @@ def test_gaussian_opt(strc, tmpdir):
         # Fake execution by having it copy a known output to a target directory
         sim.gaussian_command = f'cp {(_files_dir / "Gaussian-relax.log").absolute()} Gaussian.log'
 
-    relaxed, traj, _ = sim.optimize_structure(strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
+    relaxed, traj, _ = sim.optimize_structure('name', strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
     assert relaxed.energy < traj[0].energy
     assert relaxed.forces.max() < 0.01
