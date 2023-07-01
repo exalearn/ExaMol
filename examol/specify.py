@@ -8,6 +8,7 @@ from colmena.queue import PipeQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from parsl import Config
+from proxystore.store import Store, register_store
 from pydantic.main import partial
 
 from examol.reporting.base import BaseReporter
@@ -73,6 +74,11 @@ class ExaMolSpecification:
     # Define the computing resources
     compute_config: Config = ...
     """Description of the available resources via Parsl. See :class:`~parsl.config.Config`."""
+    proxy_store: Store | dict[str, Store] | None = None
+    """Proxy store(s) used to communicate large objects between Thinker and workers. Can be either a single store used for all task types,
+    or a mapping between a task topic (inference, simulation, train) and the store used for that task type.
+
+    All messages larger than 10kB will be proxied using the store."""
     run_dir: Path | str = ...
     """Path in which to write output files"""
 
@@ -80,8 +86,21 @@ class ExaMolSpecification:
         """Assemble the Colmena application"""
 
         # Use pipe queues for simplicity
-        # TODO (wardlt): Add proxystore support
-        queues = PipeQueues(topics=['inference', 'simulation', 'train'])
+        if self.proxy_store is None:
+            proxy_name = None
+        elif isinstance(self.proxy_store, Store):
+            register_store(self.proxy_store, exist_ok=True)
+            proxy_name = self.proxy_store.name
+            logger.info(f'Will use {self.proxy_store} for all messages')
+        elif isinstance(self.proxy_store, dict):
+            proxy_name = dict()
+            for name, store in self.proxy_store.items():
+                register_store(store, exist_ok=True)
+                proxy_name[name] = store.name
+                logger.info(f'Using {store} for {name} tasks')
+        else:
+            raise NotImplementedError()
+        queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=10000, proxystore_name=proxy_name)
 
         # Pin options to some functions
         def _wrap_function(fun, options: dict):
