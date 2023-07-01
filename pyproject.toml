@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "colmena>=0.4",
+    "colmena==0.5.*",
     "ase>=3.22",
     "rdkit>=2022.9",
     "networkx>=2.8",

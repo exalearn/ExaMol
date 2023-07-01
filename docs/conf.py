@@ -23,7 +23,8 @@ extensions = [
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'mongoengine': ('https://docs.mongoengine.org/', None),
                        'parsl': ('https://parsl.readthedocs.io/en/stable/', None),
-                       'colmena': ('https://colmena.readthedocs.io/en/stable/', None)}
+                       'colmena': ('https://colmena.readthedocs.io/en/stable/', None),
+                       'proxystore': ('https://docs.proxystore.dev/main/', None)}
 autodoc_mock_imports = ["tensorflow", "sklearn"]
 
 templates_path = ['_templates']

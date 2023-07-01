@@ -3,6 +3,8 @@ from random import random
 from pathlib import Path
 
 from parsl import Config, HighThroughputExecutor
+from proxystore.store import Store
+from proxystore.connectors.file import FileConnector
 from pytest import fixture
 from sklearn.pipeline import Pipeline
 
@@ -126,3 +128,21 @@ def test_cache(spec):
     spec.assemble()
     new_config = Path(spec.run_dir / 'search-space' / 'settings.json').read_text()
     assert last_config != new_config
+
+
+def test_proxy(spec, tmpdir):
+    file_store = Store(name='file', connector=FileConnector(tmpdir), metrics=True)
+
+    # Test without any store
+    doer, thinker = spec.assemble()
+    assert all(x is None for x in thinker.queues.proxystore_name.values())
+
+    # Test with a single store for everything
+    spec.proxystore = file_store
+    doer, thinker = spec.assemble()
+    assert all(x == 'file' for x in thinker.queues.proxystore_name.values())
+
+    # Only use file for the inference
+    spec.proxystore = {'inference': file_store}
+    doer, thinker = spec.assemble()
+    assert all(x is None if n != "inference" else x == "file" for n, x in thinker.queues.proxystore_name.items()), thinker.queues.proxystore_name

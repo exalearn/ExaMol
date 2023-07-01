@@ -173,3 +173,8 @@ Computational Resources
 ``compute_config`` requires a Parsl :class:`~parsl.config.Config` object describing the resources available to ExaMol.
 Parsl's `quickstart describes the basics <https://parsl.readthedocs.io/en/stable/quickstart.html>`_ of
 how to describe the queueing system and compute nodes of your supercomputer.
+
+ExaMol can use `ProxyStore <https://docs.proxystore.dev/main/>`_ to increase scaling performance by improving data
+transfer between the steering process and worker processes.
+Use ProxyStore by creating one or more :class:`~proxystore.store.base.Store` objects then setting
+providing them to the :attr:`~examol.specify.ExaMolSpecification.proxystore` option of your specification.
