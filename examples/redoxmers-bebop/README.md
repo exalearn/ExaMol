@@ -5,12 +5,6 @@ using example.
 This examples uses DFT computations and, therefore, requires a supercomputer.
 We configured it to run on Bebop.
 
-## Set Up
-
-This example requires running a yet-unreleased version of ASE that supports Gaussian with >50 atoms. Install by
-
-`pip install git+https://gitlab.com/argon214/ase.git@gaussian`
-
 ## Running the example
 
 Navigate to this directory and then call
@@ -25,4 +19,5 @@ It will output to `run` and eventually produce a file, `report.md`, that contain
 
 There are a few limitations to be aware of for now:
 
-1. We can only run a single Gaussian calculation per block of nodes
+1. Every calculation runs on a single node, regardless of size
+1. Large molecules use the ASE optimizer, smaller ones use Gaussian's

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from parsl import Config, HighThroughputExecutor
 from parsl.addresses import address_by_hostname
-from parsl.launchers import SimpleLauncher
+from parsl.launchers import SrunLauncher
 from parsl.providers import SlurmProvider
 
 from examol.reporting.database import DatabaseWriter
@@ -20,7 +20,7 @@ from examol.specify import ExaMolSpecification
 my_path = Path().absolute()
 
 # Make the recipe
-recipe = RedoxEnergy(1, energy_config='gaussian_b3lyp_6-31(2df,p)', solvent='acn')
+recipe = RedoxEnergy(1, energy_config='gaussian_b3lyp_6-31g(2df,p)', solvent='acn')
 
 # Make the scorer
 pipeline = make_gpr_model()
@@ -40,17 +40,16 @@ sim = ASESimulator(
 # Make the parsl configuration
 htex = HighThroughputExecutor(
     address=address_by_hostname(),
-    max_workers=1,  # Only one task per job
+    max_workers=1,  # Only one task per node
     provider=SlurmProvider(
         partition='knlall',
-        launcher=SimpleLauncher(),
-        nodes_per_block=2,
-        max_blocks=1,
+        launcher=SrunLauncher(),
+        nodes_per_block=10,
+        max_blocks=2,
         scheduler_options="#SBATCH --account=ML-for-Redox",
         worker_init='''
 module load gaussian/16-a.03
 export GAUSS_SCRDIR=/scratch
-export GAUSS_WDEF="$(scontrol show hostname $SLURM_JOB_NODELIST | paste -d, -s)"
 export GAUSS_CDEF=0-63
 export GAUSS_MDEF=50GB
 export GAUSS_SDEF=ssh
@@ -60,6 +59,7 @@ export GAUSS_LFLAGS="-vv"''',
 )
 config = Config(
     executors=[htex],
+    retries=4,
     run_dir=str((my_path / 'parsl-logs')),
 )
 
@@ -69,13 +69,14 @@ spec = ExaMolSpecification(
     database=run_dir / 'database.json',
     recipe=recipe,
     search_space=(my_path / 'search-space.smi'),
-    selector=ExpectedImprovement(1, maximize=True, epsilon=0.1),
+    selector=ExpectedImprovement(25, maximize=True, epsilon=0.1),
     starter=RandomStarter(threshold=10, min_to_select=1),
     simulator=sim,
     scorer=scorer,
     models=[pipeline] * 8,
-    num_to_run=20,
+    num_to_run=200,
     thinker=SingleObjectiveThinker,
+    thinker_options=dict(num_workers=20),
     compute_config=config,
     reporters=[reporter, writer],
     run_dir=run_dir,
