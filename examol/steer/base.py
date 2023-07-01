@@ -12,6 +12,7 @@ from more_itertools import batched
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter
+from proxystore.store import get_store
 
 from examol.score.base import Scorer
 from examol.store.models import MoleculeRecord
@@ -136,12 +137,22 @@ class MoleculeThinker(BaseThinker):
             with open(self.search_space_dir / 'keys.json') as fp:
                 search_space_keys = json.load(fp)
 
-        # Load in the molecules
+        # Load in the molecules, storing them as proxies in the "inference" store if there is a store defined
         self.logger.info(f'Loading in molecules from {len(search_space_keys)} files')
         output = []
+
+        proxy_store = self.queues.proxystore_name.get('inference')  # Store
+        if proxy_store is not None:
+            proxy_store = get_store(proxy_store)
+            self.logger.info(f'Will store inference objects to {proxy_store}')
+
         for name, keys in search_space_keys.items():
-            with gzip.open(self.search_space_dir / name, 'rb') as fp:
-                output.append((keys, pkl.load(fp)))
+            with gzip.open(self.search_space_dir / name, 'rb') as fp:  # Load from disk
+                objects = pkl.load(fp)
+
+            if proxy_store is not None:  # If the store exists, make a proxy
+                objects = proxy_store.proxy(objects)
+            output.append((keys, objects))
         return output
 
     def _write_result(self, result: Result, result_type: str):

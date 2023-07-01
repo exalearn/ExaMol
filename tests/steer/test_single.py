@@ -7,6 +7,8 @@ from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
+from proxystore.connectors.file import FileConnector
+from proxystore.store import Store, register_store
 from pytest import fixture, mark
 from sklearn.pipeline import Pipeline
 
@@ -62,7 +64,9 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     scorer, _ = scorer
 
     # Make the queues
-    queues = PipeQueues(topics=['inference', 'simulation', 'train'])
+    store = Store(name='file', connector=FileConnector(store_dir=str(tmp_path)))
+    register_store(store, exist_ok=True)
+    queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_name=store.name)
 
     # Make parsl configuration
     config = Config(
