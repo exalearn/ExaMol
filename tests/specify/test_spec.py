@@ -138,11 +138,11 @@ def test_proxy(spec, tmpdir):
     assert all(x is None for x in thinker.queues.proxystore_name.values())
 
     # Test with a single store for everything
-    spec.proxy_store = file_store
+    spec.proxystore = file_store
     doer, thinker = spec.assemble()
     assert all(x == 'file' for x in thinker.queues.proxystore_name.values())
 
     # Only use file for the inference
-    spec.proxy_store = {'inference': file_store}
+    spec.proxystore = {'inference': file_store}
     doer, thinker = spec.assemble()
     assert all(x is None if n != "inference" else x == "file" for n, x in thinker.queues.proxystore_name.items()), thinker.queues.proxystore_name

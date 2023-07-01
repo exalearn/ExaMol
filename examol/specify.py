@@ -74,7 +74,7 @@ class ExaMolSpecification:
     # Define the computing resources
     compute_config: Config = ...
     """Description of the available resources via Parsl. See :class:`~parsl.config.Config`."""
-    proxy_store: Store | dict[str, Store] | None = None
+    proxystore: Store | dict[str, Store] | None = None
     """Proxy store(s) used to communicate large objects between Thinker and workers. Can be either a single store used for all task types,
     or a mapping between a task topic (inference, simulation, train) and the store used for that task type.
 
@@ -86,15 +86,15 @@ class ExaMolSpecification:
         """Assemble the Colmena application"""
 
         # Use pipe queues for simplicity
-        if self.proxy_store is None:
+        if self.proxystore is None:
             proxy_name = None
-        elif isinstance(self.proxy_store, Store):
-            register_store(self.proxy_store, exist_ok=True)
-            proxy_name = self.proxy_store.name
-            logger.info(f'Will use {self.proxy_store} for all messages')
-        elif isinstance(self.proxy_store, dict):
+        elif isinstance(self.proxystore, Store):
+            register_store(self.proxystore, exist_ok=True)
+            proxy_name = self.proxystore.name
+            logger.info(f'Will use {self.proxystore} for all messages')
+        elif isinstance(self.proxystore, dict):
             proxy_name = dict()
-            for name, store in self.proxy_store.items():
+            for name, store in self.proxystore.items():
                 register_store(store, exist_ok=True)
                 proxy_name[name] = store.name
                 logger.info(f'Using {store} for {name} tasks')
