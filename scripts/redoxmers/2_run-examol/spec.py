@@ -6,6 +6,8 @@ from parsl.addresses import address_by_hostname
 from parsl import Config, HighThroughputExecutor
 from parsl.launchers import SimpleLauncher, MpiExecLauncher
 from parsl.providers import PBSProProvider
+from proxystore.store import Store
+from proxystore.connectors.file import FileConnector
 from tensorflow import keras
 
 from examol.reporting.database import DatabaseWriter
@@ -30,7 +32,7 @@ my_path = Path().absolute()
 run_dir = my_path / 'run'
 
 # If we have not run yet, use the database from the chemistry check
-database_path = '../0_check-chemistry-settings/database.json'
+database_path = my_path / '../0_check-chemistry-settings/database.json'
 if run_dir.exists():
     database_path = run_dir / 'database.json'
 
@@ -133,6 +135,9 @@ which python
     run_dir=str((my_path / 'parsl-logs')),
 )
 
+# Make the proxystore
+store = Store(name='file', connector=FileConnector(run_dir / 'proxystore'), metrics=True)
+
 spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
     recipe=recipe,
@@ -143,8 +148,9 @@ spec = ExaMolSpecification(
     models=[model] * 8,
     num_to_run=32,
     thinker=SingleObjectiveThinker,
-    thinker_options={'num_workers': num_parallel_cp2k},
+    thinker_options={'num_workers': num_parallel_cp2k, 'inference_chunk_size': 500000},
     compute_config=config,
+    proxystore=store,
     reporters=[reporter, writer],
     run_dir=run_dir,
 )
