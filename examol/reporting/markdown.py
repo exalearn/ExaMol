@@ -47,7 +47,7 @@ class MarkdownReporter(BaseReporter):
                 for line in fp:
                     result = json.loads(line)
                     count += 1
-                    node_hours += result['time_running'] / 3600
+                    node_hours += result.get('time_running', 0) / 3600
                     failures += not result['success']
             task_summary.append({
                 'Task Type': task_type,
