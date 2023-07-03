@@ -321,7 +321,7 @@ class NFPScorer(Scorer):
             learning_rate: Learning rate for the Adam optimizer
             device_type: Type of device used for training
             steps_per_exec: Number of training steps to run per execution on acceleration
-            patience: Number of epochs without improvement before terminating training.
+            patience: Number of epochs without improvement before terminating training. Default is 10% of ``num_epochs``
             timeout: Maximum training time in seconds
             verbose: Whether to print training information to screen
             max_size: Maximum size of molecules expected in training set
