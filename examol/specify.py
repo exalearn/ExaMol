@@ -152,9 +152,10 @@ class ExaMolSpecification:
         """
 
         output = []
+        logger.info(f'Loading records from {self.database}')
         if self.database.exists():
             with open(self.database) as fp:
                 for line in fp:
                     output.append(MoleculeRecord.from_json(line))
-            logger.info(f'Loaded {len(output)} records from {self.database}')
+            logger.info(f'Loaded {len(output)} molecule property records')
         return output
