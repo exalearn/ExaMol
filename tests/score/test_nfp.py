@@ -68,11 +68,17 @@ def test_data_loader(scorer, training_set, model, recipe):
         next(gen)
 
     # Make sure we pad correctly
-    loader = make_data_loader(parsed_inputs, values, max_size=64)
+    loader = make_data_loader(parsed_inputs, values)
     x, _ = next(iter(loader))
 
-    assert x['atom'].shape == (3, 64)
-    assert x['bond'].shape == (3, 64 * 4)
+    assert x['atom'].shape == (3, 11)  # CCC has 11 atoms
+    assert x['bond'].shape == (3, 20)   # CCC has 10 bonds (x2 for bidirectional)
+
+    loader = make_data_loader(parsed_inputs[:2], values)
+    x, _ = next(iter(loader))
+
+    assert x['atom'].shape == (2, 8)  # CC has 8 atoms
+    assert x['bond'].shape == (2, 14)  # CC has 7 bonds (x2 for bidirectional)
 
 
 @mark.parametrize('atomwise', [True, False])
@@ -82,15 +88,15 @@ def test_padded_outputs(atomwise: bool, training_set, scorer):
     # Make the dictionary inputs
     parsed_inputs = scorer.transform_inputs(training_set)
 
-    # Run it with padded arrays
+    # Run it with all 3 molecules
     loader = make_data_loader(parsed_inputs)
-    outputs_nopad = model.predict(loader, verbose=False, workers=0)
+    outputs_3 = model.predict(loader, verbose=False, workers=0)
 
-    # Run it without
-    loader = make_data_loader(parsed_inputs, max_size=64)
-    outputs_pad = model.predict(loader, verbose=False, workers=0)
+    # Run it with only the first 2, which will result in a different padding size
+    loader = make_data_loader(parsed_inputs[:2])
+    outputs_2 = model.predict(loader, verbose=False, workers=0)
 
-    assert np.isclose(outputs_pad, outputs_nopad).all()
+    assert np.isclose(outputs_2, outputs_3[:2, :]).all()
 
 
 def test_score(model, scorer, training_set):
