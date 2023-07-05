@@ -246,7 +246,7 @@ class SingleObjectiveThinker(MoleculeThinker):
 
             # Update the inference results
             all_done[chunk_id][model_id] = True
-            inference_results[chunk_id][:, model_id] = result.value
+            inference_results[chunk_id][:, model_id] = np.squeeze(result.value)
 
             # Check if we are done for the whole chunk (all models for this chunk)
             if all(all_done[chunk_id]):
