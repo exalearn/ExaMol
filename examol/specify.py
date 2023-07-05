@@ -61,11 +61,14 @@ class ExaMolSpecification:
     # Options for key operations
     train_options: dict = field(default_factory=dict)
     """Options passed to the :py:meth:`~examol.score.base.Scorer.retrain` function"""
+    score_options: dict = field(default_factory=dict)
+    """Options passed to the :py:meth:`~examol.score.base.Scorer.score` function"""
 
     # Define how we create the thinker
     thinker: type[SingleObjectiveThinker] = ...
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
+    """Options passed forward to initializing the thinker"""
 
     # Define how we communicate to the user
     reporters: list[BaseReporter] = field(default_factory=list)
@@ -109,13 +112,14 @@ class ExaMolSpecification:
             return wrapped_fun
 
         train_func = _wrap_function(self.scorer.retrain, self.train_options)
+        score_func = _wrap_function(self.scorer.score, self.score_options)
 
         # Determine how methods are partitioned to executors
         exec_names = set(x.label for x in self.compute_config.executors)
-        if len(exec_names) == 1:  # Case 1: All to the
-            methods = [self.scorer.score, train_func, self.simulator.optimize_structure, self.simulator.compute_energy]
-        elif exec_names == {'learning', 'simulation'}:
-            methods = [(x, {'executors': ['learning']}) for x in [self.scorer.score, train_func]]
+        if len(exec_names) == 1:  # Case 1: All to on the same executor
+            methods = [score_func, train_func, self.simulator.optimize_structure, self.simulator.compute_energy]
+        elif exec_names == {'learning', 'simulation'}:  # Case 2: Split ML and simulation
+            methods = [(x, {'executors': ['learning']}) for x in [score_func, train_func]]
             methods += [(x, {'executors': ['simulation']}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
         else:
             raise NotImplementedError(f'We do not support the executor layout: {",".join(exec_names)}')
