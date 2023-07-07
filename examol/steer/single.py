@@ -1,11 +1,11 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
+from collections import defaultdict
+from dataclasses import asdict
+from pathlib import Path
 from queue import Queue
 from threading import Event, Condition
 from time import perf_counter
 from typing import Iterator
-from collections import defaultdict
-from dataclasses import asdict
-from pathlib import Path
 
 import numpy as np
 from colmena.models import Result
@@ -19,6 +19,7 @@ from proxystore.store.utils import get_key
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
+from ..simulate.base import SimResult
 from ..start.base import Starter
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
@@ -178,11 +179,14 @@ class SingleObjectiveThinker(MoleculeThinker):
 
         # Add our result, see if finished
         if result.success:
+            results: list[SimResult]
             if result.method == 'optimize_structure':
                 sim_result, steps, metadata = result.value
+                results = [sim_result] + steps
                 record.add_energies(sim_result, steps)
             elif result.method == 'compute_energy':
                 sim_result, metadata = result.value
+                results = [sim_result]
                 record.add_energies(sim_result)
             else:
                 raise NotImplementedError()
@@ -209,6 +213,11 @@ class SingleObjectiveThinker(MoleculeThinker):
                     with self.task_queue_lock:
                         self.task_queue.insert(0, (record.identifier.smiles, np.inf))
                         self.task_queue_lock.notify_all()
+
+            # Save the relaxation steps to disk
+            with open(self.run_dir / 'simulation-records.json', 'a') as fp:
+                for record in results:
+                    print(record.json(), file=fp)
 
         self._write_result(result, 'simulation')
 

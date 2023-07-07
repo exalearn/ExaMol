@@ -1,6 +1,6 @@
 """Base class defining the interfaces for common simulation operations"""
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from hashlib import sha512
 from pathlib import Path
 from typing import Any
@@ -40,6 +40,13 @@ class SimResult:
     def atoms(self) -> ase.Atoms:
         """ASE Atoms object representation of the structure"""
         return read_from_string(self.xyz, 'xyz')
+
+    def json(self, **kwargs) -> str:
+        """Write the record to JSON format"""
+        output = asdict(self)
+        if isinstance(output['forces'], np.ndarray):
+            output['forces'] = output['forces'].tolist()
+        return json.dumps(output, **kwargs)
 
 
 class BaseSimulator:
