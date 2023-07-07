@@ -43,14 +43,16 @@ class SimResult:
 
 
 class BaseSimulator:
-    """Interface for tools that perform common operations"""
+    """Uniform interface for common types of computations
 
-    def __init__(self, scratch_dir: Path | str | None):
-        """
-        Args:
-            scratch_dir: Path in which to create temporary directories
-        """
+    Args:
+        scratch_dir: Path in which to create temporary directories
+        retain_failed: Whether to retain failed computations
+    """
+
+    def __init__(self, scratch_dir: Path | str | None, retain_failed: bool = True):
         self.scratch_dir: Path | None = Path('tmp') if scratch_dir is None else Path(scratch_dir)
+        self.retain_failed = retain_failed
 
     def _make_run_hash(self, xyz: str, config_name: str, charge: int, solvent: str | None) -> str:
         """Generate a summary hash for a calculation
