@@ -1,10 +1,13 @@
 """Utilities related to using ASE"""
 from contextlib import contextmanager
 from typing import Iterator
+import logging
 
 import ase
 import numpy as np
 from ase.calculators.calculator import Calculator
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -42,7 +45,11 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         #  shell and then set the `_shell` parameter of the object so that the
         #  calculator object's destructor will skip the shell shutdown process
         #  when the object is finally garbage collected
-        calc.__del__()
+        try:
+            calc.__del__()
+        except AssertionError as e:  # no-coverage
+            logger.info(f'CP2K was noisy on failure: {e}')
+            pass
         calc._shell = None
     elif name == 'gaussian':
         from ase.calculators.gaussian import Gaussian
