@@ -25,7 +25,7 @@ logger = logging.getLogger('spec')
 num_parallel_cp2k: int = 4
 nodes_per_cp2k: int = 2
 ensemble_size: int = 8
-search_space_name: str = 'pubchem-criteria-v3-molwt=300.smi'
+search_space_name: str = 'pubchem-criteria-v3.1-molwt=300.smi'
 
 # Get my path. We'll want to provide everything as absolute paths, as they are relative to this file
 my_path = Path().absolute()

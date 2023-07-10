@@ -14,4 +14,4 @@ required_smarts:
     # Must match _all_ of these
   - a
 min_conjugation: 3  # Feedback from Lu
-allow_disconnected: True
+allow_disconnected: false
