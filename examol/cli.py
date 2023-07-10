@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from rdkit import RDLogger
+from proxystore.store import get_store
 
 from examol import __version__
 from examol.specify import ExaMolSpecification
@@ -54,7 +55,20 @@ def run_examol(args):
     logger.info(f'Created a thinker based on {thinker.__class__}')
     logger.info(f'Will run a total of {spec.num_to_run} molecules')
     logger.info(f'Will save results into {thinker.run_dir}')
+
+    # Make a function to clear the proxystore caches
+    def _clear_stores():
+        names = set(thinker.queues.proxystore_name.values())
+        logger.info(f'There are {len(names)} proxystore caches to clear.')
+        for name in names:
+            if name is not None:
+                logger.info(f'Closing proxystore: {name}')
+                store = get_store(name)
+                store.close()
+
+    # Stop if we are in a dry run
     if args.dry_run:
+        _clear_stores()
         logger.info('Finished with dry run. Exiting')
         return
 
@@ -91,6 +105,9 @@ def run_examol(args):
         reporter.report(thinker)
 
     logger.info(f'Find run details in {spec.run_dir.absolute()}')
+
+    # Clear out the proxystore cache
+    _clear_stores()
 
 
 def main(args: list[str] | None = None):

@@ -10,6 +10,7 @@ from mongoengine.fields import StringField, ListField
 from rdkit import Chem
 
 from examol.simulate.base import SimResult
+from examol.utils.chemistry import parse_from_molecule_string
 from examol.utils.conversions import read_from_string, write_to_string
 
 
@@ -174,16 +175,16 @@ class MoleculeRecord(Document):
     """Properties available for the molecule"""
 
     @classmethod
-    def from_identifier(cls, smiles: str | None = None, inchi: str | None = None):
-        assert (smiles is not None) ^ (inchi is not None), "You must supply either smiles or inchi, and not both"
+    def from_identifier(cls, mol_string: str):
+        """Parse the molecule from either the SMILES or InChI string
 
+        Args:
+            mol_string: Molecule to parse
+        Returns:
+            Empty record for this molecule
+        """
         # Load in the molecule
-        if smiles is None:
-            mol = Chem.MolFromInchi(inchi)
-        else:
-            mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            raise ValueError(f'Molecule failed to parse: {smiles if inchi is None else inchi}')
+        mol = parse_from_molecule_string(mol_string)
 
         # Create the object
         return cls(key=Chem.MolToInchiKey(mol), identifier=Identifiers(smiles=Chem.MolToSmiles(mol), inchi=Chem.MolToInchi(mol)))

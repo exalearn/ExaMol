@@ -198,7 +198,6 @@ def make_data_loader(mol_dicts: list[dict],
                      repeat: bool = False,
                      shuffle_buffer: int | None = None,
                      value_spec: tf.TensorSpec = tf.TensorSpec((), dtype=tf.float32),
-                     max_size: int = None,
                      drop_last_batch: bool = False) -> tf.data.Dataset:
     """Make an in-memory data loader for data compatible with NFP-style neural networks
 
@@ -209,11 +208,14 @@ def make_data_loader(mol_dicts: list[dict],
         batch_size: Number of molecules per batch
         repeat: Whether to create an infinitely-repeating iterator
         shuffle_buffer: Size of a shuffle buffer. Use ``None`` to leave data unshuffled
-        max_size: Maximum number of atoms per molecule
         drop_last_batch: Whether to keep the last batch in the dataset. Set to ``True`` if, for example, you need every batch to be the same size
     Returns:
         Data loader that generates molecules in the desired shapes
     """
+
+    # Determine the maximum size of molecule, used when padding the arrays
+    max_atoms = max(len(x['atom']) for x in mol_dicts)
+    max_bonds = max(len(x['bond']) for x in mol_dicts)
 
     # Make the initial data loader
     record_sig = {
@@ -240,20 +242,15 @@ def make_data_loader(mol_dicts: list[dict],
     if shuffle_buffer is not None:
         loader = loader.shuffle(shuffle_buffer)
 
-    # Make the batches
-    #  Patches the data to make them all the same size, adding 0's to signify padded values
-    if max_size is None:
-        loader = loader.padded_batch(batch_size=batch_size, drop_remainder=drop_last_batch)
-    else:
-        max_bonds = 4 * max_size  # If all atoms are carbons, they each have 4 bonds at maximum
-        padded_records = {
-            "atom": tf.TensorShape((max_size,)),
-            "bond": tf.TensorShape((max_bonds,)),
-            "connectivity": tf.TensorShape((max_bonds, 2))
-        }
-        if values is not None:
-            padded_records = (padded_records, value_spec.shape)
-        loader = loader.padded_batch(batch_size=batch_size, padded_shapes=padded_records, drop_remainder=drop_last_batch)
+    # Make the batches. Pads the data to make them all the same size, adding 0's to signify padded values
+    padded_records = {
+        "atom": tf.TensorShape((max_atoms,)),
+        "bond": tf.TensorShape((max_bonds,)),
+        "connectivity": tf.TensorShape((max_bonds, 2))
+    }
+    if values is not None:
+        padded_records = (padded_records, value_spec.shape)
+    loader = loader.padded_batch(batch_size=batch_size, padded_shapes=padded_records, drop_remainder=drop_last_batch)
 
     return loader
 
@@ -277,22 +274,20 @@ class NFPScorer(Scorer):
             return NFPMessage(model)
 
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
-        return [convert_string_to_dict(record.identifier.smiles) for record in record_batch]
+        return [convert_string_to_dict(record.identifier.inchi) for record in record_batch]
 
-    def score(self, model_msg: NFPMessage, inputs: list[dict], batch_size: int = 64, padded_size: int | None = None,
-              **kwargs) -> np.ndarray:
+    def score(self, model_msg: NFPMessage, inputs: list[dict], batch_size: int = 64, **kwargs) -> np.ndarray:
         """Assign a score to molecules
 
         Args:
             model_msg: Model in a transmittable format
             inputs: Batch of inputs ready for the model (in dictionary format)
             batch_size: Number of molecules to evaluate at each time
-            padded_size: Size to which to pad molecules so that each batch has the same array size
         Returns:
             The scores to a set of records
         """
-        model = model_msg.get_model()
-        loader = make_data_loader(inputs, batch_size=batch_size, max_size=padded_size)
+        model = model_msg.get_model()  # Unpack the model
+        loader = make_data_loader(inputs, batch_size=batch_size)
         return model.predict(loader, verbose=False)
 
     def retrain(self,
@@ -307,8 +302,7 @@ class NFPScorer(Scorer):
                 steps_per_exec: int = 1,
                 patience: int = None,
                 timeout: float = None,
-                verbose: bool = False,
-                max_size: int | None = None) -> tuple[list[np.ndarray], dict]:
+                verbose: bool = False) -> tuple[list[np.ndarray], dict]:
         """Retrain the scorer based on new training records
 
         Args:
@@ -321,10 +315,9 @@ class NFPScorer(Scorer):
             learning_rate: Learning rate for the Adam optimizer
             device_type: Type of device used for training
             steps_per_exec: Number of training steps to run per execution on acceleration
-            patience: Number of epochs without improvement before terminating training.
+            patience: Number of epochs without improvement before terminating training. Default is 10% of ``num_epochs``
             timeout: Maximum training time in seconds
             verbose: Whether to print training information to screen
-            max_size: Maximum size of molecules expected in training set
         Returns:
             Message defining how to update the model
         """
@@ -342,10 +335,10 @@ class NFPScorer(Scorer):
 
         # Make the loaders
         steps_per_epoch = len(train_x) // batch_size
-        train_loader = make_data_loader(train_x, train_y, repeat=True, batch_size=batch_size, max_size=max_size, drop_last_batch=True, shuffle_buffer=32768)
+        train_loader = make_data_loader(train_x, train_y, repeat=True, batch_size=batch_size, drop_last_batch=True, shuffle_buffer=32768)
         valid_steps = len(valid_x) // batch_size
         assert valid_steps > 0, 'We need some validation data'
-        valid_loader = make_data_loader(valid_x, valid_y, batch_size=batch_size, max_size=max_size, drop_last_batch=True)
+        valid_loader = make_data_loader(valid_x, valid_y, batch_size=batch_size, drop_last_batch=True)
 
         # Define initial guesses for the "scaling" later
         try:

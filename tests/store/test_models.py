@@ -4,6 +4,7 @@ from copy import copy
 from pytest import raises
 
 from examol.store.models import Conformer, MoleculeRecord
+from examol.utils.chemistry import parse_from_molecule_string
 from examol.utils.conversions import write_to_string
 
 
@@ -35,7 +36,7 @@ def test_make_conformer(sim_result):
 def test_identifiers():
     # Test SMILES and InChI
     record_1 = MoleculeRecord.from_identifier('C')
-    record_2 = MoleculeRecord.from_identifier(inchi=record_1.identifier['inchi'])
+    record_2 = MoleculeRecord.from_identifier(record_1.identifier['inchi'])
     assert record_1.key == record_2.key
 
     # Make sure a parse can fail
@@ -113,3 +114,8 @@ def test_find_lowest_conformer(record, sim_result):
 
 def test_properties(record):
     assert len(record.properties) == 0
+
+
+def test_problematic_smiles():
+    record = MoleculeRecord.from_identifier("C1=CC=[N+](C=C1)CCOS(=O)(=O)[O-]")
+    assert parse_from_molecule_string(record.identifier.inchi) is not None

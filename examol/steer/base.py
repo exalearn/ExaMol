@@ -2,6 +2,7 @@
 import gzip
 import json
 import logging
+import os
 import pickle as pkl
 import shutil
 from pathlib import Path
@@ -12,7 +13,7 @@ from more_itertools import batched
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter
-from proxystore.store import get_store
+from proxystore.store import get_store, Store
 
 from examol.score.base import Scorer
 from examol.store.models import MoleculeRecord
@@ -27,9 +28,13 @@ def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
     Returns:
         - Key for the molecule record
         - Inference-ready format
+        Or None if the transformation fails
     """
-    record = MoleculeRecord.from_identifier(smiles=smiles.strip())
-    readied = scorer.transform_inputs([record])[0]
+    try:
+        record = MoleculeRecord.from_identifier(smiles.strip())
+        readied = scorer.transform_inputs([record])[0]
+    except (ValueError, RuntimeError):
+        return None
     return smiles, readied
 
 
@@ -68,7 +73,7 @@ class MoleculeThinker(BaseThinker):
         # Mark where the logs should be stored
         handler = logging.FileHandler(self.run_dir / 'run.log')
         handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        for logger in [self.logger, logging.getLogger('colmena')]:
+        for logger in [self.logger, logging.getLogger('colmena'), logging.getLogger('proxystore')]:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
 
@@ -77,6 +82,12 @@ class MoleculeThinker(BaseThinker):
         self.search_space_keys: list[list[str]]
         self.search_space_inputs: list[list[object]]
         self.search_space_keys, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, search_space))
+
+    @property
+    def inference_store(self) -> Store | None:
+        """Proxystore used for inference tasks"""
+        if (store_name := self.queues.proxystore_name.get('inference')) is not None:
+            return get_store(store_name)
 
     def _cache_search_space(self, inference_chunk_size: int, search_space: list[str | Path]):
         """Cache the search space into a directory within the run"""
@@ -95,6 +106,8 @@ class MoleculeThinker(BaseThinker):
             if rebuild:
                 self.logger.info('Settings have changed. Rebuilding the cache')
                 shutil.rmtree(self.search_space_dir)
+        elif self.search_space_dir.exists():
+            shutil.rmtree(self.search_space_dir)
         self.search_space_dir.mkdir(exist_ok=True, parents=True)
 
         # Get the paths to inputs and keys, either by rebuilding or reading from disk
@@ -116,9 +129,12 @@ class MoleculeThinker(BaseThinker):
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)
-            with ProcessPoolExecutor() as pool:
-                for chunk_id, chunk in enumerate(batched(pool.map(input_func, _read_molecules(), chunksize=1000), inference_chunk_size)):
+            with ProcessPoolExecutor(min(4, os.cpu_count())) as pool:
+                mol_iter = pool.map(input_func, _read_molecules(), chunksize=1000)
+                mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
+                for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
                     keys, objects = zip(*chunk)
+                    search_size += len(keys)
                     chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
                     with gzip.open(chunk_path, 'wb') as fp:
                         pkl.dump(objects, fp)
@@ -141,9 +157,8 @@ class MoleculeThinker(BaseThinker):
         self.logger.info(f'Loading in molecules from {len(search_space_keys)} files')
         output = []
 
-        proxy_store = self.queues.proxystore_name.get('inference')  # Store
+        proxy_store = self.inference_store
         if proxy_store is not None:
-            proxy_store = get_store(proxy_store)
             self.logger.info(f'Will store inference objects to {proxy_store}')
 
         for name, keys in search_space_keys.items():

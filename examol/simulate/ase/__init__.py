@@ -86,6 +86,7 @@ class ASESimulator(BaseSimulator):
         scratch_dir: Path in which to create temporary directories
         clean_after_run: Whether to clean output files after a run exits successfully
         ase_db_path: Path to an ASE db in which to store results
+        retain_failed: Whether to clean output files after a run fails
     """
 
     def __init__(self,
@@ -93,7 +94,8 @@ class ASESimulator(BaseSimulator):
                  gaussian_command: str | None = None,
                  scratch_dir: Path | str | None = None,
                  clean_after_run: bool = True,
-                 ase_db_path: Path | str | None = None):
+                 ase_db_path: Path | str | None = None,
+                 retain_failed: bool = True):
         super().__init__(scratch_dir)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
@@ -201,6 +203,7 @@ METHOD ANDREUSSI
 
         # Run inside a temporary directory
         old_path = Path.cwd()
+        succeeded = False
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
@@ -277,11 +280,14 @@ METHOD ANDREUSSI
             out_path = Path('opt.log')
             out_log = out_path.read_text() if out_path.is_file() else None
 
+            # Mark that we finished successfully
+            succeeded = True
+
             return out_result, out_traj, json.dumps({'runtime': perf_counter() - start_time, 'out_log': out_log})
 
         finally:
             # Delete the run directory
-            if self.clean_after_run:
+            if (succeeded and self.clean_after_run) or (not succeeded and not self.retain_failed):
                 os.chdir(old_path)
                 rmtree(run_path)
 
@@ -317,6 +323,7 @@ METHOD ANDREUSSI
 
         # Run inside a temporary directory
         old_path = Path.cwd()
+        succeeded = False
         try:
             os.chdir(run_path)
 
@@ -337,14 +344,13 @@ METHOD ANDREUSSI
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
 
-                # Delete the run directory
-                if self.clean_after_run:
-                    os.chdir(old_path)
-                    rmtree(run_path)
-
                 return out_result, json.dumps({'runtime': perf_counter() - start_time})
 
         finally:
+            if (succeeded and self.clean_after_run) or (not succeeded and not self.retain_failed):
+                os.chdir(old_path)
+                rmtree(run_path)
+
             os.chdir(old_path)
 
     def update_database(self, atoms_to_write: list[ase.Atoms], config_name: str, charge: int, solvent: str | None):

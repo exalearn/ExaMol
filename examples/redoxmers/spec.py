@@ -3,6 +3,9 @@ from pathlib import Path
 import shutil
 
 from parsl import Config, HighThroughputExecutor
+from proxystore.store import Store
+from proxystore.connectors.file import FileConnector
+
 
 from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
@@ -32,11 +35,12 @@ scorer = RDKitScorer()
 reporter = MarkdownReporter()
 writer = DatabaseWriter()
 
-# Make the parsl configuration
+# Make the parsl (compute) and proxystore (optional data fabric) configuration
 config = Config(
     executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block', address='localhost')],
     run_dir=str((my_path / 'parsl-logs')),
 )
+store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)
 
 spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
@@ -49,6 +53,7 @@ spec = ExaMolSpecification(
     num_to_run=4,
     thinker=SingleObjectiveThinker,
     compute_config=config,
+    proxystore=store,
     reporters=[reporter, writer],
     run_dir=run_dir,
 )

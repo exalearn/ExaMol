@@ -1,0 +1,22 @@
+# Environment for ALCF's Polaris
+name: examol
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.10.*
+  - pandas==1.*
+  - xtb-python==22.*
+  - scikit-learn>=1
+  - tensorflow-gpu==2.11.*  # Uses Conda's cuDNN
+  - pymongo
+  - jupyterlab
+  - matplotlib
+  - pytest
+  - pip
+  - pip:
+    - nfp
+    # Fixes: https://stackoverflow.com/questions/74981558
+    - pyOpenSSL>=23.2
+    - cryptography>=41.0
+    - -e ..

@@ -1,19 +1,25 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
-from threading import Event, Condition
-from typing import Iterator
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
+from queue import Queue
+from threading import Event, Condition
+from time import perf_counter
+from typing import Iterator
 
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import event_responder, task_submitter, ResourceCounter, result_processor, agent
 from more_itertools import interleave_longest
+from proxystore.proxy import Proxy, extract
+from proxystore.store.base import ConnectorKeyT
+from proxystore.store.utils import get_key
 
 from .base import MoleculeThinker
 from ..score.base import Scorer
 from ..select.base import Selector
+from ..simulate.base import SimResult
 from ..start.base import Starter
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
@@ -67,6 +73,10 @@ class SingleObjectiveThinker(MoleculeThinker):
         self.num_to_run: int = num_to_run
         self.completed: int = 0
         self.molecules_in_progress: dict[str, int] = defaultdict(int)  # Map of InChI Key -> number of ongoing computations
+
+        # Model tracking information
+        self._model_proxy_keys: list[ConnectorKeyT | None] = [None] * len(models)  # Proxy for the current model
+        self._ready_models: Queue[int] = Queue()  # Queue of models are ready for inference
 
         # Coordination tools
         self.start_inference: Event = Event()
@@ -169,11 +179,14 @@ class SingleObjectiveThinker(MoleculeThinker):
 
         # Add our result, see if finished
         if result.success:
+            results: list[SimResult]
             if result.method == 'optimize_structure':
                 sim_result, steps, metadata = result.value
+                results = [sim_result] + steps
                 record.add_energies(sim_result, steps)
             elif result.method == 'compute_energy':
                 sim_result, metadata = result.value
+                results = [sim_result]
                 record.add_energies(sim_result)
             else:
                 raise NotImplementedError()
@@ -183,9 +196,10 @@ class SingleObjectiveThinker(MoleculeThinker):
             if value is not None:
                 # If so, mark that we have finished computing the property
                 self.completed += 1
-                if self.completed == self.num_to_run:
-                    self.done.set()
                 self.logger.info(f'Finished computing recipe for {mol_key}. Completed {self.completed}/{self.num_to_run} molecules')
+                if self.completed == self.num_to_run:
+                    self.logger.info('Done!')
+                    self.done.set()
                 self.start_training.set()
 
                 # Mark that we've finished with this recipe
@@ -200,15 +214,31 @@ class SingleObjectiveThinker(MoleculeThinker):
                         self.task_queue.insert(0, (record.identifier.smiles, np.inf))
                         self.task_queue_lock.notify_all()
 
+            # Save the relaxation steps to disk
+            with open(self.run_dir / 'simulation-records.json', 'a') as fp:
+                for record in results:
+                    print(record.json(), file=fp)
+
         self._write_result(result, 'simulation')
 
     @event_responder(event_name='start_inference')
     def submit_inference(self):
         """Submit all molecules to be evaluated"""
 
-        # Loop over models first to improve caching (avoid-reloading model if needed)
-        for model_id, model in enumerate(self.models):
+        # Get the proxystore for inference, if defined
+        store = self.inference_store
+
+        for _ in range(len(self.models)):
+            # Wait for a model to finish training
+            model_id = self._ready_models.get()
+            model = self.models[model_id]
+
+            # Serialize and, if available, proxy the model
             model_msg = self.scorer.prepare_message(model, training=False)
+            if store is not None:
+                model_msg = store.proxy(model_msg)
+                self._model_proxy_keys[model_id] = get_key(model_msg)
+
             for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_keys)):
                 self.queues.send_inputs(
                     model_msg, chunk_inputs,
@@ -223,7 +253,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         """Store inference results then update the task list"""
         # Prepare to store the inference results
         n_models, n_chunks = len(self.models), len(self.search_space_inputs)
-        all_done: list[list[bool]] = [[False] * n_models for _ in range(n_chunks)]  # Whether a certain chunk has finished. (chunk, model)
+        all_done: np.ndarray = np.zeros((n_models, n_chunks), dtype=bool)  # Whether a certain chunk has finished. (chunk, model)
         inference_results: list[np.ndarray] = [np.zeros((len(chunk), n_models)) for chunk in self.search_space_keys]  # Values for each chunk
         n_tasks = n_models * n_chunks
 
@@ -236,6 +266,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         for i in range(n_tasks):
             # Find which result this is
             result = self.queues.get_result(topic='inference')
+            start_time = perf_counter()
             model_id = result.task_info['model_id']
             chunk_id = result.task_info['chunk_id']
             self.logger.info(f'Received inference result {i + 1}/{n_tasks}. Model={model_id}, chunk={chunk_id}, success={result.success}')
@@ -245,16 +276,22 @@ class SingleObjectiveThinker(MoleculeThinker):
             assert result.success, f'Inference failed due to {result.failure_info}'
 
             # Update the inference results
-            all_done[chunk_id][model_id] = True
-            inference_results[chunk_id][:, model_id] = result.value
+            all_done[model_id, chunk_id] = True
+            inference_results[chunk_id][:, model_id] = np.squeeze(result.value)
 
             # Check if we are done for the whole chunk (all models for this chunk)
-            if all(all_done[chunk_id]):
-                self.logger.info(f'Everything done for chunk={chunk_id}')
+            if all_done[:, chunk_id].all():
+                self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
                 self.selector.add_possibilities(self.search_space_keys[chunk_id], inference_results[chunk_id])
 
+            # If we are done with the model
+            if all_done[model_id, :].all():
+                self.logger.info(f'Done with all inference tasks for model={model_id}. Evicting.')
+                if self._model_proxy_keys[model_id] is not None:
+                    self.inference_store.evict(self._model_proxy_keys[model_id])
+
             # Mark that we're done with this result
-            self.logger.info(f'Done processing inference result {i + 1}/{n_tasks}')
+            self.logger.info(f'Done processing inference result {i + 1}/{n_tasks}. Time: {perf_counter() - start_time:.2e}s')
 
         # Get the top list of molecules
         self.logger.info('Done storing all results')
@@ -271,6 +308,11 @@ class SingleObjectiveThinker(MoleculeThinker):
     @event_responder(event_name='start_training')
     def retrain(self):
         """Retrain all models"""
+
+        # Check if training is still ongoing
+        if self.start_inference.is_set():
+            self.logger.info('Inference is still ongoing. Will not retrain yet')
+            return
 
         # Get the training set
         train_set = self._get_training_set()
@@ -306,11 +348,17 @@ class SingleObjectiveThinker(MoleculeThinker):
             # Update the appropriate model
             model_id = result.task_info['model_id']
             model_msg = result.value
+            if isinstance(model_msg, Proxy):
+                # Forces resolution. Needed to avoid `submit_inference` from making a proxy of `model_msg`, which can happen if it is not resolved
+                #  by `scorer.update` and is a problem because the proxy for `model_msg` can be evicted while other processes need it
+                model_msg = extract(model_msg)
             self.models[model_id] = self.scorer.update(self.models[model_id], model_msg)
             self.logger.info(f'Updated model {i + 1}/{len(self.models)}. Model id={model_id}')
-        self.logger.info('Finished training all models')
 
-        self.start_inference.set()
+            # Signal to begin inference
+            self.start_inference.set()
+            self._ready_models.put(model_id)
+        self.logger.info('Finished training all models')
 
     def _get_training_set(self) -> list[MoleculeRecord]:
         """Gather molecules for which the target property is available"""

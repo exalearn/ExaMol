@@ -128,6 +128,11 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
         record = json.loads(fp.readline())
         assert record['success']
 
+    # Make sure we have more than a few simulation records
+    with (thinker.run_dir / 'simulation-records.json').open() as fp:
+        record_count = sum(1 for _ in fp)
+    assert record_count > thinker.num_to_run
+
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
 
 
