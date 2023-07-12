@@ -82,12 +82,6 @@ or compute the property then store it in a data record.
     print(record.properties['reduction_potential']['test_acn_vertical'])  # Value of the property
 
 
-
-.. note::
-    Creating a new recipe is a work in progress.
-    Open an issue, and a developer will help figure out how to make a new recipe.
-
-
 .. [1] We define a molecule as unique based on its chemical formula (including H's), connectivity, and stereochemistry.
     Stereoisomers are different molecules, molecules that only differ by charge are the same.
 

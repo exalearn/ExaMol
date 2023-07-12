@@ -156,6 +156,7 @@ def test_redox_solvent_adiabatic(record, sim_result):
     requests = recipe.suggest_computations(record)
 
     assert len(requests) == 2
+    requests.sort(key=lambda x: x.charge)
 
     assert not requests[0].optimize
     assert requests[0].charge == 0

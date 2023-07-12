@@ -24,8 +24,44 @@ class SimulationRequest:
     """Name of solvent, if any"""
 
 
+@dataclass(frozen=True)
+class RequiredGeometry:
+    """Geometry level required for a recipe"""
+
+    config_name: str = ...
+    """Level of computation required for this geometry"""
+    charge: int = ...
+    """Charge on the molecule used during optimization"""
+
+
+@dataclass(frozen=True)
+class RequiredEnergy:
+    """Energy computation level required for a geometry"""
+
+    config_name: str = ...
+    """Level of computation required for the energy"""
+    charge: int = ...
+    """Charge on the molecule"""
+    solvent: str | None = None
+    """Name of solvent, if any"""
+
+
 class PropertyRecipe:
-    """Compute the property given a :class:`~MoleculeRecord`"""
+    """Compute the property given a :class:`~examol.store.models.MoleculeRecord`
+
+    **Creating a New Recipe**
+
+    Define a recipe by implementing three operations:
+
+    1. :meth:`__init__`: Take a users options for the recipe (e.g., what level of accuracy to use)
+        then define a name and level for the recipe. Pass the name and level to the superclass's constructor.
+    2. :meth:`recipe`: Return a mapping of the different types of geometries defined
+        using :class:`RequiredGeometry` and the energies which must be computed for
+        each geometry using :class:`RequiredEnergy`.
+    3. :meth:`compute_property`: Compute the property using the record and raise
+        either a ``ValueError``, ``KeyError``, or ``AssertionError`` if the record
+        lacks the required information.
+    """
 
     def __init__(self, name: str, level: str):
         """
@@ -35,6 +71,11 @@ class PropertyRecipe:
         """
         self.name = name
         self.level = level
+
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        """List of the geometries required for this recipe and the energies which must be computed for them"""
+        raise NotImplementedError()
 
     def lookup(self, record: MoleculeRecord, recompute: bool = False) -> float | None:
         """Lookup the value of a property from a record
@@ -93,7 +134,47 @@ class PropertyRecipe:
         Returns:
             List of computations to perform
         """
-        raise NotImplementedError()
+
+        output = []
+        for geometry, energies in self.recipe.items():
+            # Determine if the geometry has been computed
+            matching_conformers = [
+                (x.get_energy(geometry.config_name, geometry.charge, solvent=None), x) for x in record.conformers
+                if x.source == 'relaxation' and x.config_name == geometry.config_name and x.charge == geometry.charge
+            ]
+            if len(matching_conformers) > 0:
+                _, conformer = min(matching_conformers)
+            else:
+                # If there are no conformers, make an XYZ to start with
+                if len(record.conformers) == 0:
+                    _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
+                    output.append(
+                        SimulationRequest(xyz=xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
+                    )
+                    continue
+
+                # Get the conformer with the closest charge or the most-recent addition
+                best_score = (float('inf'), float('inf'))
+                best_xyz = None
+                for conf in record.conformers:
+                    my_score = (abs(conf.charge - geometry.charge), -conf.date_created.timestamp())
+                    if my_score < best_score:
+                        best_score = my_score
+                        best_xyz = conf.xyz
+
+                output.append(
+                    SimulationRequest(xyz=best_xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
+                )
+                continue
+
+            # Add any required energies
+            for energy in energies:
+                if conformer.get_energy_index(energy.config_name, charge=energy.charge, solvent=energy.solvent) is None:
+                    output.append(
+                        SimulationRequest(xyz=conformer.xyz, config_name=energy.config_name, charge=energy.charge, optimize=False, solvent=energy.solvent)
+                    )
+
+        return output
 
 
 class SolvationEnergy(PropertyRecipe):
@@ -109,6 +190,12 @@ class SolvationEnergy(PropertyRecipe):
         self.solvent = solvent
         self.config_name = config_name
 
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        return {
+            RequiredGeometry(config_name=self.config_name, charge=0): [RequiredEnergy(config_name=self.config_name, charge=0, solvent=self.solvent)]
+        }
+
     def compute_property(self, record: MoleculeRecord) -> float:
         # Get the lowest-energy conformer with both solvent and solvation energy
         vacuum_energy: float = np.inf
@@ -123,22 +210,6 @@ class SolvationEnergy(PropertyRecipe):
         if output is None:
             raise ValueError(f'Missing data for config="{self.config_name}", solvent={self.solvent}')
         return output * units.mol / units.kcal
-
-    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
-        try:
-            # Find the lowest-energy conformer
-            conf, _ = record.find_lowest_conformer(self.config_name, charge=0, solvent=None)
-
-            # If there is a structure, see if have the energy in the solvent
-            energy_ind = conf.get_energy_index(self.config_name, 0, solvent=self.solvent)
-            if energy_ind is None:
-                return [SimulationRequest(xyz=conf.xyz, optimize=False, config_name=self.config_name, charge=0, solvent=self.solvent)]
-            else:
-                return []
-        except ValueError:  # TODO (wardlt): Avoid using exceptions, especially such general ones. I _assume_ ValueError means no structure
-            # Make a XYZ structure
-            _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
-            return [SimulationRequest(xyz=xyz, optimize=True, config_name=self.config_name, charge=0, solvent=None)]
 
 
 class RedoxEnergy(PropertyRecipe):
@@ -181,6 +252,22 @@ class RedoxEnergy(PropertyRecipe):
         self.vertical = vertical
         self.solvent = solvent
 
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        if self.vertical:
+            return {
+                RequiredGeometry(config_name=self.energy_config, charge=0): [
+                    RequiredEnergy(config_name=self.energy_config, charge=0, solvent=self.solvent),
+                    RequiredEnergy(config_name=self.energy_config, charge=self.charge, solvent=self.solvent)
+                ]
+            }
+        else:
+            return dict(
+                (RequiredGeometry(config_name=self.energy_config, charge=c),
+                 [RequiredEnergy(config_name=self.energy_config, charge=c, solvent=self.solvent)])
+                for c in [0, self.charge]
+            )
+
     def compute_property(self, record: MoleculeRecord) -> float:
         # Get the lowest energy conformer of the neutral molecule
         neutral_conf, neutral_energy = record.find_lowest_conformer(self.energy_config, 0, self.solvent)
@@ -196,48 +283,3 @@ class RedoxEnergy(PropertyRecipe):
                 raise ValueError('We do not have a relaxed charged molecule')
 
         return charged_energy - neutral_energy
-
-    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
-        output = []
-        # Determine if we need to perform a neutral relaxation
-        neutral_conf = None
-        try:
-            neutral_conf, _ = record.find_lowest_conformer(self.energy_config, 0, solvent=None)
-        except ValueError:  # TODO (wardlt): As above, avoid exceptions
-            # If fails, request a relaxation
-            _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
-            output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=0, solvent=None))
-
-        # If we are doing a redox energy in solvent, check that we have one
-        if self.solvent is not None \
-                and neutral_conf is not None \
-                and neutral_conf.get_energy_index(self.energy_config, charge=0, solvent=self.solvent) is None:
-            output.append(SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=0, solvent=self.solvent))
-
-        # Determine which charged configurations we need
-        if self.vertical and neutral_conf is not None:  # For verticals, only if we're ready
-            # For vertical, a single energy computation
-            if neutral_conf.get_energy_index(self.energy_config, charge=self.charge, solvent=self.solvent) is None:
-                output.append(SimulationRequest(xyz=neutral_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent))
-        elif not self.vertical:
-            # Determine if a relaxation is needed
-            charged_conf = None
-            try:
-                charged_conf, _ = record.find_lowest_conformer(self.energy_config, self.charge, solvent=None)
-                if neutral_conf is None or charged_conf.xyz_hash == neutral_conf.xyz_hash:
-                    raise ValueError('We need to do a relaxation')
-            except ValueError:  # TODO (wardlt): Avoid using exceptions to communicate to communicate a conformer is missing
-                if neutral_conf is None:
-                    _, starting_xyz = generate_inchi_and_xyz(record.identifier.smiles)
-                else:
-                    starting_xyz = neutral_conf.xyz
-                output.append(SimulationRequest(xyz=starting_xyz, optimize=True, config_name=self.energy_config, charge=self.charge, solvent=None))
-
-            # If relaxation is done, start a solvent calculation
-            if charged_conf is not None and self.solvent is not None:
-                if charged_conf.get_energy_index(self.energy_config, charge=self.charge, solvent=self.solvent) is None:
-                    output.append(
-                        SimulationRequest(xyz=charged_conf.xyz, optimize=False, config_name=self.energy_config, charge=self.charge, solvent=self.solvent)
-                    )
-
-        return output
