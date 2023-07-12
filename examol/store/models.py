@@ -1,4 +1,5 @@
 """Data models used for molecular data"""
+from dataclasses import dataclass
 from hashlib import md5
 from datetime import datetime
 from typing import Collection
@@ -12,6 +13,20 @@ from rdkit import Chem
 from examol.simulate.base import SimResult
 from examol.utils.chemistry import parse_from_molecule_string
 from examol.utils.conversions import read_from_string, write_to_string
+
+
+@dataclass
+class MissingData(ValueError):
+    """No conformer or energy with the desired settings was found"""
+
+    config_name: str = ...
+    """Configuration used to compute the energy"""
+    charge: int = ...
+    """Charge used when computing the energy"""
+    solvent: str | None = ...
+    """Solvent used, if any"""
+    def __str__(self):
+        return f'No data for config={self.config_name} charge={self.charge} solvent={self.solvent}'
 
 
 class Identifiers(DynamicEmbeddedDocument):
@@ -36,6 +51,8 @@ class EnergyEvaluation(EmbeddedDocument):
     """Charge used when computing the energy"""
     solvent = StringField()
     """Solvent used, if any"""
+    completed: DateTimeField(required=False, default=datetime.utcnow)
+    """When this energy computation was added"""
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -111,7 +128,7 @@ class Conformer(EmbeddedDocument):
             energy=sim_result.energy,
             config_name=sim_result.config_name,
             charge=sim_result.charge,
-            solvent=sim_result.solvent
+            solvent=sim_result.solvent,
         )
         if new_energy in self.energies:
             return False
@@ -144,12 +161,14 @@ class Conformer(EmbeddedDocument):
             charge: Charge of the molecule
             solvent: Solvent in which the molecule is dissolved
         Returns:
-            Index of the record, if available, or ``None``, if not.
+            Energy of the target conformer
+        Raises:
+            NoSuchConformer: If there is no such energy for this conformer
         """
 
         ind = self.get_energy_index(config_name, charge, solvent)
         if ind is None:
-            raise ValueError(f'No energy available for config="{config_name}", charge={charge}, solvent={solvent}')
+            raise MissingData(config_name, charge, solvent)
         return self.energies[ind].energy
 
 
@@ -239,6 +258,8 @@ class MoleculeRecord(Document):
         Returns:
             - Lowest-energy conformer
             - Energy of the structure (eV)
+        Raises:
+            NoSuchConformer: If we lack a conformer with these settings
         """
 
         # Output results
@@ -253,6 +274,6 @@ class MoleculeRecord(Document):
                 lowest_energy = conf.energies[energy_ind].energy
 
         if stable_conformer is None:
-            raise ValueError(f'No energy evaluations found for config_name="{config_name}, charge={charge}, solvent="{solvent}"')
+            raise MissingData(config_name, charge, solvent)
 
         return stable_conformer, lowest_energy
