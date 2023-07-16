@@ -30,4 +30,4 @@ def test_greedy():
     selector.start_gathering()
     selector.add_possibilities(keys=[1, 2, 3], samples=np.array([[1, 2, 3]]).T)
     selector.start_dispensing()
-    assert list(selector.dispense()) == [(1, 1.), (2, 2.)]
+    assert list(selector.dispense()) == [(1, -1.), (2, -2.)]  # The score is the negative mean

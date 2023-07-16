@@ -30,4 +30,6 @@ class GreedySelector(RankingSelector):
 
     def _assign_score(self, samples):
         mean = np.mean(samples, axis=1)
+        if not self.maximize:
+            mean *= -1
         return mean
