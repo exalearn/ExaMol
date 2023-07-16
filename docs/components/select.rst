@@ -53,10 +53,11 @@ associated with a list of of predictions from a machine learning model.
 
     selector.add_possibilities(keys=[1, 2, 3], samples=np.array([[1, 2, 3]]).T)
 
-Retrieve the list of selected computations by stopping the gathering mode then generating them
-from the "dispense" function.
+Retrieve the list of selected computations by the "dispense" function.
 
 .. code-block:: python
 
-    selector.start_dispensing()
     print(list(selector.dispense())) # [(3, 3.), (2, 2.)]
+
+Call ``start_gathering`` again to clear any previous results before
+adding new possibilities.
