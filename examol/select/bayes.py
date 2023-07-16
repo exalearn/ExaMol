@@ -39,7 +39,4 @@ class ExpectedImprovement(RankingSelector):
             mean *= -1
             max_y = max_y * -1
 
-        score = EI(mean, std, max_val=max_y, tradeoff=self.epsilon)
-        if not self.maximize:
-            score *= -1  # So that it picks near the minimum
-        return score
+        return EI(mean, std, max_val=max_y, tradeoff=self.epsilon)

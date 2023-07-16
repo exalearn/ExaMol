@@ -83,12 +83,14 @@ class Selector:
 
 
 class RankingSelector(Selector):
-    """Base class where each option is assigned a single score,
-    and we pick the calculations with the highest or lowest score
+    """Base class where we assign an independent score to each possibility.
+
+    Implementations must return high scores for desired entries
+    regardless of whether the the selector is set to minimize.
 
     Args:
         to_select: How many computations to select per batch
-        maximize: Whether to select entries with the highest score
+        maximize: Whether to select entries with high or low values of the samples
     """
     def __init__(self, to_select: int, maximize: bool = True):
         self._options: list[tuple[object, float]] = []
@@ -97,8 +99,7 @@ class RankingSelector(Selector):
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
         score = self._assign_score(samples)
-        nbest = heapq.nlargest if self.maximize else heapq.nsmallest
-        self._options = nbest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
+        self._options = heapq.nlargest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
         yield from self._options
