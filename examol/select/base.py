@@ -1,5 +1,6 @@
 """Implementations of classes which identify which computations should be performed next"""
 import heapq
+import logging
 from itertools import chain
 from typing import Iterator
 
@@ -7,6 +8,8 @@ import numpy as np
 
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
+
+logger = logging.getLogger(__name__)
 
 
 class Selector:
@@ -16,14 +19,24 @@ class Selector:
 
     Selectors function in two phases: gathering and dispensing.
 
-    The gathering phase starts by calling :meth:`start_gathering` to clear any data from previous runs
-    before adding new options for computations with :meth:`add_possibilities`.
-    ``add_possibilities`` takes a list of keys describing the computations
-    and a distribution of possible scores (e.g., predictions from different models in an ensemble) for each computation.
+    Selectors are in the gathering phase when first created.
+    Add potential computations in batches with :meth:`add_possibilities`,
+    which takes a list of keys describing the computations
+    and a distribution of probable scores (e.g., predictions from different models in an ensemble) for each computation.
 
     The dispensing phase starts by calling :meth:`dispense`. ``dispense`` generates a selected computation from
     the list of keys acquired during gathering phase paired with a score. Selections are generated from highest
     to lowest priority.
+
+    **Creating a Selector**
+
+    You must implement three operations:
+
+    - :meth:`start_gathering`, which is called at the beginning of a gathering phase and
+      must clear state from the previous selection round.
+    - :meth:`add_possibilities` updates the state of a selection to account for a new batch of computations.
+      For example, you could update an ranked list of best-scored computations.
+    - :meth:`dispense` generates a list of :attr:`to_select` in ranked order from best to worst
     """
 
     def __init__(self, to_select: int):
@@ -32,8 +45,10 @@ class Selector:
         Args:
             to_select: Target number of computations to select
         """
-        self.to_select = to_select
-        self.gathering = True
+        self.to_select: int = to_select
+        """Number of computations to select"""
+        self.gathering: bool = True
+        """Whether the selector is waiting to accept more possibilities."""
         self.start_gathering()
 
     def start_gathering(self):
@@ -49,7 +64,9 @@ class Selector:
                 Expects a two-dimensional array where each row is a different record,
                 and each column is a different model.
         """
-        assert self.gathering, 'Not in gathering phase. Call `start_gathering` first'
+        if not self.gathering:
+            logger.info('Switching selector back to gathering phase. Clearing any previous selection information')
+            self.start_gathering()
         assert len(keys) == len(samples), 'The list of keys and samples should be the same length'
         self._add_possibilities(keys, samples, **kwargs)
 
