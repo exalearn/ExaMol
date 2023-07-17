@@ -1,7 +1,10 @@
 """Employ the acquisition functions from `BOTorch <https://botorch.org/>`_"""
 from typing import List, Any, Callable
 
-from botorch.acquisition import AcquisitionFunction
+try:
+    from botorch.acquisition import AcquisitionFunction
+except ImportError as e:  # no-coverage
+    raise ImportError('You may need to install BOTorch and PyTorch') from e
 from botorch.models.ensemble import EnsembleModel
 from botorch.models.model import Model
 from torch import Tensor
@@ -44,7 +47,7 @@ class BOTorchSequentialSelector(RankingSelector):
 
     For example, Expected Improvement which updates the maximum observed value would be
 
-    .. code-block: python
+    .. code-block:: python
 
         def update_fn(obs: np.ndarray, options: dict) -> dict:
             options['best_f'] = max(obs)

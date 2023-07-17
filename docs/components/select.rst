@@ -58,6 +58,6 @@ which are retrieved by the "dispense" function.
 
     print(list(selector.dispense())) # [(3, 3.), (2, 2.)]
 
-Call :mth:`~examol.select.base.Selector.start_gathering` when done depensing
+Call :meth:`~examol.select.base.Selector.start_gathering` when done dispensing
 to clear any remaining results or
 call  :meth:`~examol.select.base.Selector.add_possibilities` to start adding new possibilities again.

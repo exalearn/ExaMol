@@ -27,7 +27,7 @@ The best one to start with installs CPU versions of all software:
 Installation with Pip
 ---------------------
 
-Start by creating or activating the virtual environment in which you will run ExaMol then invoke pip
+Start by creating or activating a virtual environment for ExaMol then invoke pip
 
 .. code-block:: shell
 
@@ -35,4 +35,20 @@ Start by creating or activating the virtual environment in which you will run Ex
 
 The default installation will install all _necessary_ packages but will skip some required for
 some components, such as ``tensorflow`` and ``nfp`` for the :class:`~examol.scorer.nfp.NFPScorer`.
-You may need to install these packages as you test ExaMol on your system.
+
+Modifying an Installation
+-------------------------
+
+ExaMol is designed so that difficult-to-install packages are not necessary unless specific features are needed.
+For example, PyTorch need not be installed unless BOTorch selectors
+or machine learning models based on Torch are required.
+ExaMol will raise error messages that specify which optional dependencies are not met,
+and the list of the dependencies is in ``pyproject.yaml``.
+
+A best practice for including optional dependencies dependencies is to modify the Anaconda environment file
+to include the versions best for specific hardware.
+The repository provides examples for `CPU-only systems <https://github.com/exalearn/ExaMol/blob/main/envs/environment-cpu.yml>`_,
+`CUDA 11.8 <https://github.com/exalearn/ExaMol/blob/main/envs/environment-cuda118.yml>`_,
+and the `Polaris supercomputer <https://github.com/exalearn/ExaMol/blob/main/envs/environment-polaris.yml>`_ as examples.
+Note how each differ in which version of PyTorch is installed and whether we use
+the Anaconda version (which installs with CUDA libraries) or the PyPI version (which relies on system-provided versions).
