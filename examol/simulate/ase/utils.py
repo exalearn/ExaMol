@@ -47,7 +47,7 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         #  when the object is finally garbage collected
         try:
             calc.__del__()
-        except AssertionError as e:  # no-coverage
+        except AssertionError as e:  # pragma: no-coverage
             logger.info(f'CP2K was noisy on failure: {e}')
             pass
         calc._shell = None

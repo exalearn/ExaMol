@@ -3,7 +3,7 @@ from typing import List, Any, Callable
 
 try:
     from botorch.acquisition import AcquisitionFunction
-except ImportError as e:  # no-coverage
+except ImportError as e:  # pragma: no-coverage
     raise ImportError('You may need to install BOTorch and PyTorch') from e
 from botorch.models.ensemble import EnsembleModel
 from botorch.models.model import Model

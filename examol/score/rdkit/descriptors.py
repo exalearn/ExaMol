@@ -43,7 +43,7 @@ def compute_doan_2020_fingerprints(smiles: str) -> np.ndarray:
     for i, (_, func) in enumerate(_descriptor_list):
         try:
             output[i] = func(mol)
-        except Exception:  # no-coverage
+        except Exception:  # pragma: no-coverage
             pass
     return output
 
