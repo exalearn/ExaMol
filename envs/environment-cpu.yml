@@ -21,5 +21,5 @@ dependencies:
     
     # Need torch for BOTorch
     - --extra-index-url https://download.pytorch.org/whl/cpu
-    - pytorch==2.0.1+cpu
+    - pytorch==2.0.1
     - -e ..
