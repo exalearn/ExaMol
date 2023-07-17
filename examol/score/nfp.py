@@ -3,7 +3,7 @@
 from sklearn.model_selection import train_test_split
 try:
     from tensorflow.keras import callbacks as cb
-except ImportError as e:  # no-coverage
+except ImportError as e:  # pragma: no-coverage
     raise ImportError('You may need to install Tensorflow and NFP.') from e
 import tensorflow as tf
 import numpy as np
@@ -31,7 +31,7 @@ class ReduceAtoms(tf.keras.layers.Layer):
         config['reduction_op'] = self.reduction_op
         return config
 
-    def call(self, inputs, mask=None):  # no-coverage
+    def call(self, inputs, mask=None):  # pragma: no-coverage
         """
         Args:
             inputs: Matrix to be reduced
