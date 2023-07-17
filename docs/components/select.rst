@@ -15,20 +15,32 @@ ExaMol includes selectors that have a variety of characteristics
 
    * - Selector
      - Category
+     - Multi-Objective
      - Batch Aware
      - Multi-Fidelity
    * - :class:`~examol.select.baseline.RandomSelector`
      - Baseline
      - ✘
      - ✘
+     - ✘
    * - :class:`~examol.select.baseline.GreedySelector`
      - Baseline
+     - ✘
      - ✘
      - ✘
    * - :class:`~examol.select.bayes.ExpectedImprovement`
      - Bayesian
      - ✘
      - ✘
+     - ✘
+   * - :class:`~examol.select.botorch.BOTorchSequentialSelector`
+     - Bayesian*
+     - ✘
+     - ✘
+     - ✘
+
+\* Interface to many classes of selection algorithms
+
 
 Using a Selector
 ----------------
