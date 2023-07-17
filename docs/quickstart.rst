@@ -74,7 +74,7 @@ A simple example looks something like:
     recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
     spec = ExaMolSpecification(
         database='training-data.json',
-        recipe=recipe,
+        recipes=[recipe],
         search_space=['search_space.smi'],
         selector=GreedySelector(n_to_select=8, maximize=True),
         simulator=ASESimulator(scratch_dir='/tmp'),
@@ -93,7 +93,7 @@ and link out to pages that describe the full options available for each.
 Quantum Chemistry
 ~~~~~~~~~~~~~~~~~
 
-The ``recipe`` and ``simulator`` options define which molecule property to compute
+The ``recipes`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
 
 Both recipes and simulator are designed to ensure all calculations in a set are performed with consistent settings.

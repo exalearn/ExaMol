@@ -1,15 +1,16 @@
 """Tool for defining then deploying an ExaMol application"""
-import logging
 from dataclasses import dataclass, field
 from functools import update_wrapper
+from functools import partial
+from typing import Sequence
 from pathlib import Path
+import logging
 
 from colmena.queue import PipeQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from parsl import Config
 from proxystore.store import Store, register_store
-from pydantic.main import partial
 
 from examol.reporting.base import BaseReporter
 from examol.score.base import Scorer
@@ -41,8 +42,8 @@ class ExaMolSpecification:
     # Define the problem
     database: Path | str = ...
     """Path to the initial dataset"""
-    recipe: PropertyRecipe = ...
-    """Definition for how to compute the target property"""
+    recipes: Sequence[PropertyRecipe] = ...
+    """Definition for how to compute the target properties"""
     search_space: list[Path | str] = ...
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
     starter: Starter = RandomStarter(threshold=10, min_to_select=1)
@@ -135,7 +136,7 @@ class ExaMolSpecification:
         thinker = self.thinker(
             queues=queues,
             run_dir=self.run_dir,
-            recipe=self.recipe,
+            recipe=self.recipes,
             search_space=self.search_space,
             starter=self.starter,
             database=self.load_database(),

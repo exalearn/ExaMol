@@ -67,7 +67,7 @@ config = Config(
 run_dir = my_path / 'run'
 spec = ExaMolSpecification(
     database=run_dir / 'database.json',
-    recipe=recipe,
+    recipes=recipe,
     search_space=[(my_path / 'search-space.smi')],
     selector=ExpectedImprovement(25, maximize=True, epsilon=0.1),
     starter=RandomStarter(threshold=10, min_to_select=1),

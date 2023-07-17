@@ -139,7 +139,7 @@ store = Store(name='file', connector=FileConnector(run_dir / 'proxystore'), metr
 
 spec = ExaMolSpecification(
     database=database_path,
-    recipe=recipe,
+    recipes=recipe,
     search_space=[(my_path / 'search-space/output' / search_space_name)],
     selector=ExpectedImprovement(num_parallel_cp2k * 8, maximize=True),
     simulator=sim,

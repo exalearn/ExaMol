@@ -44,7 +44,7 @@ store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'prox
 
 spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
-    recipe=recipe,
+    recipes=recipe,
     search_space=[(my_path / 'search_space.smi')],
     selector=GreedySelector(8, maximize=True),
     simulator=ASESimulator(scratch_dir=(my_path / 'tmp')),

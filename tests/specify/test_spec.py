@@ -85,7 +85,7 @@ def spec(config, database, recipe, scorer, search_space, selector, simulator, tm
         scorer=scorer,
         models=[pipeline],
         simulator=simulator,
-        recipe=recipe,
+        recipes=[recipe],
         thinker=SingleObjectiveThinker,
         compute_config=config,
         num_to_run=2,
