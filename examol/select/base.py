@@ -1,5 +1,6 @@
 """Implementations of classes which identify which computations should be performed next"""
 import heapq
+import logging
 from itertools import chain
 from typing import Iterator
 
@@ -8,22 +9,34 @@ import numpy as np
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
+logger = logging.getLogger(__name__)
+
 
 class Selector:
     """Base class for selection algorithms
 
     **Using a Selector**
 
-    Selectors function in two phases: a gathering and a dispensing.
+    Selectors function in two phases: gathering and dispensing.
 
-    The gathering phase starts by calling :meth:`start_gathering` before adding new options for computations
-    with the :meth:`add_possibilities` option. ``add_possibilities`` takes a list of keys describing the computations
-    and a distribution of possible scores (e.g., predictions from different models in an ensemble) for each computation.
+    Selectors are in the gathering phase when first created.
+    Add potential computations in batches with :meth:`add_possibilities`,
+    which takes a list of keys describing the computations
+    and a distribution of probable scores (e.g., predictions from different models in an ensemble) for each computation.
 
-    The dispensing phase starts after :meth:`start_dispensing` is called, which makes it then possible to pull
-    a list of prioritized computations from :meth:`dispense`. ``dispense`` generates a selected computation from
+    The dispensing phase starts by calling :meth:`dispense`. ``dispense`` generates a selected computation from
     the list of keys acquired during gathering phase paired with a score. Selections are generated from highest
     to lowest priority.
+
+    **Creating a Selector**
+
+    You must implement three operations:
+
+    - :meth:`start_gathering`, which is called at the beginning of a gathering phase and
+      must clear state from the previous selection round.
+    - :meth:`add_possibilities` updates the state of a selection to account for a new batch of computations.
+      For example, you could update an ranked list of best-scored computations.
+    - :meth:`dispense` generates a list of :attr:`to_select` in ranked order from best to worst
     """
 
     def __init__(self, to_select: int):
@@ -32,8 +45,10 @@ class Selector:
         Args:
             to_select: Target number of computations to select
         """
-        self.to_select = to_select
-        self.gathering = True
+        self.to_select: int = to_select
+        """Number of computations to select"""
+        self.gathering: bool = True
+        """Whether the selector is waiting to accept more possibilities."""
         self.start_gathering()
 
     def start_gathering(self):
@@ -44,20 +59,19 @@ class Selector:
         """Add potential options to be selected
 
         Args:
-            keys: Labels by which to identify the compositions being selected between
-            samples: A distribution of scores for each record. For example,
-                these could be predictions of its properties from a
+            keys: Labels by which to identify the records being evaluated
+            samples: A distribution of scores for each record.
+                Expects a two-dimensional array where each row is a different record,
+                and each column is a different model.
         """
-        assert self.gathering, 'Not in gathering phase. Call `start_gathering` first'
+        if not self.gathering:
+            logger.info('Switching selector back to gathering phase. Clearing any previous selection information')
+            self.start_gathering()
         assert len(keys) == len(samples), 'The list of keys and samples should be the same length'
         self._add_possibilities(keys, samples, **kwargs)
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
         raise NotImplementedError()
-
-    def start_dispensing(self):
-        """Prepare to generate batches of new computations"""
-        self.gathering = False
 
     def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
         """Update the selector given the current database
@@ -75,7 +89,7 @@ class Selector:
             A pair of "selected computation" (as identified by the keys provided originally)
             and a score.
         """
-        assert not self.gathering, 'Not in dispensing phase. Call `start_dispensing` first'
+        self.gathering = False
         yield from self._dispense()
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
@@ -83,12 +97,14 @@ class Selector:
 
 
 class RankingSelector(Selector):
-    """Base class where each option is assigned a single score,
-    and we pick the calculations with the highest or lowest score
+    """Base class where we assign an independent score to each possibility.
+
+    Implementations must return high scores for desired entries
+    regardless of whether the the selector is set to minimize.
 
     Args:
         to_select: How many computations to select per batch
-        maximize: Whether to select entries with the highest score
+        maximize: Whether to select entries with high or low values of the samples
     """
     def __init__(self, to_select: int, maximize: bool = True):
         self._options: list[tuple[object, float]] = []
@@ -97,8 +113,7 @@ class RankingSelector(Selector):
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
         score = self._assign_score(samples)
-        nbest = heapq.nlargest if self.maximize else heapq.nsmallest
-        self._options = nbest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
+        self._options = heapq.nlargest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
 
     def _dispense(self) -> Iterator[tuple[object, float]]:
         yield from self._options

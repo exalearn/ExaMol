@@ -29,3 +29,11 @@ examol.select.bayes
    :undoc-members:
    :show-inheritance:
 
+
+examol.select.botorch
+---------------------
+
+.. automodule:: examol.select.botorch
+   :members:
+   :undoc-members:
+   :show-inheritance:

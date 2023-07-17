@@ -1,4 +1,4 @@
-# Environment that does not use a GPU
+# Environment that uses a locally-installed CUDA 11.8
 #  Installs packages needed for all features
 name: examol
 channels:
@@ -16,10 +16,10 @@ dependencies:
   - pip
   - pip:
     # Need TF for NFP MPNNs
-    - tensorflow-cpu
+    - tensorflow
     - nfp
     
     # Need torch for BOTorch
-    - --extra-index-url https://download.pytorch.org/whl/cpu
-    - torch==2.0.1+cpu
+    - --extra-index-url https://download.pytorch.org/whl/cu118
+    - torch==2.0.1+cu118
     - -e ..[botorch,test]

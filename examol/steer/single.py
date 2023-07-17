@@ -295,7 +295,6 @@ class SingleObjectiveThinker(MoleculeThinker):
 
         # Get the top list of molecules
         self.logger.info('Done storing all results')
-        self.selector.start_dispensing()
         with self.task_queue_lock:
             self.task_queue.clear()
             for key, score in self.selector.dispense():

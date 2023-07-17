@@ -1,7 +1,10 @@
 """Train neural network models using `NFP <https://github.com/NREL/nfp>`_"""
 
 from sklearn.model_selection import train_test_split
-from tensorflow.keras import callbacks as cb
+try:
+    from tensorflow.keras import callbacks as cb
+except ImportError as e:  # no-coverage
+    raise ImportError('You may need to install Tensorflow and NFP.') from e
 import tensorflow as tf
 import numpy as np
 import nfp
@@ -28,7 +31,7 @@ class ReduceAtoms(tf.keras.layers.Layer):
         config['reduction_op'] = self.reduction_op
         return config
 
-    def call(self, inputs, mask=None):
+    def call(self, inputs, mask=None):  # no-coverage
         """
         Args:
             inputs: Matrix to be reduced
