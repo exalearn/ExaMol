@@ -31,7 +31,7 @@ class ReduceAtoms(tf.keras.layers.Layer):
         config['reduction_op'] = self.reduction_op
         return config
 
-    def call(self, inputs, mask=None):
+    def call(self, inputs, mask=None):  # no-coverage
         """
         Args:
             inputs: Matrix to be reduced
