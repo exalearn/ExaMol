@@ -48,6 +48,9 @@ test = [
     'pytest-timeout',
     'pytest-cov',
 ]
+botorch = [
+    'botorch==0.8.*'
+]
 
 [project.scripts]
 examol = "examol.cli:main"

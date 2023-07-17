@@ -1,4 +1,5 @@
 # Environment that does not use a GPU
+#  Installs packages needed for all features
 name: examol
 channels:
   - defaults
@@ -14,6 +15,11 @@ dependencies:
   - pytest
   - pip
   - pip:
+    # Need TF for NFP MPNNs
     - tensorflow-cpu
     - nfp
+    
+    # Need torch for BOTorch
+    - --extra-index-url https://download.pytorch.org/whl/cpu
+    - pytorch==2.0.1+cpu
     - -e ..
