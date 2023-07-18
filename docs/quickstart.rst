@@ -74,12 +74,12 @@ A simple example looks something like:
     recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
     spec = ExaMolSpecification(
         database='training-data.json',
-        recipes=[recipe],
+        recipes=[recipe],  # ExaMol supports multi-objective optimization
         search_space=['search_space.smi'],
         selector=GreedySelector(n_to_select=8, maximize=True),
         simulator=ASESimulator(scratch_dir='/tmp'),
         scorer=RDKitScorer(),
-        models=[KNeighborsRegressor()],
+        models=[[KNeighborsRegressor()]],  # Ensemble of models for each recipe
         num_to_run=8,
         thinker=SingleObjectiveThinker,
         thinker_options=dict(num_workers=2),
@@ -140,8 +140,9 @@ for the ML computations should be configured with information about how to run t
 ExaMol provides interfaces for `a few common libraries <components/score.html>`_) used in ML for molecular properties.
 
 The ``models`` define specific architectures used by the scorer.
-Each model will be trained using a different subset of the training data,
-and the predictions of all models will be combined to produce predictions with uncertainties for each model.
+ExaMol uses a different set of models for each recipe.
+Each model for each recipe will be trained using a different subset of the training data,
+and the predictions of all models will be combined to produce predictions with uncertainties for each molecule.
 
 Search Algorithm
 ~~~~~~~~~~~~~~~~

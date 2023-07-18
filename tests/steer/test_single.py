@@ -94,11 +94,11 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
     return SingleObjectiveThinker(
         queues=queues,
         run_dir=run_dir,
-        recipe=recipe,
+        recipes=[recipe],
         database=training_set,
         scorer=scorer,
         starter=RandomStarter(4, 1),
-        models=[model],
+        models=[[model, model]],
         selector=RandomSelector(10),
         num_workers=1,
         num_to_run=3,

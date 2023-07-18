@@ -16,7 +16,7 @@ example_dir = Path(__file__).parent / 'example'
 
 class FakeThinker(SingleObjectiveThinker):
     run_dir = example_dir
-    recipe = RedoxEnergy(charge=1, energy_config='xtb')
+    recipes = RedoxEnergy(charge=1, energy_config='xtb')
 
     def __init__(self):
         pass

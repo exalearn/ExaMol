@@ -50,10 +50,10 @@ class ExaMolSpecification:
     """How to initialize the database if too small. Default: Pick a single random molecule"""
     selector: Selector = ...
     """How to identify which computation to perform next"""
-    scorer: Scorer = ...
+    scorer: Scorer = ...  # TODO (wardlt): Support a different type of model for each recipe
     """Defines algorithms used to retrain and run :attr:`models`"""
-    models: list[object] = ...
-    """List of machine learning models used to predict outcome of :attr:`recipe`"""
+    models: list[list[object]] = ...
+    """List of machine learning models used to predict outcome of :attr:`recipes`"""
     simulator: BaseSimulator = ...
     """Tool used to perform quantum chemistry computations"""
     num_to_run: int = ...
@@ -136,7 +136,7 @@ class ExaMolSpecification:
         thinker = self.thinker(
             queues=queues,
             run_dir=self.run_dir,
-            recipe=self.recipes,
+            recipes=self.recipes,
             search_space=self.search_space,
             starter=self.starter,
             database=self.load_database(),

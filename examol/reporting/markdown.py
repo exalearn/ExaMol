@@ -85,7 +85,7 @@ class MarkdownReporter(BaseReporter):
             results,
         )
         ax.set_xlabel('Result')
-        ax.set_ylabel(f'{thinker.recipe.name}@\n{thinker.recipe.level}')
+        ax.set_ylabel(f'{thinker.recipes.name}@\n{thinker.recipes.level}')
 
         fig.tight_layout()
         fig.savefig(thinker.run_dir / 'simulation-outputs.png', dpi=320)
