@@ -79,17 +79,19 @@ class MarkdownReporter(BaseReporter):
         logger.info(f'Found {len(results)} molecule records')
 
         # Make a figure
-        fig, ax = plt.subplots(figsize=(3.5, 2.5))
-        ax.scatter(
-            np.arange(len(results)),
-            results,
-        )
-        ax.set_xlabel('Result')
-        ax.set_ylabel(f'{thinker.recipes.name}@\n{thinker.recipes.level}')
-
-        fig.tight_layout()
-        fig.savefig(thinker.run_dir / 'simulation-outputs.png', dpi=320)
-
-        # Write the markdown
         print('\n## Outcomes over Time\nThe property of the molecules over time.', file=fo)
-        print('\n![simulation](simulation-outputs.png)', file=fo)
+        for i, recipe in enumerate(thinker.recipes):
+            fig, ax = plt.subplots(figsize=(3.5, 2.5))
+            ax.scatter(
+                np.arange(len(results)),
+                results,
+            )
+            ax.set_xlabel('Result')
+            ax.set_ylabel(f'{recipe.name}@\n{recipe.level}')
+
+            fig.tight_layout()
+            fig.savefig(thinker.run_dir / f'simulation-outputs_recipe-{i}.png', dpi=320)
+            plt.close(fig)
+
+            # Write the markdown
+            print('\n![simulation](simulation-outputs.png)', file=fo)

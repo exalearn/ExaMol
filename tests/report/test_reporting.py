@@ -16,7 +16,7 @@ example_dir = Path(__file__).parent / 'example'
 
 class FakeThinker(SingleObjectiveThinker):
     run_dir = example_dir
-    recipes = RedoxEnergy(charge=1, energy_config='xtb')
+    recipes = [RedoxEnergy(charge=1, energy_config='xtb')]
 
     def __init__(self):
         pass
@@ -36,7 +36,7 @@ def test_markdown(thinker):
     reporter = MarkdownReporter()
     reporter.report(thinker)
     assert (thinker.run_dir / 'report.md').is_file()
-    assert (thinker.run_dir / 'simulation-outputs.png').is_file()
+    assert (thinker.run_dir / 'simulation-outputs_recipe-0.png').is_file()
 
 
 def test_database(thinker):
