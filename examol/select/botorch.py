@@ -1,11 +1,14 @@
 """Employ the acquisition functions from `BOTorch <https://botorch.org/>`_"""
-from typing import List, Any, Callable, Sequence
+from typing import List, Any, Callable, Sequence, Optional
+
+from botorch.acquisition.objective import PosteriorTransform
+from botorch.posteriors import Posterior, GPyTorchPosterior
+from gpytorch.distributions import MultitaskMultivariateNormal
 
 try:
     from botorch.acquisition import AcquisitionFunction
 except ImportError as e:  # pragma: no-coverage
     raise ImportError('You may need to install BOTorch and PyTorch') from e
-from botorch.models.ensemble import EnsembleModel
 from botorch.models.model import Model
 from torch import Tensor
 import numpy as np
@@ -16,26 +19,52 @@ from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 
-class _ExternalEnsembleModel(EnsembleModel):
-    """Routes outputs from another modeling program through the BOTorch
-    :class:`~botorch.models.ensemble.EnsembleModel` interface
+class _EnsembleCovarianceModel(Model):
+    """Model which generates a multivariate Gaussian distribution given samples from an ensemble of models"""
 
-    This model takes the outputs of the other program as input and returns them as a Tensor,
-    which ``EnsembleModel`` will transform to the Posterior class needed by BOTorch.
-    """
-
-    def __init__(self, num_outputs=1):
+    def __init__(self, num_outputs: int):
         super().__init__()
         self._num_outputs = num_outputs
 
-    def condition_on_observations(self, X: Tensor, Y: Tensor, **kwargs: Any) -> Model:
-        return self
+    @property
+    def num_outputs(self) -> int:
+        return self._num_outputs
 
-    def subset_output(self, idcs: List[int]) -> Model:
-        raise NotImplementedError()
+    def posterior(
+            self,
+            X: Tensor,
+            output_indices: Optional[List[int]] = None,
+            observation_noise: bool = False,
+            posterior_transform: Optional[PosteriorTransform] = None,
+            **kwargs: Any,
+    ) -> Posterior:
+        # Reshape X from (b x q x d) -> (b x q x o x s):
+        #  b - batch size used for efficiency's sake
+        #  q - number of points considered together (this is the batch size for active learning's sake)
+        #  o - number of outputs
+        #  s - ensemble size
+        b, q, _ = X.size()
+        x_reshaped = torch.unflatten(X, dim=-1, sizes=(self._num_outputs, -1))
 
-    def forward(self, X: Tensor) -> Tensor:
-        return X
+        # Compute the mean of each dimension
+        #   GPyTorch wants this as a (b x q x o) matrix
+        means = torch.mean(x_reshaped, axis=-1)
+
+        # Compute the covariance between points in a batch (q)
+        #  GPyTorch wants this as a (b x (q x o)) matrix
+        #  Thanks: https://github.com/pytorch/pytorch/issues/19037
+        centered = x_reshaped - means.unsqueeze(-1)  # b x q x o x s
+        combined_task_and_samples = torch.flatten(centered, start_dim=1, end_dim=2)  # b x (q x o) x s
+        d = combined_task_and_samples.shape[-1]
+        cov = 1 / (d - 1) * combined_task_and_samples @ combined_task_and_samples.transpose(-1, -2)
+
+        # Make the multivariate normal as an output
+        posterior = GPyTorchPosterior(
+            distribution=MultitaskMultivariateNormal(mean=means, covariance_matrix=cov, validate_args=True)
+        )
+        if posterior_transform is not None:
+            return posterior_transform(posterior)
+        return posterior
 
 
 class BOTorchSequentialSelector(RankingSelector):
@@ -49,9 +78,8 @@ class BOTorchSequentialSelector(RankingSelector):
 
     .. code-block:: python
 
-        def update_fn(obs: np.ndarray, options: dict) -> dict:
-            options['best_f'] = max(obs)
-            return options
+        def update_fn(selector: 'BOTorchSequentialSelector', obs: np.ndarray) -> dict:
+            return {'best_f': max(obs[:]) if selector.maximize[0] else min(obs)}
 
         selector = BOTorchSequentialSelector(qExpectedImprovement,
                                              acq_options={'best_f': 0.5},
@@ -67,11 +95,13 @@ class BOTorchSequentialSelector(RankingSelector):
         maximize: Whether to maximize or minimize the outputs
     """
 
+    multiobjective = True
+
     def __init__(self,
                  acq_function_type: type[AcquisitionFunction],
                  acq_options: dict[str, object],
                  to_select: int,
-                 acq_options_updater: Callable[[np.ndarray, dict], dict] | None = None,
+                 acq_options_updater: Callable[['BOTorchSequentialSelector', np.ndarray], dict] | None = None,
                  maximize: bool = True):
         self.acq_function: AcquisitionFunction | None = None
         self.acq_function_type = acq_function_type
@@ -83,20 +113,21 @@ class BOTorchSequentialSelector(RankingSelector):
         if self.acq_options_updater is not None:
             # Run the update function on the properties observed so far
             outputs = _extract_observations(database, recipes)
-            self.acq_options = self.acq_options_updater(outputs, self.acq_options)
+            self.acq_options = self.acq_options_updater(self, outputs)
 
-        self.acq_function = self.acq_function_type(model=_ExternalEnsembleModel(), **self.acq_options)
+        self.acq_function = self.acq_function_type(model=_EnsembleCovarianceModel(len(recipes)), **self.acq_options)
 
     def _assign_score(self, samples: np.ndarray) -> np.ndarray:
         # Change sign if need be
         if not self.maximize:
             samples = -1 * samples
 
-        # Shape the tensor in the form expected by BOtorch's EnsemblePosterior
+        # Shape the tensor in the form expected by BOtorch's GPyTorch
         #  Samples is a `objectives x samples x models` array
-        #  BOTorch expects `samples x models x batch size (q) x objectives
-        samples_tensor = samples[:, :, None, :]  # Insert a "q" dimension
-        samples_tensor = samples_tensor.transpose((1, 3, 2, 0))
-        samples_tensor = torch.from_numpy(samples_tensor)  # `(b) x s x q x m`
+        #  BOTorch expects `samples x batch size (q) x (objectives x models)` array
+        samples_tensor = samples[:, :, None, :]  # o x s x q x m
+        samples_tensor = samples_tensor.transpose((1, 2, 0, 3))  # `s x q x o x m`
+        samples_tensor = torch.from_numpy(samples_tensor)
+        samples_tensor = torch.flatten(samples_tensor, start_dim=2)  # s x q x (o x m)
         score_tensor = self.acq_function(samples_tensor)
         return score_tensor.detach().cpu().numpy()

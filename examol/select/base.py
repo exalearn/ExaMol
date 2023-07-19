@@ -130,7 +130,7 @@ class RankingSelector(Selector):
     """Base class where we assign an independent score to each possibility.
 
     Implementations must return high scores for desired entries
-    regardless of whether the the selector is set to minimize.
+    regardless of whether the selector is set to minimize.
 
     Args:
         to_select: How many computations to select per batch

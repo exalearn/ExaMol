@@ -5,13 +5,13 @@ from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 
+class TestRecipe(PropertyRecipe):
+    pass
+
+
 @fixture()
 def recipe() -> PropertyRecipe:
-    class TestRecipe(PropertyRecipe):
-        def __init__(self):
-            super().__init__('test', 'test')
-
-    return TestRecipe()
+    return TestRecipe('test', 'test')
 
 
 @fixture()
@@ -19,7 +19,7 @@ def test_data():
     # New points
     x = np.linspace(0, 1, 32)
     y = x * (1 - x)
-    y = np.random.normal(scale=0.001, size=(32, 8)) + y[None, :, None]
+    y = np.random.normal(scale=0.01, size=(32, 8)) + y[None, :, None]
 
     # Example database
     record = MoleculeRecord.from_identifier('C')
