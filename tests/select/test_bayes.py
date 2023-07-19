@@ -6,7 +6,7 @@ from examol.select.bayes import ExpectedImprovement
 def test_ei(test_data, recipe):
     x, y, db = test_data
     sel = ExpectedImprovement(2, maximize=True, epsilon=0.01)
-    sel.update(db, recipe)
+    sel.update(db, [recipe])
     assert sel.best_so_far == 0.25
 
     # Test it for maximize
