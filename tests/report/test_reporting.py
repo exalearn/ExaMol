@@ -7,14 +7,14 @@ from pytest import fixture, mark
 
 from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
 example_dir = Path(__file__).parent / 'example'
 
 
-class FakeThinker(SingleObjectiveThinker):
+class FakeThinker(SingleStepThinker):
     run_dir = example_dir
     recipes = [RedoxEnergy(charge=1, energy_config='xtb')]
 

@@ -10,7 +10,7 @@ from matplotlib import pylab as plt
 
 from examol.reporting.base import BaseReporter
 from examol.steer.base import MoleculeThinker
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class MarkdownReporter(BaseReporter):
 
             # Print out the different types of data
             self._write_task_summary(fo, thinker)
-            if isinstance(thinker, SingleObjectiveThinker):
+            if isinstance(thinker, SingleStepThinker):
                 self._plot_over_time(fo, thinker)
 
     def _write_task_summary(self, fo: TextIO, thinker: MoleculeThinker):
@@ -61,7 +61,7 @@ class MarkdownReporter(BaseReporter):
         print('\n## Task Summary\nMeasures how many tasks have run as part of the application', file=fo)
         print('\n' + task_summary.to_markdown(index=False, tablefmt='github'), file=fo)
 
-    def _plot_over_time(self, fo: TextIO, thinker: SingleObjectiveThinker):
+    def _plot_over_time(self, fo: TextIO, thinker: SingleStepThinker):
         """Plot the properties evaluated over time"""
 
         # Exit if simulation results do not exist yet

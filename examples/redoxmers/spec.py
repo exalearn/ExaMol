@@ -11,7 +11,7 @@ from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
 from examol.select.baseline import GreedySelector
 from examol.specify import ExaMolSpecification
@@ -51,7 +51,7 @@ spec = ExaMolSpecification(
     scorer=scorer,
     models=[[pipeline]],
     num_to_run=4,
-    thinker=SingleObjectiveThinker,
+    thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,
     reporters=[reporter, writer],

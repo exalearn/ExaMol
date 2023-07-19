@@ -81,7 +81,7 @@ A simple example looks something like:
         scorer=RDKitScorer(),
         models=[[KNeighborsRegressor()]],  # Ensemble of models for each recipe
         num_to_run=8,
-        thinker=SingleObjectiveThinker,
+        thinker=SingleStepThinker,
         thinker_options=dict(num_workers=2),
         compute_config=config,
         run_dir='run'
@@ -163,7 +163,7 @@ Steering Strategy
 The ``thinker`` provides the core capability behind ExaMol scaling to large supercomputers:
 the ability to schedule many different different tasks at once.
 A Thinker strategy defines when to submit new tasks and what to do once they complete.
-There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleObjectiveThinker`,
+There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleStepThinker`,
 but more will become available as we build the library.
 
 Learn more in the `component documentation <components/steer.html>`_.

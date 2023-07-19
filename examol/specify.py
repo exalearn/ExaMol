@@ -19,7 +19,7 @@ from examol.simulate.base import BaseSimulator
 from examol.start.base import Starter
 from examol.start.fast import RandomStarter
 from examol.steer.base import MoleculeThinker
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -66,7 +66,7 @@ class ExaMolSpecification:
     """Options passed to the :py:meth:`~examol.score.base.Scorer.score` function"""
 
     # Define how we create the thinker
-    thinker: type[SingleObjectiveThinker] = ...
+    thinker: type[SingleStepThinker] = ...
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
     """Options passed forward to initializing the thinker"""

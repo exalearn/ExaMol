@@ -11,7 +11,7 @@ from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import RDKitScorer, make_gpr_model
 from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
 from examol.select.bayes import ExpectedImprovement
 from examol.specify import ExaMolSpecification
@@ -75,7 +75,7 @@ spec = ExaMolSpecification(
     scorer=scorer,
     models=[pipeline] * 8,
     num_to_run=200,
-    thinker=SingleObjectiveThinker,
+    thinker=SingleStepThinker,
     thinker_options=dict(num_workers=20),
     compute_config=config,
     reporters=[reporter, writer],

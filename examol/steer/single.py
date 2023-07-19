@@ -25,7 +25,7 @@ from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
 
 
-class SingleObjectiveThinker(MoleculeThinker):
+class SingleStepThinker(MoleculeThinker):
     """A thinker which submits all computations needed to evaluate a molecule whenever it is selected
 
     Args:
