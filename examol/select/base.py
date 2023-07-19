@@ -40,6 +40,9 @@ class Selector:
     - :meth:`dispense` generates a list of :attr:`to_select` in ranked order from best to worst
     """
 
+    multiobjective: bool = False
+    """Whether the selector supports multi-objective optimization"""
+
     def __init__(self, to_select: int):
         """
 
@@ -65,6 +68,8 @@ class Selector:
                 Expects a two-dimensional array where each row is a different record,
                 and each column is a different model.
         """
+        if samples.shape[0] > 1 and not self.multiobjective:
+            raise ValueError(f'Provided {samples.shape[0]} objectives but the class does not support multi-objective selection')
         if samples.ndim != 3:  # pragma: no-coverage
             raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, sample, model)')
         if samples.shape[1] != len(keys):

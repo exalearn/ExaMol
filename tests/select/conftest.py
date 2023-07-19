@@ -19,7 +19,7 @@ def test_data():
     # New points
     x = np.linspace(0, 1, 32)
     y = x * (1 - x)
-    y = np.random.normal(scale=0.001, size=(32, 8)) + y[:, None]
+    y = np.random.normal(scale=0.001, size=(32, 8)) + y[None, :, None]
 
     # Example database
     record = MoleculeRecord.from_identifier('C')

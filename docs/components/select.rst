@@ -20,7 +20,7 @@ ExaMol includes selectors that have a variety of characteristics
      - Multi-Fidelity
    * - :class:`~examol.select.baseline.RandomSelector`
      - Baseline
-     - ✘
+     - ✔
      - ✘
      - ✘
    * - :class:`~examol.select.baseline.GreedySelector`

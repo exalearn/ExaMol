@@ -30,8 +30,8 @@ class ExpectedImprovement(RankingSelector):
 
     def _assign_score(self, samples: np.ndarray) -> np.ndarray:
         # Compute the mean and standard deviation for each entry
-        mean = samples.mean(axis=1)
-        std = samples.std(axis=1)
+        mean = samples.mean(axis=(0, 2))
+        std = samples.std(axis=(0, 2))
 
         # If we are minimizing, invert the values
         max_y = self.best_so_far
