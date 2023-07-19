@@ -1,0 +1,388 @@
+2023-07-19 11:20:28,634 - examol.steer.single.SingleObjectiveThinker - INFO - Reading molecules from file 1/1: /home/lward/Work/JCESR/ExaMol/examples/redoxmers/search_space.smi
+2023-07-19 11:20:28,969 - examol.steer.single.SingleObjectiveThinker - INFO - Saved 1000 search entries into 1 batches
+2023-07-19 11:20:28,970 - examol.steer.single.SingleObjectiveThinker - INFO - Loading in molecules from 1 files
+2023-07-19 11:20:28,970 - examol.steer.single.SingleObjectiveThinker - INFO - Will store inference objects to Store("file", connector=FileConnector(directory=/home/lward/Work/JCESR/ExaMol/examples/redoxmers/proxystore), serializer=default, deserializer=default, cache_size=16, metrics=True)
+2023-07-19 11:20:28,974 - examol.steer.single.SingleObjectiveThinker - INFO - SingleObjectiveThinker started. Process id: 36807
+2023-07-19 11:20:28,975 - colmena.task_server.base - INFO - Started task server ParslTaskServer on 36868
+2023-07-19 11:20:28,975 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - retrain started
+2023-07-19 11:20:28,975 - examol.steer.single.SingleObjectiveThinker.startup - INFO - startup started
+2023-07-19 11:20:28,975 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Configured and waiting for start_training to be set
+2023-07-19 11:20:28,975 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - store_inference started
+2023-07-19 11:20:28,976 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - store_simulation started
+2023-07-19 11:20:28,976 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - submit_inference started
+2023-07-19 11:20:28,976 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - submit_simulation started
+2023-07-19 11:20:28,976 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Configured and waiting for start_inference to be set
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.startup - INFO - Training set is larger than the threshold size (15>10). Starting model training
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker - INFO - Launched all 6 functions
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Configured and waiting for start_inference to be set
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.startup - INFO - startup completed
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Event start_training has been triggered
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker - INFO - Found 1 task submitter agents
+2023-07-19 11:20:28,977 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - No tasks available to run. Waiting
+2023-07-19 11:20:28,978 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Gathered a total of 15 entries for retraining recipe 0
+2023-07-19 11:20:28,978 - examol.steer.single.SingleObjectiveThinker - INFO - startup completed without problems. 5/6 remain active
+2023-07-19 11:20:28,978 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Pre-processed the training entries
+2023-07-19 11:20:28,979 - colmena.queue.base - INFO - Client sent a retrain task with topic train. Created 0 proxies for input values
+2023-07-19 11:20:28,979 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Submitted all models for recipe=0
+2023-07-19 11:20:29,071 - colmena.task_server.parsl - INFO - Launched Parsl DFK. Process id: 36868
+2023-07-19 11:20:29,071 - colmena.task_server.base - INFO - Begin pulling from task queue
+2023-07-19 11:20:29,072 - colmena.task_server.base - INFO - Received request for retrain with topic train
+2023-07-19 11:20:29,763 - colmena.queue.base - INFO - Client received a retrain result with topic train
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Updated model 1/1. Recipe id=0. Model id=0
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished training all models
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished responding to start_training event. Runtime: 0.7856s
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - All responses to start_training complete. Time elapsed: 0.7856s
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:29,763 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Prepared to receive 1 results
+2023-07-19 11:20:29,764 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Preparing to submit tasks for model 1/1.
+2023-07-19 11:20:29,764 - colmena.queue.base - INFO - Client sent a score task with topic inference. Created 0 proxies for input values
+2023-07-19 11:20:29,764 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Submitted all tasks for recipe=0 model=0
+2023-07-19 11:20:29,764 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Finished responding to start_inference event. Runtime: 0.000812s
+2023-07-19 11:20:29,764 - colmena.task_server.base - INFO - Received request for score with topic inference
+2023-07-19 11:20:30,559 - colmena.queue.base - INFO - Client received a score result with topic inference
+2023-07-19 11:20:30,559 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Received inference result 1/1. Recipe=0, model=0, chunk=0, success=True
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Everything done for chunk=0. Adding to selector.
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done with all inference tasks for model=0. Evicting.
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done processing inference result 1/1. Time: 1.37e-03s
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done storing all results
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Updated task queue. All done.
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected CC#CC(C)C(C)CO to run next. Score=11.75, queue length=7
+2023-07-19 11:20:30,560 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Finished responding to start_inference event. Runtime: 0.7969s
+2023-07-19 11:20:30,561 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - All responses to start_inference complete. Time elapsed: 0.7982s
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for CC#CC(C)C(C)CO
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for FRQJZIBXTKIGQA-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:30,593 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.6156e+00s
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for FRQJZIBXTKIGQA-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:30,593 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:30,593 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:30,593 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 2.4464e-04s
+2023-07-19 11:20:30,596 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:36,045 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:36,045 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:36,045 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for FRQJZIBXTKIGQA-UHFFFAOYSA-N. Runtime=5.2s, success=True
+2023-07-19 11:20:36,045 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:36,045 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected CC(C)C#CCCC=O to run next. Score=11.75, queue length=6
+2023-07-19 11:20:36,061 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for FRQJZIBXTKIGQA-UHFFFAOYSA-N
+2023-07-19 11:20:36,063 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.7732e-02s
+2023-07-19 11:20:36,070 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for CC(C)C#CCCC=O
+2023-07-19 11:20:36,070 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IWFYZOGPEPRWAT-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:36,071 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:36,071 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 2.5133e-02s
+2023-07-19 11:20:36,071 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:37,575 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:37,575 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:37,575 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IWFYZOGPEPRWAT-UHFFFAOYSA-N. Runtime=1.5s, success=True
+2023-07-19 11:20:37,575 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:37,575 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IWFYZOGPEPRWAT-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:37,576 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:37,576 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:37,576 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 5.7932e-04s
+2023-07-19 11:20:37,586 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IWFYZOGPEPRWAT-UHFFFAOYSA-N
+2023-07-19 11:20:37,587 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.2184e-02s
+2023-07-19 11:20:40,128 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:40,128 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:40,128 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IWFYZOGPEPRWAT-UHFFFAOYSA-N. Runtime=2.5s, success=True
+2023-07-19 11:20:40,128 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:40,128 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected OC(C=O)C1(CC1)C#N to run next. Score=11.75, queue length=5
+2023-07-19 11:20:40,141 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for OC(C=O)C1(CC1)C#N
+2023-07-19 11:20:40,142 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for TYDNKRBJJUMWPJ-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:40,143 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:40,143 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:40,143 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.4763e-02s
+2023-07-19 11:20:40,147 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IWFYZOGPEPRWAT-UHFFFAOYSA-N
+2023-07-19 11:20:40,147 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:40,149 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.1138e-02s
+2023-07-19 11:20:44,463 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:44,463 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:44,463 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for FRQJZIBXTKIGQA-UHFFFAOYSA-N. Runtime=13.7s, success=True
+2023-07-19 11:20:44,463 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:44,463 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for TYDNKRBJJUMWPJ-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:44,464 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:44,464 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:44,464 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 7.2372e-04s
+2023-07-19 11:20:44,485 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for FRQJZIBXTKIGQA-UHFFFAOYSA-N
+2023-07-19 11:20:44,485 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:44,488 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.5394e-02s
+2023-07-19 11:20:47,408 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:47,408 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:47,408 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for TYDNKRBJJUMWPJ-UHFFFAOYSA-N. Runtime=7.2s, success=True
+2023-07-19 11:20:47,408 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:47,408 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected CC#CC(C)C(C)CO to run next. Score=inf, queue length=6
+2023-07-19 11:20:47,409 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for CC#CC(C)C(C)CO
+2023-07-19 11:20:47,410 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for FRQJZIBXTKIGQA-UHFFFAOYSA-N with a charge of 0 in acn
+2023-07-19 11:20:47,413 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:47,413 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:47,414 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 5.2477e-03s
+2023-07-19 11:20:47,427 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for TYDNKRBJJUMWPJ-UHFFFAOYSA-N
+2023-07-19 11:20:47,429 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.1048e-02s
+2023-07-19 11:20:47,493 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:47,493 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:47,493 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for FRQJZIBXTKIGQA-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:47,493 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:47,493 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for FRQJZIBXTKIGQA-UHFFFAOYSA-N with a charge of 1 in acn
+2023-07-19 11:20:47,494 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for FRQJZIBXTKIGQA-UHFFFAOYSA-N
+2023-07-19 11:20:47,494 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:47,494 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.2832e-03s
+2023-07-19 11:20:47,494 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:47,495 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.9353e-03s
+2023-07-19 11:20:47,705 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:47,705 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:47,705 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for FRQJZIBXTKIGQA-UHFFFAOYSA-N. Runtime=0.2s, success=True
+2023-07-19 11:20:47,705 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:47,706 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected CC(C)C#CCCC=O to run next. Score=inf, queue length=5
+2023-07-19 11:20:47,706 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished computing all recipes for FRQJZIBXTKIGQA-UHFFFAOYSA-N. Completed 1/4 molecules
+2023-07-19 11:20:47,707 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for CC(C)C#CCCC=O
+2023-07-19 11:20:47,707 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for IWFYZOGPEPRWAT-UHFFFAOYSA-N with a charge of 0 in acn
+2023-07-19 11:20:47,707 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Event start_training has been triggered
+2023-07-19 11:20:47,708 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Gathered a total of 16 entries for retraining recipe 0
+2023-07-19 11:20:47,708 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:47,708 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:47,709 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Pre-processed the training entries
+2023-07-19 11:20:47,709 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 3.2718e-03s
+2023-07-19 11:20:47,709 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 2.7810e-03s
+2023-07-19 11:20:47,709 - colmena.queue.base - INFO - Client sent a retrain task with topic train. Created 0 proxies for input values
+2023-07-19 11:20:47,709 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Submitted all models for recipe=0
+2023-07-19 11:20:47,709 - colmena.task_server.base - INFO - Received request for retrain with topic train
+2023-07-19 11:20:47,868 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:47,868 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:47,868 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IWFYZOGPEPRWAT-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:47,868 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:47,869 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for IWFYZOGPEPRWAT-UHFFFAOYSA-N with a charge of 1 in acn
+2023-07-19 11:20:47,869 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IWFYZOGPEPRWAT-UHFFFAOYSA-N
+2023-07-19 11:20:47,870 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:47,870 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.0723e-03s
+2023-07-19 11:20:47,870 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:47,870 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.8226e-03s
+2023-07-19 11:20:47,878 - colmena.queue.base - INFO - Client received a retrain result with topic train
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Updated model 1/1. Recipe id=0. Model id=0
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished training all models
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished responding to start_training event. Runtime: 0.1708s
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - All responses to start_training complete. Time elapsed: 0.1708s
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Prepared to receive 1 results
+2023-07-19 11:20:47,879 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Preparing to submit tasks for model 1/1.
+2023-07-19 11:20:47,880 - colmena.queue.base - INFO - Client sent a score task with topic inference. Created 0 proxies for input values
+2023-07-19 11:20:47,880 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Submitted all tasks for recipe=0 model=0
+2023-07-19 11:20:47,880 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Finished responding to start_inference event. Runtime: 0.000841s
+2023-07-19 11:20:47,880 - colmena.task_server.base - INFO - Received request for score with topic inference
+2023-07-19 11:20:48,107 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:48,107 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:48,107 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IWFYZOGPEPRWAT-UHFFFAOYSA-N. Runtime=0.2s, success=True
+2023-07-19 11:20:48,107 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:48,108 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished computing all recipes for IWFYZOGPEPRWAT-UHFFFAOYSA-N. Completed 2/4 molecules
+2023-07-19 11:20:48,108 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected COCC(=O)C(O)C#C to run next. Score=11.75, queue length=4
+2023-07-19 11:20:48,108 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Event start_training has been triggered
+2023-07-19 11:20:48,109 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Inference is still ongoing. Will not retrain yet
+2023-07-19 11:20:48,109 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished responding to start_training event. Runtime: 0.0002112s
+2023-07-19 11:20:48,109 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.5952e-03s
+2023-07-19 11:20:48,109 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - All responses to start_training complete. Time elapsed: 0.0003015s
+2023-07-19 11:20:48,120 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for COCC(=O)C(O)C#C
+2023-07-19 11:20:48,120 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for AQMVUEAIXCMCPH-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:48,121 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:48,121 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.2961e-02s
+2023-07-19 11:20:48,121 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:48,792 - colmena.queue.base - INFO - Client received a score result with topic inference
+2023-07-19 11:20:48,792 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Received inference result 1/1. Recipe=0, model=0, chunk=0, success=True
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Everything done for chunk=0. Adding to selector.
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done with all inference tasks for model=0. Evicting.
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done processing inference result 1/1. Time: 9.74e-04s
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done storing all results
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Updated task queue. All done.
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Finished responding to start_inference event. Runtime: 0.9143s
+2023-07-19 11:20:48,793 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - All responses to start_inference complete. Time elapsed: 0.9145s
+2023-07-19 11:20:48,929 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:48,929 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:48,929 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for TYDNKRBJJUMWPJ-UHFFFAOYSA-N. Runtime=4.4s, success=True
+2023-07-19 11:20:48,929 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:48,929 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for AQMVUEAIXCMCPH-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:48,930 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:48,930 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:48,930 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 8.7000e-04s
+2023-07-19 11:20:48,970 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for TYDNKRBJJUMWPJ-UHFFFAOYSA-N
+2023-07-19 11:20:48,970 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:48,975 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 4.5701e-02s
+2023-07-19 11:20:50,709 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:50,709 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:50,709 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for AQMVUEAIXCMCPH-UHFFFAOYSA-N. Runtime=2.6s, success=True
+2023-07-19 11:20:50,709 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:50,709 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected N#CC1(C(O)C=O)CC1 to run next. Score=inf, queue length=8
+2023-07-19 11:20:50,710 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for N#CC1(C(O)C=O)CC1
+2023-07-19 11:20:50,710 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for TYDNKRBJJUMWPJ-UHFFFAOYSA-N with a charge of 1 in acn
+2023-07-19 11:20:50,711 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:50,712 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:50,712 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 3.2379e-03s
+2023-07-19 11:20:50,729 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for AQMVUEAIXCMCPH-UHFFFAOYSA-N
+2023-07-19 11:20:50,732 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.3671e-02s
+2023-07-19 11:20:50,801 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:50,801 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:50,801 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for TYDNKRBJJUMWPJ-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:50,802 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for TYDNKRBJJUMWPJ-UHFFFAOYSA-N
+2023-07-19 11:20:50,802 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:50,802 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for TYDNKRBJJUMWPJ-UHFFFAOYSA-N with a charge of 0 in acn
+2023-07-19 11:20:50,803 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:50,803 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:50,803 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 8.7730e-04s
+2023-07-19 11:20:50,803 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.1377e-03s
+2023-07-19 11:20:50,880 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:50,880 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:50,880 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for TYDNKRBJJUMWPJ-UHFFFAOYSA-N. Runtime=0.0s, success=True
+2023-07-19 11:20:50,880 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:50,881 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished computing all recipes for TYDNKRBJJUMWPJ-UHFFFAOYSA-N. Completed 3/4 molecules
+2023-07-19 11:20:50,881 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected O=C1CCCC1C#N to run next. Score=12.17, queue length=7
+2023-07-19 11:20:50,882 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Event start_training has been triggered
+2023-07-19 11:20:50,882 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Gathered a total of 18 entries for retraining recipe 0
+2023-07-19 11:20:50,882 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Pre-processed the training entries
+2023-07-19 11:20:50,883 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 3.1177e-03s
+2023-07-19 11:20:50,883 - colmena.queue.base - INFO - Client sent a retrain task with topic train. Created 1 proxies for input values
+2023-07-19 11:20:50,883 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Submitted all models for recipe=0
+2023-07-19 11:20:50,884 - colmena.task_server.base - INFO - Received request for retrain with topic train
+2023-07-19 11:20:50,892 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for O=C1CCCC1C#N
+2023-07-19 11:20:50,893 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IPMQSLPLJDKUPI-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:50,893 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:50,893 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.1955e-02s
+2023-07-19 11:20:50,893 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:51,061 - colmena.queue.base - INFO - Client received a retrain result with topic train
+2023-07-19 11:20:51,061 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Updated model 1/1. Recipe id=0. Model id=0
+2023-07-19 11:20:51,061 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished training all models
+2023-07-19 11:20:51,061 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished responding to start_training event. Runtime: 0.1793s
+2023-07-19 11:20:51,061 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Event start_inference has been triggered
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - All responses to start_training complete. Time elapsed: 0.1794s
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Prepared to receive 1 results
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Preparing to submit tasks for model 1/1.
+2023-07-19 11:20:51,062 - colmena.queue.base - INFO - Client sent a score task with topic inference. Created 0 proxies for input values
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Submitted all tasks for recipe=0 model=0
+2023-07-19 11:20:51,062 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - Finished responding to start_inference event. Runtime: 0.0006527s
+2023-07-19 11:20:51,062 - colmena.task_server.base - INFO - Received request for score with topic inference
+2023-07-19 11:20:51,670 - colmena.queue.base - INFO - Client received a score result with topic inference
+2023-07-19 11:20:51,670 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Received inference result 1/1. Recipe=0, model=0, chunk=0, success=True
+2023-07-19 11:20:51,671 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Everything done for chunk=0. Adding to selector.
+2023-07-19 11:20:51,671 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done with all inference tasks for model=0. Evicting.
+2023-07-19 11:20:51,672 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done processing inference result 1/1. Time: 1.10e-03s
+2023-07-19 11:20:51,672 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Done storing all results
+2023-07-19 11:20:51,672 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Updated task queue. All done.
+2023-07-19 11:20:51,672 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - Finished responding to start_inference event. Runtime: 0.6101s
+2023-07-19 11:20:51,672 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - All responses to start_inference complete. Time elapsed: 0.6101s
+2023-07-19 11:20:52,726 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:52,726 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:52,726 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Runtime=1.8s, success=True
+2023-07-19 11:20:52,726 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:52,726 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IPMQSLPLJDKUPI-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:52,727 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:52,727 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:52,729 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 2.4958e-03s
+2023-07-19 11:20:52,743 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IPMQSLPLJDKUPI-UHFFFAOYSA-N
+2023-07-19 11:20:52,746 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.9664e-02s
+2023-07-19 11:20:53,691 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:53,692 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:53,692 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Runtime=0.9s, success=True
+2023-07-19 11:20:53,692 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:53,693 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected O=C1CCCC1C#N to run next. Score=12.17, queue length=7
+2023-07-19 11:20:53,694 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for O=C1CCCC1C#N
+2023-07-19 11:20:53,694 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for IPMQSLPLJDKUPI-UHFFFAOYSA-N with a charge of 1 in acn
+2023-07-19 11:20:53,695 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:53,695 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:53,696 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 3.4252e-03s
+2023-07-19 11:20:53,701 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IPMQSLPLJDKUPI-UHFFFAOYSA-N
+2023-07-19 11:20:53,702 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.0257e-02s
+2023-07-19 11:20:53,780 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:53,780 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:53,780 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:53,781 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IPMQSLPLJDKUPI-UHFFFAOYSA-N
+2023-07-19 11:20:53,781 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:53,781 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IPMQSLPLJDKUPI-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:53,782 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:53,782 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 6.0107e-04s
+2023-07-19 11:20:53,782 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:53,782 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.8779e-03s
+2023-07-19 11:20:54,643 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:54,643 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:54,643 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Runtime=0.8s, success=True
+2023-07-19 11:20:54,643 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:54,643 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected CC#CC1CCOC1=O to run next. Score=12.17, queue length=6
+2023-07-19 11:20:54,656 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for CC#CC1CCOC1=O
+2023-07-19 11:20:54,657 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IAWHNJMGELKCSX-UHFFFAOYSA-N with a charge of 0
+2023-07-19 11:20:54,658 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:54,659 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IPMQSLPLJDKUPI-UHFFFAOYSA-N
+2023-07-19 11:20:54,659 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:54,659 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:54,660 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.6212e-02s
+2023-07-19 11:20:54,661 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.8190e-02s
+2023-07-19 11:20:56,201 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:56,201 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:56,201 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IAWHNJMGELKCSX-UHFFFAOYSA-N. Runtime=1.5s, success=True
+2023-07-19 11:20:56,201 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:56,201 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Optimizing structure for IAWHNJMGELKCSX-UHFFFAOYSA-N with a charge of 1
+2023-07-19 11:20:56,202 - colmena.queue.base - INFO - Client sent a optimize_structure task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:56,203 - colmena.task_server.base - INFO - Received request for optimize_structure with topic simulation
+2023-07-19 11:20:56,203 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 1.6383e-03s
+2023-07-19 11:20:56,213 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IAWHNJMGELKCSX-UHFFFAOYSA-N
+2023-07-19 11:20:56,214 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.3275e-02s
+2023-07-19 11:20:57,319 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:57,319 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:57,319 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for AQMVUEAIXCMCPH-UHFFFAOYSA-N. Runtime=8.4s, success=True
+2023-07-19 11:20:57,319 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:57,319 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected N#CC1CCCC1=O to run next. Score=inf, queue length=6
+2023-07-19 11:20:57,320 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 1 more computations to do for N#CC1CCCC1=O
+2023-07-19 11:20:57,320 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for IPMQSLPLJDKUPI-UHFFFAOYSA-N with a charge of 0 in acn
+2023-07-19 11:20:57,322 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:57,322 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:57,323 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 3.6256e-03s
+2023-07-19 11:20:57,338 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for AQMVUEAIXCMCPH-UHFFFAOYSA-N
+2023-07-19 11:20:57,338 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:57,340 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.1295e-02s
+2023-07-19 11:20:57,402 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:57,402 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:57,402 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:57,402 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Acquired 1 execution slots of type None
+2023-07-19 11:20:57,403 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Selected C#CC(O)C(=O)COC to run next. Score=inf, queue length=6
+2023-07-19 11:20:57,403 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished computing all recipes for IPMQSLPLJDKUPI-UHFFFAOYSA-N. Completed 4/4 molecules
+2023-07-19 11:20:57,404 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Found 2 more computations to do for C#CC(O)C(=O)COC
+2023-07-19 11:20:57,404 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Done!
+2023-07-19 11:20:57,404 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Getting single-point energy for AQMVUEAIXCMCPH-UHFFFAOYSA-N with a charge of 1 in acn
+2023-07-19 11:20:57,405 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Event start_training has been triggered
+2023-07-19 11:20:57,405 - colmena.task_server.base - INFO - Received request for compute_energy with topic simulation
+2023-07-19 11:20:57,405 - colmena.queue.base - INFO - Client sent a compute_energy task with topic simulation. Created 0 proxies for input values
+2023-07-19 11:20:57,405 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Gathered a total of 19 entries for retraining recipe 0
+2023-07-19 11:20:57,407 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - Finished submitting new work. Runtime: 4.1597e-03s
+2023-07-19 11:20:57,408 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Pre-processed the training entries
+2023-07-19 11:20:57,409 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 6.5528e-03s
+2023-07-19 11:20:57,409 - examol.steer.single.SingleObjectiveThinker.submit_simulation - INFO - submit_simulation completed
+2023-07-19 11:20:57,412 - colmena.task_server.base - INFO - Received request for retrain with topic train
+2023-07-19 11:20:57,412 - colmena.queue.base - INFO - Client sent a retrain task with topic train. Created 1 proxies for input values
+2023-07-19 11:20:57,413 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Submitted all models for recipe=0
+2023-07-19 11:20:57,413 - examol.steer.single.SingleObjectiveThinker - INFO - submit_simulation completed without problems. 4/6 remain active
+2023-07-19 11:20:57,413 - examol.steer.single.SingleObjectiveThinker - INFO - All task submission agents have completed
+2023-07-19 11:20:57,490 - colmena.queue.base - INFO - Client received a compute_energy result with topic simulation
+2023-07-19 11:20:57,490 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:57,490 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for AQMVUEAIXCMCPH-UHFFFAOYSA-N. Runtime=0.1s, success=True
+2023-07-19 11:20:57,491 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for AQMVUEAIXCMCPH-UHFFFAOYSA-N
+2023-07-19 11:20:57,492 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 1.6096e-03s
+2023-07-19 11:20:57,672 - examol.steer.single.SingleObjectiveThinker.store_inference - INFO - store_inference completed
+2023-07-19 11:20:57,672 - examol.steer.single.SingleObjectiveThinker.submit_inference - INFO - submit_inference completed
+2023-07-19 11:20:57,672 - examol.steer.single.SingleObjectiveThinker - INFO - store_inference completed without problems. 3/6 remain active
+2023-07-19 11:20:57,672 - examol.steer.single.SingleObjectiveThinker - INFO - submit_inference completed without problems. 2/6 remain active
+2023-07-19 11:20:57,837 - colmena.queue.base - INFO - Client received a retrain result with topic train
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Updated model 1/1. Recipe id=0. Model id=0
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished training all models
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - Finished responding to start_training event. Runtime: 0.4328s
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - All responses to start_training complete. Time elapsed: 0.4329s
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker.retrain - INFO - retrain completed
+2023-07-19 11:20:57,838 - examol.steer.single.SingleObjectiveThinker - INFO - retrain completed without problems. 1/6 remain active
+2023-07-19 11:20:57,941 - colmena.queue.base - INFO - Client received a optimize_structure result with topic simulation
+2023-07-19 11:20:57,941 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Started to process result for topic=simulation
+2023-07-19 11:20:57,941 - examol.steer.single.SingleObjectiveThinker - INFO - All tasks have finished running. Task receivers will start exiting
+2023-07-19 11:20:57,941 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Received a result for IAWHNJMGELKCSX-UHFFFAOYSA-N. Runtime=1.7s, success=True
+2023-07-19 11:20:57,961 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished 0/1 recipes for IAWHNJMGELKCSX-UHFFFAOYSA-N
+2023-07-19 11:20:57,961 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - We must submit new computations for this molecule. Re-adding it to the front of the task queue
+2023-07-19 11:20:57,963 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - Finished processing result for topic=simulation. Runtime: 2.2339e-02s
+2023-07-19 11:20:57,964 - examol.steer.single.SingleObjectiveThinker.store_simulation - INFO - store_simulation completed
+2023-07-19 11:20:57,964 - examol.steer.single.SingleObjectiveThinker - INFO - store_simulation completed without problems. 0/6 remain active
+2023-07-19 11:20:57,964 - examol.steer.single.SingleObjectiveThinker - INFO - SingleObjectiveThinker completed
+2023-07-19 11:20:57,964 - colmena.task_server.base - INFO - Kill signal received
+2023-07-19 11:20:57,981 - colmena.task_server.parsl - INFO - All tasks have completed for ParslTaskServer on 36868
