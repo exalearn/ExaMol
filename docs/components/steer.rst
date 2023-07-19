@@ -10,7 +10,7 @@ for deploying tasks on a supercomputer.
 Single Objective Thinker as an Example
 --------------------------------------
 
-The :class:`~examol.steer.single.SingleObjectiveThinker` is a good example for explaining how Thinkers work in ExaMol.
+The :class:`~examol.steer.single.SingleStepThinker` is a good example for explaining how Thinkers work in ExaMol.
 
 The strategy for this thinker is three parts:
 
@@ -30,7 +30,7 @@ For example, the "submit a new quantum chemistry" policy is defined by a pair of
 
 .. code-block:: python
 
-    class SingleObjectiveThinker(MoleculeThinker):
+    class SingleStepThinker(MoleculeThinker):
         ...
         @result_processor(topic='simulation')
         def store_simulation(self, result: Result):

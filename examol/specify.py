@@ -1,15 +1,16 @@
 """Tool for defining then deploying an ExaMol application"""
-import logging
 from dataclasses import dataclass, field
 from functools import update_wrapper
+from functools import partial
+from typing import Sequence
 from pathlib import Path
+import logging
 
 from colmena.queue import PipeQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from parsl import Config
 from proxystore.store import Store, register_store
-from pydantic.main import partial
 
 from examol.reporting.base import BaseReporter
 from examol.score.base import Scorer
@@ -18,7 +19,7 @@ from examol.simulate.base import BaseSimulator
 from examol.start.base import Starter
 from examol.start.fast import RandomStarter
 from examol.steer.base import MoleculeThinker
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -41,18 +42,18 @@ class ExaMolSpecification:
     # Define the problem
     database: Path | str = ...
     """Path to the initial dataset"""
-    recipe: PropertyRecipe = ...
-    """Definition for how to compute the target property"""
+    recipes: Sequence[PropertyRecipe] = ...
+    """Definition for how to compute the target properties"""
     search_space: list[Path | str] = ...
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
     starter: Starter = RandomStarter(threshold=10, min_to_select=1)
     """How to initialize the database if too small. Default: Pick a single random molecule"""
     selector: Selector = ...
     """How to identify which computation to perform next"""
-    scorer: Scorer = ...
+    scorer: Scorer = ...  # TODO (wardlt): Support a different type of model for each recipe
     """Defines algorithms used to retrain and run :attr:`models`"""
-    models: list[object] = ...
-    """List of machine learning models used to predict outcome of :attr:`recipe`"""
+    models: list[list[object]] = ...
+    """List of machine learning models used to predict outcome of :attr:`recipes`"""
     simulator: BaseSimulator = ...
     """Tool used to perform quantum chemistry computations"""
     num_to_run: int = ...
@@ -65,7 +66,7 @@ class ExaMolSpecification:
     """Options passed to the :py:meth:`~examol.score.base.Scorer.score` function"""
 
     # Define how we create the thinker
-    thinker: type[SingleObjectiveThinker] = ...
+    thinker: type[SingleStepThinker] = ...
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
     """Options passed forward to initializing the thinker"""
@@ -135,7 +136,7 @@ class ExaMolSpecification:
         thinker = self.thinker(
             queues=queues,
             run_dir=self.run_dir,
-            recipe=self.recipe,
+            recipes=self.recipes,
             search_space=self.search_space,
             starter=self.starter,
             database=self.load_database(),

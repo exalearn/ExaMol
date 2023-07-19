@@ -7,16 +7,16 @@ from pytest import fixture, mark
 
 from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
 example_dir = Path(__file__).parent / 'example'
 
 
-class FakeThinker(SingleObjectiveThinker):
+class FakeThinker(SingleStepThinker):
     run_dir = example_dir
-    recipe = RedoxEnergy(charge=1, energy_config='xtb')
+    recipes = [RedoxEnergy(charge=1, energy_config='xtb')]
 
     def __init__(self):
         pass
@@ -36,7 +36,7 @@ def test_markdown(thinker):
     reporter = MarkdownReporter()
     reporter.report(thinker)
     assert (thinker.run_dir / 'report.md').is_file()
-    assert (thinker.run_dir / 'simulation-outputs.png').is_file()
+    assert (thinker.run_dir / 'simulation-outputs_recipe-0.png').is_file()
 
 
 def test_database(thinker):

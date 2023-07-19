@@ -1,5 +1,5 @@
 """Employ the acquisition functions from `BOTorch <https://botorch.org/>`_"""
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Sequence
 
 try:
     from botorch.acquisition import AcquisitionFunction
@@ -11,7 +11,7 @@ from torch import Tensor
 import numpy as np
 import torch
 
-from examol.select.base import RankingSelector
+from examol.select.base import RankingSelector, _extract_observations
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -63,7 +63,7 @@ class BOTorchSequentialSelector(RankingSelector):
         acq_options: Dictionary of options passed to the acquisition function maker
         to_select: Number of top candidates to select each round
         acq_options_updater: Function which takes an array of observed outputs, the current dictionary of options,
-            and returns an updated set of options
+            and returns an updated set of options.
         maximize: Whether to maximize or minimize the outputs
     """
 
@@ -79,13 +79,10 @@ class BOTorchSequentialSelector(RankingSelector):
         self.acq_options_updater = acq_options_updater
         super().__init__(to_select, maximize)
 
-    def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
+    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
         if self.acq_options_updater is not None:
-            # Get the list of observed outputs
-            outputs = [recipe.lookup(x) for x in database.values()]
-            outputs = np.array([x for x in outputs if x is not None])
-
-            # Run the update function
+            # Run the update function on the properties observed so far
+            outputs = _extract_observations(database, recipes)
             self.acq_options = self.acq_options_updater(outputs, self.acq_options)
 
         self.acq_function = self.acq_function_type(model=_ExternalEnsembleModel(), **self.acq_options)
@@ -96,6 +93,10 @@ class BOTorchSequentialSelector(RankingSelector):
             samples = -1 * samples
 
         # Shape the tensor in the form expected by BOtorch's EnsemblePosterior
-        samples_tensor = torch.from_numpy(samples[:, :, None, None])  # `(b) x s x q x m`
+        #  Samples is a `objectives x samples x models` array
+        #  BOTorch expects `samples x models x batch size (q) x objectives
+        samples_tensor = samples[:, :, None, :]  # Insert a "q" dimension
+        samples_tensor = samples_tensor.transpose((1, 3, 2, 0))
+        samples_tensor = torch.from_numpy(samples_tensor)  # `(b) x s x q x m`
         score_tensor = self.acq_function(samples_tensor)
         return score_tensor.detach().cpu().numpy()

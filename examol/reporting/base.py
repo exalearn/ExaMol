@@ -1,7 +1,6 @@
 """Base class for reporting implementations"""
 from dataclasses import dataclass
 from threading import Thread
-from time import sleep
 
 from examol.steer.base import MoleculeThinker
 
@@ -25,9 +24,9 @@ class BaseReporter:
 
         # Make the function to be run
         def _to_run():
-            while not thinker.done.is_set():
-                sleep(frequency)
+            while not thinker.done.wait(frequency):
                 self.report(thinker)
+            self.report(thinker)  # Final report before exiting
 
         thread = Thread(target=_to_run, daemon=True, name=f'monitor_{self.__class__.__name__.lower()}')
         thread.start()

@@ -15,8 +15,8 @@ def test_sequential(test_data, recipe):
 
     selector = BOTorchSequentialSelector(qExpectedImprovement, acq_options={'best_f': 0.5},
                                          acq_options_updater=update_fn, to_select=1)
-    selector.update(db, recipe)
-    assert selector.acq_options['best_f'] == max(recipe.lookup(r) for r in db.values())
+    selector.update(db, [recipe])
+    assert selector.acq_options['best_f'] == 0.25
 
     # Test maximization
     selector.add_possibilities(x, y)
@@ -26,7 +26,7 @@ def test_sequential(test_data, recipe):
     # Test for minimize
     selector.maximize = False
     selector.acq_options_updater = lambda ob, op: update_fn(-ob, op)
-    selector.update(db, recipe)
+    selector.update(db, [recipe])
     selector.start_gathering()
     selector.add_possibilities(x, -y)
     sel_x, sel_y = zip(*selector.dispense())

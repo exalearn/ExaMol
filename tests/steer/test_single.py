@@ -16,7 +16,7 @@ from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
@@ -88,17 +88,17 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleObjectiveThinker:
+def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleStepThinker:
     run_dir = tmp_path / 'run'
     scorer, model = scorer
-    return SingleObjectiveThinker(
+    return SingleStepThinker(
         queues=queues,
         run_dir=run_dir,
-        recipe=recipe,
+        recipes=[recipe],
         database=training_set,
         scorer=scorer,
         starter=RandomStarter(4, 1),
-        models=[model],
+        models=[[model, model]],
         selector=RandomSelector(10),
         num_workers=1,
         num_to_run=3,
@@ -107,7 +107,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
 
 
 @mark.timeout(120)
-def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
+def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right

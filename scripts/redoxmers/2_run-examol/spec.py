@@ -15,7 +15,7 @@ from examol.reporting.markdown import MarkdownReporter
 from examol.score.nfp import NFPScorer, custom_objects
 from examol.select.bayes import ExpectedImprovement
 from examol.simulate.ase import ASESimulator
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
 from examol.specify import ExaMolSpecification
 
@@ -139,7 +139,7 @@ store = Store(name='file', connector=FileConnector(run_dir / 'proxystore'), metr
 
 spec = ExaMolSpecification(
     database=database_path,
-    recipe=recipe,
+    recipes=recipe,
     search_space=[(my_path / 'search-space/output' / search_space_name)],
     selector=ExpectedImprovement(num_parallel_cp2k * 8, maximize=True),
     simulator=sim,
@@ -148,7 +148,7 @@ spec = ExaMolSpecification(
     train_options={'num_epochs': 512},
     score_options={'batch_size': 512},
     num_to_run=32,
-    thinker=SingleObjectiveThinker,
+    thinker=SingleStepThinker,
     thinker_options={'num_workers': num_parallel_cp2k, 'inference_chunk_size': 200000},
     compute_config=config,
     proxystore=store,

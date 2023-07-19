@@ -8,7 +8,7 @@ from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.store.models import MoleculeRecord
 
 
-@dataclass
+@dataclass(frozen=True)
 class SimulationRequest:
     """Request for a specific simulation type"""
 

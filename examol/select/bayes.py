@@ -1,9 +1,10 @@
 """Acquisition functions derived from Bayesian optimization"""
+from typing import Sequence
 
 import numpy as np
 from modAL.acquisition import EI
 
-from examol.select.base import RankingSelector
+from examol.select.base import RankingSelector, _extract_observations
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -22,16 +23,14 @@ class ExpectedImprovement(RankingSelector):
         self.epsilon = epsilon
         self.best_so_far = 0
 
-    def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
-        values = [
-            recipe.lookup(x) for x in database.values() if recipe.lookup(x) is not None
-        ]
+    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
+        values = _extract_observations(database, recipes)
         self.best_so_far = max(values) if self.maximize else min(values)
 
     def _assign_score(self, samples: np.ndarray) -> np.ndarray:
         # Compute the mean and standard deviation for each entry
-        mean = samples.mean(axis=1)
-        std = samples.std(axis=1)
+        mean = samples.mean(axis=(0, 2))
+        std = samples.std(axis=(0, 2))
 
         # If we are minimizing, invert the values
         max_y = self.best_so_far

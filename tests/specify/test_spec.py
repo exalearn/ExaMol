@@ -13,7 +13,7 @@ from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.specify import ExaMolSpecification
-from examol.steer.single import SingleObjectiveThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
@@ -85,8 +85,8 @@ def spec(config, database, recipe, scorer, search_space, selector, simulator, tm
         scorer=scorer,
         models=[pipeline],
         simulator=simulator,
-        recipe=recipe,
-        thinker=SingleObjectiveThinker,
+        recipes=[recipe],
+        thinker=SingleStepThinker,
         compute_config=config,
         num_to_run=2,
         run_dir=tmp_path

@@ -1,8 +1,8 @@
-"""Implementations of classes which identify which computations should be performed next"""
+"""Interfaces for selector classes"""
 import heapq
 import logging
 from itertools import chain
-from typing import Iterator
+from typing import Iterator, Sequence
 
 import numpy as np
 
@@ -10,6 +10,24 @@ from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_observations(database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]) -> np.ndarray:
+    """Get an array of observations from the training set
+
+    Args:
+        database: Database of molecular records to process
+        recipes: List of recipes to extract
+    Returns:
+        Properties for all molecules which have values for all recipes. Shape: (num molecules) x (num recipes)
+    """
+
+    output = []
+    for record in database.values():
+        if not all(recipe.lookup(record) is not None for recipe in recipes):
+            continue
+        output.append([recipe.lookup(record) for recipe in recipes])
+    return np.array(output)
 
 
 class Selector:
@@ -23,6 +41,7 @@ class Selector:
     Add potential computations in batches with :meth:`add_possibilities`,
     which takes a list of keys describing the computations
     and a distribution of probable scores (e.g., predictions from different models in an ensemble) for each computation.
+    Sample arrays are 3D and shaped ``num_recipes x num_samples x num_models``
 
     The dispensing phase starts by calling :meth:`dispense`. ``dispense`` generates a selected computation from
     the list of keys acquired during gathering phase paired with a score. Selections are generated from highest
@@ -38,6 +57,9 @@ class Selector:
       For example, you could update an ranked list of best-scored computations.
     - :meth:`dispense` generates a list of :attr:`to_select` in ranked order from best to worst
     """
+
+    multiobjective: bool = False
+    """Whether the selector supports multi-objective optimization"""
 
     def __init__(self, to_select: int):
         """
@@ -64,21 +86,29 @@ class Selector:
                 Expects a two-dimensional array where each row is a different record,
                 and each column is a different model.
         """
+        # Test for error conditions
+        if samples.shape[0] > 1 and not self.multiobjective:
+            raise ValueError(f'Provided {samples.shape[0]} objectives but the class does not support multi-objective selection')
+        if samples.ndim != 3:  # pragma: no-coverage
+            raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, sample, model)')
+        if samples.shape[1] != len(keys):  # pragma: no-coverage
+            raise ValueError(f'Number of keys and number of samples differ. Keys={len(keys)}. Samples={samples.shape[1]}')
+
+        # Do the work
         if not self.gathering:
             logger.info('Switching selector back to gathering phase. Clearing any previous selection information')
             self.start_gathering()
-        assert len(keys) == len(samples), 'The list of keys and samples should be the same length'
         self._add_possibilities(keys, samples, **kwargs)
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
         raise NotImplementedError()
 
-    def update(self, database: dict[str, MoleculeRecord], recipe: PropertyRecipe):
+    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
         """Update the selector given the current database
 
         Args:
             database: Known molecules
-            recipe: Recipe being optimized
+            recipes: Recipe being optimized
         """
         pass
 

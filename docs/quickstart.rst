@@ -74,14 +74,14 @@ A simple example looks something like:
     recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
     spec = ExaMolSpecification(
         database='training-data.json',
-        recipe=recipe,
+        recipes=[recipe],  # ExaMol supports multi-objective optimization
         search_space=['search_space.smi'],
         selector=GreedySelector(n_to_select=8, maximize=True),
         simulator=ASESimulator(scratch_dir='/tmp'),
         scorer=RDKitScorer(),
-        models=[KNeighborsRegressor()],
+        models=[[KNeighborsRegressor()]],  # Ensemble of models for each recipe
         num_to_run=8,
-        thinker=SingleObjectiveThinker,
+        thinker=SingleStepThinker,
         thinker_options=dict(num_workers=2),
         compute_config=config,
         run_dir='run'
@@ -93,7 +93,7 @@ and link out to pages that describe the full options available for each.
 Quantum Chemistry
 ~~~~~~~~~~~~~~~~~
 
-The ``recipe`` and ``simulator`` options define which molecule property to compute
+The ``recipes`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
 
 Both recipes and simulator are designed to ensure all calculations in a set are performed with consistent settings.
@@ -140,8 +140,9 @@ for the ML computations should be configured with information about how to run t
 ExaMol provides interfaces for `a few common libraries <components/score.html>`_) used in ML for molecular properties.
 
 The ``models`` define specific architectures used by the scorer.
-Each model will be trained using a different subset of the training data,
-and the predictions of all models will be combined to produce predictions with uncertainties for each model.
+ExaMol uses a different set of models for each recipe.
+Each model for each recipe will be trained using a different subset of the training data,
+and the predictions of all models will be combined to produce predictions with uncertainties for each molecule.
 
 Search Algorithm
 ~~~~~~~~~~~~~~~~
@@ -162,7 +163,7 @@ Steering Strategy
 The ``thinker`` provides the core capability behind ExaMol scaling to large supercomputers:
 the ability to schedule many different different tasks at once.
 A Thinker strategy defines when to submit new tasks and what to do once they complete.
-There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleObjectiveThinker`,
+There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleStepThinker`,
 but more will become available as we build the library.
 
 Learn more in the `component documentation <components/steer.html>`_.
