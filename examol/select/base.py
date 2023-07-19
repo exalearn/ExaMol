@@ -86,12 +86,15 @@ class Selector:
                 Expects a two-dimensional array where each row is a different record,
                 and each column is a different model.
         """
+        # Test for error conditions
         if samples.shape[0] > 1 and not self.multiobjective:
             raise ValueError(f'Provided {samples.shape[0]} objectives but the class does not support multi-objective selection')
         if samples.ndim != 3:  # pragma: no-coverage
             raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, sample, model)')
-        if samples.shape[1] != len(keys):
+        if samples.shape[1] != len(keys):  # pragma: no-coverage
             raise ValueError(f'Number of keys and number of samples differ. Keys={len(keys)}. Samples={samples.shape[1]}')
+
+        # Do the work
         if not self.gathering:
             logger.info('Switching selector back to gathering phase. Clearing any previous selection information')
             self.start_gathering()

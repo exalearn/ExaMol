@@ -59,9 +59,9 @@ class SingleStepThinker(MoleculeThinker):
         super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, scorer, database, inference_chunk_size)
 
         # Store the selection equipment
-        if len(set(map(len, models))) > 1:  # no-coverage
+        if len(set(map(len, models))) > 1:  # pragma: no-coverage
             raise ValueError('You must provide the same number of models for each class')
-        if len(models) != len(recipes):
+        if len(models) != len(recipes):  # pragma: no-coverage
             raise ValueError('You must provide as many model ensembles as recipes')
         self.models = models.copy()
         self.selector = selector

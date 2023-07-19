@@ -24,4 +24,5 @@ def test_data():
     # Example database
     record = MoleculeRecord.from_identifier('C')
     record.properties['test'] = {'test': 0.25}
-    return x, y, {record.key: record}
+    record_2 = MoleculeRecord.from_identifier('O')
+    return x, y, {record.key: record, record_2.key: record_2}
