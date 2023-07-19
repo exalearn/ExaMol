@@ -241,7 +241,7 @@ class SingleObjectiveThinker(MoleculeThinker):
         store = self.inference_store
 
         # Submit a model as soon as it is read
-        for _ in range(len(self.models)):
+        for i in range(self.num_models):
             # Wait for a model to finish training
             recipe_id, model_id = self._ready_models.get()
             model = self.models[recipe_id][model_id]
@@ -251,6 +251,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             if store is not None:
                 model_msg = store.proxy(model_msg)
                 self._model_proxy_keys[recipe_id][model_id] = get_key(model_msg)
+            self.logger.info(f'Preparing to submit tasks for model {i + 1}/{self.num_models}.')
 
             for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_keys)):
                 self.queues.send_inputs(
@@ -283,7 +284,7 @@ class SingleObjectiveThinker(MoleculeThinker):
             # Find which result this is
             result = self.queues.get_result(topic='inference')
             start_time = perf_counter()
-            recipe_id = result.task_info['model_id']
+            recipe_id = result.task_info['recipe_id']
             model_id = result.task_info['model_id']
             chunk_id = result.task_info['chunk_id']
             self.logger.info(f'Received inference result {i + 1}/{n_tasks}. Recipe={recipe_id}, model={model_id}, chunk={chunk_id}, success={result.success}')
@@ -294,7 +295,7 @@ class SingleObjectiveThinker(MoleculeThinker):
 
             # Update the inference results
             all_done[recipe_id, model_id, chunk_id] = True
-            inference_results[chunk_id, recipe_id, :, model_id] = np.squeeze(result.value)
+            inference_results[chunk_id][recipe_id, :, model_id] = np.squeeze(result.value)
 
             # Check if we are done for the whole chunk (all models for this chunk)
             if all_done[:, :, chunk_id].all():
@@ -370,12 +371,12 @@ class SingleObjectiveThinker(MoleculeThinker):
                 # Forces resolution. Needed to avoid `submit_inference` from making a proxy of `model_msg`, which can happen if it is not resolved
                 #  by `scorer.update` and is a problem because the proxy for `model_msg` can be evicted while other processes need it
                 model_msg = extract(model_msg)
-            self.models[recipe_id][model_id] = self.scorer.update(self.models[model_id], model_msg)
-            self.logger.info(f'Updated model {i + 1}/{len(self.models)}. Model id={model_id}')
+            self.models[recipe_id][model_id] = self.scorer.update(self.models[recipe_id][model_id], model_msg)
+            self.logger.info(f'Updated model {i + 1}/{self.num_models}. Recipe id={recipe_id}. Model id={model_id}')
 
             # Signal to begin inference
             self.start_inference.set()
-            self._ready_models.put(model_id)
+            self._ready_models.put((recipe_id, model_id))
         self.logger.info('Finished training all models')
 
     def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:

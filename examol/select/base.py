@@ -23,6 +23,7 @@ class Selector:
     Add potential computations in batches with :meth:`add_possibilities`,
     which takes a list of keys describing the computations
     and a distribution of probable scores (e.g., predictions from different models in an ensemble) for each computation.
+    Sample arrays are 3D and shaped ``num_recipes x num_samples x num_models``
 
     The dispensing phase starts by calling :meth:`dispense`. ``dispense`` generates a selected computation from
     the list of keys acquired during gathering phase paired with a score. Selections are generated from highest
@@ -64,10 +65,13 @@ class Selector:
                 Expects a two-dimensional array where each row is a different record,
                 and each column is a different model.
         """
+        if samples.ndim != 3:  # pragma: no-coverage
+            raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, sample, model)')
+        if samples.shape[1] != len(keys):
+            raise ValueError(f'Number of keys and number of samples differ. Keys={len(keys)}. Samples={samples.shape[1]}')
         if not self.gathering:
             logger.info('Switching selector back to gathering phase. Clearing any previous selection information')
             self.start_gathering()
-        assert len(keys) == len(samples), 'The list of keys and samples should be the same length'
         self._add_possibilities(keys, samples, **kwargs)
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
