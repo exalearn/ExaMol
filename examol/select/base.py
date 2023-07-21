@@ -83,14 +83,13 @@ class Selector:
         Args:
             keys: Labels by which to identify the records being evaluated
             samples: A distribution of scores for each record.
-                Expects a two-dimensional array where each row is a different record,
-                and each column is a different model.
+                Expects a 3-dimensional array of shape (num recipes) x (num records) x (num models)
         """
         # Test for error conditions
         if samples.shape[0] > 1 and not self.multiobjective:
             raise ValueError(f'Provided {samples.shape[0]} objectives but the class does not support multi-objective selection')
         if samples.ndim != 3:  # pragma: no-coverage
-            raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, sample, model)')
+            raise ValueError(f'Expected samples dimension of 3. Found {samples.ndim}. Array should be (recipe, records, model)')
         if samples.shape[1] != len(keys):  # pragma: no-coverage
             raise ValueError(f'Number of keys and number of samples differ. Keys={len(keys)}. Samples={samples.shape[1]}')
 
@@ -129,19 +128,38 @@ class Selector:
 class RankingSelector(Selector):
     """Base class where we assign an independent score to each possibility.
 
-    Implementations must return high scores for desired entries
-    regardless of whether the the selector is set to minimize.
+    Implementations should assume that the goal is maximization
+    because this abstract class negates the samples for objective
+    is to minimize.
 
     Args:
         to_select: How many computations to select per batch
-        maximize: Whether to select entries with high or low values of the samples
+        maximize: Whether to select entries with high or low values of the samples.
+            Provide either a single value if maximizing or minimizing all objectives,
+            or a list for whether to maximize each objectives.
     """
-    def __init__(self, to_select: int, maximize: bool = True):
+
+    def __init__(self, to_select: int, maximize: bool | Sequence[bool] = True):
         self._options: list[tuple[object, float]] = []
         self.maximize = maximize
         super().__init__(to_select)
 
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
+        # Determine user options for minimization
+        n_objectives = samples.shape[0]
+        maximize = self.maximize
+        if isinstance(maximize, bool):
+            maximize = [maximize] * n_objectives
+        elif len(maximize) != n_objectives:  # pragma: no-cover
+            raise ValueError(f'Different number of recipes ({n_objectives} and number of maximization selections ({len(maximize)})')
+
+        # Negate, if needed
+        if not all(maximize):
+            samples = samples.copy()
+            for i, m in enumerate(maximize):
+                if not m:
+                    samples[i, :, :] *= -1
+
         score = self._assign_score(samples)
         self._options = heapq.nlargest(self.to_select, chain(self._options, zip(keys, score)), key=lambda x: x[1])
 
