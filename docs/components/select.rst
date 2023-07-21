@@ -38,6 +38,11 @@ ExaMol includes selectors that have a variety of characteristics
      - ✘
      - ✘
      - ✘
+   * - :class:`~examol.select.botorch.EHVISelector`
+     - Bayesian
+     - ✔
+     - ✘
+     - ✘
 
 \* Interface to many classes of selection algorithms
 

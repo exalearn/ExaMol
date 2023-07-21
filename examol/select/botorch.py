@@ -1,8 +1,11 @@
 """Employ the acquisition functions from `BOTorch <https://botorch.org/>`_"""
 from typing import List, Any, Callable, Sequence, Optional
 
+from botorch.acquisition.multi_objective import qExpectedHypervolumeImprovement
 from botorch.acquisition.objective import PosteriorTransform
 from botorch.posteriors import Posterior, GPyTorchPosterior
+from botorch.sampling import SobolQMCNormalSampler
+from botorch.utils.multi_objective.box_decompositions import FastNondominatedPartitioning
 from gpytorch.distributions import MultitaskMultivariateNormal
 
 try:
@@ -79,7 +82,7 @@ class BOTorchSequentialSelector(RankingSelector):
     .. code-block:: python
 
         def update_fn(selector: 'BOTorchSequentialSelector', obs: np.ndarray) -> dict:
-            return {'best_f': max(obs[:]) if selector.maximize[0] else min(obs)}
+            return {'best_f': max(obs) if selector.maximize else min(obs)}
 
         selector = BOTorchSequentialSelector(qExpectedImprovement,
                                              acq_options={'best_f': 0.5},
@@ -89,10 +92,10 @@ class BOTorchSequentialSelector(RankingSelector):
     Args:
         acq_function_type: Class of the acquisition function
         acq_options: Dictionary of options passed to the acquisition function maker
+        acq_options_updater: Function which takes the current selector and an array of observations
+            of shape (num molecules) x (num recipes)
+        maximize: Whether to maximize or minimize the objectives
         to_select: Number of top candidates to select each round
-        acq_options_updater: Function which takes an array of observed outputs, the current dictionary of options,
-            and returns an updated set of options.
-        maximize: Whether to maximize or minimize the outputs
     """
 
     multiobjective = True
@@ -127,3 +130,56 @@ class BOTorchSequentialSelector(RankingSelector):
         samples_tensor = torch.flatten(samples_tensor, start_dim=2)  # s x q x (o x m)
         score_tensor = self.acq_function(samples_tensor)
         return score_tensor.detach().cpu().numpy()
+
+
+def _evhi_update_fn(selector: 'EHVISelector', obs: np.ndarray) -> dict:
+    """Options update function used for EVHI
+
+    Args:
+        selector: Selector
+        obs: Observations of target properties
+    """
+    # Determine the reference point based on the observations
+    #  We should use the minim
+    options = selector.acq_options.copy()
+    if not isinstance(selector.maximize, bool):
+        obs = obs.copy()
+        for i, m in enumerate(selector.maximize):
+            if not m:
+                obs[:, i] *= -1
+    elif not selector.maximize:
+        obs = obs * -1
+    options['ref_point'] = obs.min(axis=0)
+
+    # Set up the partitioning
+    options['partitioning'] = FastNondominatedPartitioning(
+        ref_point=torch.from_numpy(options['ref_point']),
+        Y=torch.from_numpy(obs),
+    )
+    return options
+
+
+class EHVISelector(BOTorchSequentialSelector):
+    """Rank entries based on the Expected Hypervolume Improvement (EVHI)
+
+    EVHI is a multi-objective optimization scores which measures how much a new point will expand the Pareto surface.
+    We use the Monte Carlo implementation of EVHI of `Daulton et al. <https://arxiv.org/abs/2006.05078>`_,
+    but do not yet support the algorithms batch-aware implementation.
+
+    Constructing the Pareto surface requires the definition of a reference point where
+    farther from the reference point is better.
+    We use the minimum value of objectives which are being maximized and the maximum value of those being minimized.
+
+    Args:
+        maximize: Whether to maximize or minimize the objectives
+        to_select: Number of top candidates to select each round
+    """
+
+    def __init__(self, to_select: int, maximize: bool | Sequence[bool] = True):
+        super().__init__(
+            acq_function_type=qExpectedHypervolumeImprovement,
+            acq_options_updater=_evhi_update_fn,
+            acq_options={'sampler': SobolQMCNormalSampler(sample_shape=torch.Size([128]))},  # TODO (wardlt): Make sampler configurable
+            to_select=to_select,
+            maximize=maximize
+        )

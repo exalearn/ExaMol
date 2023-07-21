@@ -1,13 +1,8 @@
 """Tests for the BOTorch-based acquisition functions"""
-from botorch.utils.multi_objective.box_decompositions import FastNondominatedPartitioning
-from botorch.acquisition.multi_objective import qExpectedHypervolumeImprovement
 from botorch.acquisition import ExpectedImprovement
-from botorch.sampling import SobolQMCNormalSampler
 import numpy as np
-import torch
 
-
-from examol.select.botorch import BOTorchSequentialSelector
+from examol.select.botorch import BOTorchSequentialSelector, EHVISelector
 
 
 def test_sequential(test_data, recipe):
@@ -44,21 +39,9 @@ def test_evhi(multi_test_data, multi_recipes):
     sample_x, sample_y, train_mols = multi_test_data
 
     # Create the sampler
-    def update_fn(selector: BOTorchSequentialSelector, obs: np.ndarray) -> dict:
-        options = selector.acq_options.copy()
-        options['ref_point'] = obs.min(axis=0)
-        options['partitioning'] = FastNondominatedPartitioning(
-            ref_point=torch.from_numpy(options['ref_point']),
-            Y=torch.from_numpy(obs),
-        )
-        return options
-
-    selector = BOTorchSequentialSelector(qExpectedHypervolumeImprovement,
-                                         acq_options={'sampler': SobolQMCNormalSampler(sample_shape=torch.Size([16]))},
-                                         acq_options_updater=update_fn,
-                                         to_select=2)
-
+    selector = EHVISelector(to_select=2)
     selector.update(train_mols, multi_recipes)
+    assert np.isclose(selector.acq_options['ref_point'], [0., 0.]).all()
 
     # Test maximization
     selector.add_possibilities(sample_x, sample_y)
@@ -67,8 +50,15 @@ def test_evhi(multi_test_data, multi_recipes):
     assert (np.abs(np.subtract(np.pi / 4, sel_x)) < 0.2).all()  # Best points are near Pi/4
 
     # Test minimizing both
-    sample_y *= -1
     selector.maximize = False
+    sample_y *= -1  # Update the samples
+    for record in train_mols.values():
+        record.properties['a']['test'] *= -1
+        record.properties['b']['test'] *= -1
+
+    selector.update(train_mols, multi_recipes)
+    assert np.isclose(selector.acq_options['ref_point'], [0., 0.]).all()
+
     selector.add_possibilities(sample_x, sample_y)
     sel_x, sel_y = zip(*selector.dispense())
     assert sel_y[0] > sel_y[1]
@@ -77,6 +67,12 @@ def test_evhi(multi_test_data, multi_recipes):
     # Test maximizing one objective and minimizing the other
     sample_y[0, :, :] *= -1
     selector.maximize = [True, False]
+    for record in train_mols.values():
+        record.properties['a']['test'] *= -1
+
+    selector.update(train_mols, multi_recipes)
+    assert np.isclose(selector.acq_options['ref_point'], [0., 0.]).all()
+
     selector.add_possibilities(sample_x, sample_y)
     sel_x, sel_y = zip(*selector.dispense())
     assert sel_y[0] > sel_y[1]
