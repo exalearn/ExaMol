@@ -4,6 +4,7 @@ name: examol
 channels:
   - defaults
   - conda-forge
+  - pytorch
 dependencies:
   - python==3.10.*
   - pandas==1.*
@@ -13,6 +14,12 @@ dependencies:
   - jupyterlab
   - matplotlib
   - pytest
+
+  # Use Conda PyTorch to avoid OpenMP disagreement
+  #  with xTB
+  - pytorch==2.0.*
+  - cpuonly
+
   - pip
   - pip:
     # Need TF for NFP MPNNs
@@ -20,6 +27,4 @@ dependencies:
     - nfp
     
     # Need torch for BOTorch
-    - --extra-index-url https://download.pytorch.org/whl/cpu
-    - torch==2.0.1+cpu
     - -e ..[botorch,test]
