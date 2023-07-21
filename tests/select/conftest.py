@@ -1,8 +1,5 @@
-from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.utils import draw_sobol_samples
 from pytest import fixture
 import numpy as np
-import torch
 
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
@@ -38,20 +35,18 @@ def multi_recipes() -> list[PropertyRecipe]:
 
 @fixture()
 def multi_test_data() -> tuple[np.ndarray, np.ndarray, dict[str, MoleculeRecord]]:
-    problem = BraninCurrin(negate=True)
-    train_x = draw_sobol_samples(bounds=problem.bounds, n=8, q=1).squeeze(1)
-    train_y = problem(train_x)
+    # Make training records have properties of o1 = 1 - o2
+    objective_1 = np.linspace(0, 1, 8)
+    objective_2 = 1 - objective_1
     train_mols = {}
-    for i, y in enumerate(train_y):
+    for i, (y1, y2) in enumerate(zip(objective_1, objective_2)):
         record = MoleculeRecord.from_identifier('C' * (i + 1))
-        record.properties = {'a': {'test': y[0]}, 'b': {'test': y[1]}}
+        record.properties = {'a': {'test': y1}, 'b': {'test': y2}}
         train_mols[record.key] = record
 
-    # Make some test points
-    sample_x = draw_sobol_samples(bounds=problem.bounds, n=32, q=1).squeeze(1)
-    sample_y = problem(sample_x).T  # Will be (num objectives) x (num samples)
-    sample_y = torch.unsqueeze(sample_y, dim=-1)
-    sample_y = torch.tile(sample_y, dims=[1, 1, 8])
-    sample_y += torch.rand(*sample_y.shape) * 0.1
-
-    return sample_x.numpy(), sample_y.numpy(), train_mols
+    # Make the test points lie along o1^2 + o2^2 = 0.9 (lies outside only for the minimi
+    theta = np.linspace(0, np.pi / 2, 16)
+    true_y = np.array([0.8 * np.cos(theta), 0.8 * np.sin(theta)])
+    sample_y = np.repeat(true_y[:, :, None], repeats=8, axis=-1)
+    sample_y += 0.001 * np.random.random(sample_y.shape)
+    return theta, sample_y, train_mols

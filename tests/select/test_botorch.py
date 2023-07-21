@@ -64,3 +64,20 @@ def test_evhi(multi_test_data, multi_recipes):
     selector.add_possibilities(sample_x, sample_y)
     sel_x, sel_y = zip(*selector.dispense())
     assert sel_y[0] > sel_y[1]
+    assert (np.abs(np.subtract(np.pi / 4, sel_x)) < 0.2).all()  # Best points are near Pi/4
+
+    # Test minimizing both
+    sample_y *= -1
+    selector.maximize = False
+    selector.add_possibilities(sample_x, sample_y)
+    sel_x, sel_y = zip(*selector.dispense())
+    assert sel_y[0] > sel_y[1]
+    assert (np.abs(np.subtract(np.pi / 4, sel_x)) < 0.2).all()  # Best points are near Pi/4
+
+    # Test maximizing one objective and minimizing the other
+    sample_y[0, :, :] *= -1
+    selector.maximize = [True, False]
+    selector.add_possibilities(sample_x, sample_y)
+    sel_x, sel_y = zip(*selector.dispense())
+    assert sel_y[0] > sel_y[1]
+    assert (np.abs(np.subtract(np.pi / 4, sel_x)) < 0.2).all()  # Best points are near Pi/4
