@@ -118,10 +118,6 @@ class BOTorchSequentialSelector(RankingSelector):
         self.acq_function = self.acq_function_type(model=_EnsembleCovarianceModel(len(recipes)), **self.acq_options)
 
     def _assign_score(self, samples: np.ndarray) -> np.ndarray:
-        # Change sign if need be
-        if not self.maximize:
-            samples = -1 * samples
-
         # Shape the tensor in the form expected by BOtorch's GPyTorch
         #  Samples is a `objectives x samples x models` array
         #  BOTorch expects `samples x batch size (q) x (objectives x models)` array
