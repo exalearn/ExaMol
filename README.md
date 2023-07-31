@@ -1,8 +1,12 @@
 # ExaMol
 [![CI](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml/badge.svg)](https://github.com/exalearn/ExaMol/actions/workflows/python-app.yml)
+[![Deploy Docs](https://github.com/exalearn/ExaMol/actions/workflows/gh-pages.yml/badge.svg)](https://exalearn.github.io/ExaMol/)
 [![Coverage Status](https://coveralls.io/repos/github/exalearn/ExaMol/badge.svg?branch=main)](https://coveralls.io/github/exalearn/ExaMol?branch=main)
 
-Designing new molecules as fast as possible with AI and simulation
+Designing new molecules as fast as possible with AI and simulation.
+
+- Documentation: [exalearn.github.io/ExaMol/](https://exalearn.github.io/ExaMol/)
+- Source Code: [github.com/exalearn/ExaMol](https://github.com/exalearn/ExaMol)
 
 ## Installation
 
@@ -31,18 +35,20 @@ ExaMol deploys a computational workflow following a specification which that con
 - how to search over them (e.g., how to schedule tasks, which active learning strategy, informed by which ML model),
 - and the resources over which computations are deployed.
 
-An example which performs a random search using xTB would look something like
+An example which performs a greedy search using xTB would look something like
 
 ```python
+recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
 spec = ExaMolSpecification(
     database='training-data.json',
-    recipe=RedoxEnergy(charge=1, compute_config='xtb'),
+    recipe=[recipe],
     search_space='search_space.smi',
-    selector=RandomSelector(8),
+    selector=GreedySelector(n_to_select=8, maximize=True),
     simulator=ASESimulator(scratch_dir='/tmp'),
-    scorer=RDKitScorer(pipeline=KNeighborsRegressor()),
+    scorer=RDKitScorer(recipe),
+    models=[[KNeighborsRegressor()]],
     num_to_run=8,
-    thinker=SingleObjectiveThinker,
+    thinker=SingleStepThinker,
     compute_config=config,
     run_dir='run'
 )
@@ -60,3 +66,9 @@ examol run examples/redoxmers/spec.py:spec
 
 The above command simply tells ExaMol the name of the file containing the run spec, and the name of the spec within that file.
 ExaMol will then run it for you.
+
+## Project Support
+
+Initial development of ExaMol was funded jointly by 
+the ExaLearn Co-design Center of the Department of Energy Exascale Computing Project 
+and the Joint Center for Energy Storage Research (JCESR), an Energy Innovation Hub funded by the Department of Energy.

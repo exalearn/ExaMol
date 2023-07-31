@@ -8,6 +8,7 @@ from rdkit import RDLogger
 from foundry import Foundry
 from pathlib import Path
 from tqdm import tqdm
+
 RDLogger.DisableLog('rdApp.*')
 
 # First step is to generate the
@@ -24,7 +25,7 @@ print(f'Split off {len(train_qm9)} molecules to use as a training set')
 simulator = ASESimulator()
 out_file = Path('training-data.json')
 out_file.unlink(missing_ok=True)
-recipe = RedoxEnergy(1, energy_config='xtb')
+recipe = RedoxEnergy(1, energy_config='xtb', solvent='acn')
 for smiles in tqdm(train_qm9['smiles_0'], desc='xTB'):
     # Initialize the record
     record = MoleculeRecord.from_identifier(smiles)
@@ -39,8 +40,14 @@ for smiles in tqdm(train_qm9['smiles_0'], desc='xTB'):
     charged_result, charged_steps, _ = simulator.optimize_structure(neutral_result.xyz, config_name='xtb', charge=1)
     assert record.add_energies(charged_result, charged_steps)
 
+    # Do them in solvents
+    neutral_solvent, _ = simulator.compute_energy(neutral_result.xyz, config_name='xtb', charge=0, solvent='acn')
+    assert not record.add_energies(neutral_solvent)
+    charged_solvent, _ = simulator.compute_energy(charged_result.xyz, config_name='xtb', charge=1, solvent='acn')
+    assert not record.add_energies(charged_solvent)
+
     # Save them
-    recipe.update_record(record)
+    assert recipe.update_record(record) is not None
     with out_file.open('a') as fp:
         print(record.to_json(), file=fp)
 print(f'Saved xTB results to {out_file}')

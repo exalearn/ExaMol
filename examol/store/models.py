@@ -1,4 +1,5 @@
 """Data models used for molecular data"""
+from dataclasses import dataclass
 from hashlib import md5
 from datetime import datetime
 from typing import Collection
@@ -10,24 +11,48 @@ from mongoengine.fields import StringField, ListField
 from rdkit import Chem
 
 from examol.simulate.base import SimResult
-from examol.utils.conversions import read_from_string
+from examol.utils.chemistry import parse_from_molecule_string
+from examol.utils.conversions import read_from_string, write_to_string
+
+
+@dataclass
+class MissingData(ValueError):
+    """No conformer or energy with the desired settings was found"""
+
+    config_name: str = ...
+    """Configuration used to compute the energy"""
+    charge: int = ...
+    """Charge used when computing the energy"""
+    solvent: str | None = ...
+    """Solvent used, if any"""
+    def __str__(self):
+        return f'No data for config={self.config_name} charge={self.charge} solvent={self.solvent}'
 
 
 class Identifiers(DynamicEmbeddedDocument):
     """IDs known for a molecule"""
 
     smiles = StringField(required=True)
+    """A SMILES string"""
     inchi = StringField(required=True)
+    """The InChI string"""
     pubchem_id = IntField()
+    """PubChem ID, if known"""
 
 
 class EnergyEvaluation(EmbeddedDocument):
     """Energy of a conformer under a certain condition"""
 
-    energy = FloatField(required=True, help_text='Energy of the conformer (eV)')
-    config_name = StringField(required=True, help_text='Configuration used to compute the energy')
-    charge = IntField(required=True, help_text='Charge used when computing the energy')
-    solvent = StringField(help_text='Solvent used, if any')
+    energy = FloatField(required=True)
+    """Energy of the conformer (eV)"""
+    config_name = StringField(required=True)
+    """Configuration used to compute the energy"""
+    charge = IntField(required=True)
+    """Charge used when computing the energy"""
+    solvent = StringField()
+    """Solvent used, if any"""
+    completed: DateTimeField(required=False, default=datetime.utcnow)
+    """When this energy computation was added"""
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -41,17 +66,24 @@ class Conformer(EmbeddedDocument):
     """Describes a single conformer of a molecule"""
 
     # Define the structure
-    xyz = StringField(required=True, help_text='XYZ-format description of the atomic coordinates')
-    xyz_hash = StringField(required=True, help_text='MD5 hash of xyz')
+    xyz = StringField(required=True)
+    """XYZ-format description of the atomic coordinates"""
+    xyz_hash = StringField(required=True)
+    """MDF hash of the XYZ coordinates"""
 
     # Provenance of the structure
-    date_created = DateTimeField(required=True, help_text='Date this conformer was inserted')
-    source = StringField(required=True, choices=['relaxation', 'other'], help_text='Method used to generate this structure')
-    config_name = StringField(help_text='Configuration used to relax the structure')
-    charge = IntField(help_text='Charge used when relaxing the structure')
+    date_created = DateTimeField(required=True)
+    """Date this conformer was inserted"""
+    source = StringField(required=True, choices=['relaxation', 'other'])
+    """Method used to generate this structure (e.g., via relaxation)"""
+    config_name = StringField()
+    """Configuration used to relax the structure, if applicable"""
+    charge = IntField()
+    """Charge used when relaxing the structure"""
 
     # Energies of the structure
-    energies: list[EnergyEvaluation] = ListField(EmbeddedDocumentField(EnergyEvaluation), help_text='List of energies for this structure')
+    energies: list[EnergyEvaluation] = ListField(EmbeddedDocumentField(EnergyEvaluation))
+    """List of energies for this structure"""
 
     @property
     def atoms(self) -> ase.Atoms:
@@ -68,9 +100,15 @@ class Conformer(EmbeddedDocument):
             An initialized conformer record
         """
 
+        # Make sure the simulation results is center
+        atoms = read_from_string(sim_result.xyz, 'xyz')
+        atoms.center()
+        xyz = write_to_string(atoms, 'xyz')
+
+        # Convert the sim result to a database record
         new_record = cls(
-            xyz=sim_result.xyz,
-            xyz_hash=md5(sim_result.xyz.encode()).hexdigest(),
+            xyz=xyz,
+            xyz_hash=md5(xyz.encode()).hexdigest(),
             date_created=datetime.now(),
             source=source,
             config_name=sim_result.config_name,
@@ -90,7 +128,7 @@ class Conformer(EmbeddedDocument):
             energy=sim_result.energy,
             config_name=sim_result.config_name,
             charge=sim_result.charge,
-            solvent=sim_result.solvent
+            solvent=sim_result.solvent,
         )
         if new_energy in self.energies:
             return False
@@ -123,11 +161,14 @@ class Conformer(EmbeddedDocument):
             charge: Charge of the molecule
             solvent: Solvent in which the molecule is dissolved
         Returns:
-            Index of the record, if available, or ``None``, if not.
+            Energy of the target conformer
+        Raises:
+            NoSuchConformer: If there is no such energy for this conformer
         """
 
         ind = self.get_energy_index(config_name, charge, solvent)
-        assert ind is not None, f'No energy available for config="{config_name}", charge={charge}, solvent={solvent}'
+        if ind is None:
+            raise MissingData(config_name, charge, solvent)
         return self.energies[ind].energy
 
 
@@ -135,28 +176,34 @@ class MoleculeRecord(Document):
     """Defines whatever we know about a molecule"""
 
     # Identifiers
-    key = StringField(min_length=27, max_length=27, required=True, primary_key=True, help_text='InChI key')
-    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='Collection of identifiers which define the molecule')
-    names = ListField(StringField(), help_text='Names this molecule is known by')
-    subsets = ListField(StringField(), help_text='List of subsets this molecule is part of')
+    key = StringField(min_length=27, max_length=27, required=True, primary_key=True)
+    """InChI key"""
+    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='')
+    """Collection of identifiers which define the molecule"""
+    names = ListField(StringField())
+    """Names this molecule is known by"""
+    subsets = ListField(StringField())
+    """List of subsets this molecule is part of"""
 
     # Data about the molecule
     conformers: list[Conformer] = ListField(EmbeddedDocumentField(Conformer))
+    """All known conformers for this molecule"""
 
     # Characteristics
-    properties: dict[str, dict[str, float]] = DictField(help_text='Properties available for the molecule')
+    properties: dict[str, dict[str, float]] = DictField()
+    """Properties available for the molecule"""
 
     @classmethod
-    def from_identifier(cls, smiles: str | None = None, inchi: str | None = None):
-        assert (smiles is not None) ^ (inchi is not None), "You must supply either smiles or inchi, and not both"
+    def from_identifier(cls, mol_string: str):
+        """Parse the molecule from either the SMILES or InChI string
 
+        Args:
+            mol_string: Molecule to parse
+        Returns:
+            Empty record for this molecule
+        """
         # Load in the molecule
-        if smiles is None:
-            mol = Chem.MolFromInchi(inchi)
-        else:
-            mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            raise ValueError(f'Molecule failed to parse: {smiles if inchi is None else inchi}')
+        mol = parse_from_molecule_string(mol_string)
 
         # Create the object
         return cls(key=Chem.MolToInchiKey(mol), identifier=Identifiers(smiles=Chem.MolToSmiles(mol), inchi=Chem.MolToInchi(mol)))
@@ -179,18 +226,21 @@ class MoleculeRecord(Document):
         # Prepare to match conformers
         conf_pos = [c.atoms.positions for c in self.conformers]
 
-        def _match_conformers(positions: np.ndarray) -> int | None:
+        def _match_conformers(atoms: ase.Atoms) -> int | None:
+            atoms = atoms.copy()
+            atoms.center()
+            positions = atoms.positions
             for i, c in enumerate(conf_pos):
                 if np.isclose(positions, c, atol=match_tol).all():
                     return i
 
         # First try to add optimization steps
         for step in opt_steps:
-            if (match_id := _match_conformers(step.atoms.positions)) is not None:
+            if (match_id := _match_conformers(step.atoms)) is not None:
                 self.conformers[match_id].add_energy(step)
 
         # Get the atomic positions for me
-        my_match = _match_conformers(result.atoms.positions)
+        my_match = _match_conformers(result.atoms)
         if my_match is None:
             self.conformers.append(Conformer.from_simulation_result(result))
             return True
@@ -208,6 +258,8 @@ class MoleculeRecord(Document):
         Returns:
             - Lowest-energy conformer
             - Energy of the structure (eV)
+        Raises:
+            NoSuchConformer: If we lack a conformer with these settings
         """
 
         # Output results
@@ -222,6 +274,6 @@ class MoleculeRecord(Document):
                 lowest_energy = conf.energies[energy_ind].energy
 
         if stable_conformer is None:
-            raise ValueError(f'No energy evaluations found for config_name="{config_name}, charge={charge}, solvent="{solvent}"')
+            raise MissingData(config_name, charge, solvent)
 
         return stable_conformer, lowest_energy

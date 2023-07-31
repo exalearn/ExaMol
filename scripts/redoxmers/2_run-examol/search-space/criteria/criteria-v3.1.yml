@@ -1,0 +1,17 @@
+# Modifications after feedback from Jacob Tracy
+allowed_elements: [C, H, O, N, F, S, P, Cl, Br]
+forbidden_smarts:
+  # Acids
+  - "[CX3](=O)[OX1H0-,OX2H1]"
+  - "[CX3](=O)[OX2H1]"
+  # Alcohols
+  - "[#6][#6][OX2H]"
+  # Unsubstituted imides
+  - "[CX3](=[OX1])N=[CX3](=[OX1])"
+  # sp3 carbon attached to O and a halide
+  - "O[CX4][F,Cl,Br,I]"
+required_smarts:
+    # Must match _all_ of these
+  - a
+min_conjugation: 3  # Feedback from Lu
+allow_disconnected: false

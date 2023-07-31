@@ -1,10 +1,13 @@
 """Utilities related to using ASE"""
 from contextlib import contextmanager
 from typing import Iterator
+import logging
 
 import ase
 import numpy as np
 from ase.calculators.calculator import Calculator
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -12,7 +15,7 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     """Make a calculator then tear it down after completion
 
     Args:
-        calc: Already-defined calculatori or a dict defining it.
+        calc: Already-defined calculator or a dict defining it.
             The dict must contain the key "name" to define the name
             of the code and could contain the keys "args" and "kwargs"
             to define the arguments and keyword arguments for creating
@@ -42,26 +45,20 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
         #  shell and then set the `_shell` parameter of the object so that the
         #  calculator object's destructor will skip the shell shutdown process
         #  when the object is finally garbage collected
-        calc.__del__()
+        try:
+            calc.__del__()
+        except AssertionError as e:  # pragma: no-coverage
+            logger.info(f'CP2K was noisy on failure: {e}')
+            pass
         calc._shell = None
+    elif name == 'gaussian':
+        from ase.calculators.gaussian import Gaussian
+        yield Gaussian(*args, **kwargs)
     elif name == 'xtb':
         from xtb.ase.calculator import XTB
         yield XTB(*args, **kwargs)
     else:
         raise ValueError('No such calculator')
-
-
-def buffer_cell(atoms, buffer_size: float = 6.):
-    """Buffer the cell such that it has a vacuum layer around the side
-
-    Args:
-        atoms: Atoms to be centered
-        buffer_size: Size of the buffer to place around the atoms
-    """
-
-    atoms.positions -= atoms.positions.min(axis=0)
-    atoms.cell = atoms.positions.max(axis=0) + buffer_size * 2
-    atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
 
 
 def initialize_charges(atoms: ase.Atoms, charge: int):

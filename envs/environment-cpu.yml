@@ -1,16 +1,30 @@
 # Environment that does not use a GPU
+#  Installs packages needed for all features
 name: examol
 channels:
   - defaults
   - conda-forge
+  - pytorch
 dependencies:
   - python==3.10.*
   - pandas==1.*
   - xtb-python==22.*
+  - scikit-learn>=1
   - pymongo
   - jupyterlab
   - matplotlib
   - pytest
+
+  # Use Conda PyTorch to avoid OpenMP disagreement
+  #  with xTB
+  - pytorch==2.0.*
+  - cpuonly
+
   - pip
   - pip:
-      - -e ..
+    # Need TF for NFP MPNNs
+    - tensorflow-cpu
+    - nfp
+    
+    # Need torch for BOTorch
+    - -e ..[botorch,test]

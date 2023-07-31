@@ -6,11 +6,13 @@ so that this whole example can run on your laptop.
 
 ## Running the example
 
-Navigate to this directory and then call.
+Navigate to this directory and then call
 
 ```
 examol run spec.py:spec
 ```
+
+It will output to `run` and eventually produce a file, `report.md`, that contains a summary of run.
 
 ## Set Up
 

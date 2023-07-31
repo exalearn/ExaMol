@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from rdkit import RDLogger
+from proxystore.store import get_store
 
 from examol import __version__
 from examol.specify import ExaMolSpecification
@@ -54,20 +55,59 @@ def run_examol(args):
     logger.info(f'Created a thinker based on {thinker.__class__}')
     logger.info(f'Will run a total of {spec.num_to_run} molecules')
     logger.info(f'Will save results into {thinker.run_dir}')
+
+    # Make a function to clear the proxystore caches
+    def _clear_stores():
+        names = set(thinker.queues.proxystore_name.values())
+        logger.info(f'There are {len(names)} proxystore caches to clear.')
+        for name in names:
+            if name is not None:
+                logger.info(f'Closing proxystore: {name}')
+                store = get_store(name)
+                store.close()
+
+    # Stop if we are in a dry run
     if args.dry_run:
+        _clear_stores()
         logger.info('Finished with dry run. Exiting')
         return
 
     # Launch them
     doer.start()  # Run the doer as a subprocess
+    reporter_threads = []
     try:
-        thinker.run()  # Run the thinker on the main thread
+        thinker.start()  # Start the thinker
+        logger.info('Launched the thinker. Waiting a second before launching the reporters')
+
+        # Start the monitors
+        for reporter in spec.reporters:
+            reporter_threads.append(reporter.monitor(thinker, args.report_freq))
+        logger.info('Launched the reporting threads')
+
+        thinker.join(timeout=args.timeout)  # Wait until it completes
+    except TimeoutError:
+        logger.info('Hit timeout. Sending stop signal to Thinker then blocking until all ongoing tasks complete')
+        thinker.done.set()  # If it hits the timeout
+        thinker.join()
     finally:
         logger.info('Thinker complete, sending a signal to shut down the doer')
+        thinker.done.set()  # Make sure it is set
         thinker.queues.send_kill_signal()
         doer.join()
     logger.info('All processes have completed.')
+
+    # Once complete, run the reporting one last time
+    for reporter, thread in zip(spec.reporters, reporter_threads):
+        logger.info(f'Waiting for {reporter} thread to complete.')
+        thread.join()
+
+        logger.info(f'Running {reporter} a last time.')
+        reporter.report(thinker)
+
     logger.info(f'Find run details in {spec.run_dir.absolute()}')
+
+    # Clear out the proxystore cache
+    _clear_stores()
 
 
 def main(args: list[str] | None = None):
@@ -81,6 +121,8 @@ def main(args: list[str] | None = None):
 
     subparser = subparsers.add_parser('run', help='Run ExaMol')
     subparser.add_argument('--dry-run', action='store_true', help='Load in configuration but do not start computing')
+    subparser.add_argument('--report-freq', default=600, type=float, help='How often to write run status (units: s)')
+    subparser.add_argument('--timeout', default=None, type=float, help='Maximum time to let ExaMol run (units: s)')
     subparser.add_argument('spec', help='Path to the run specification. Format is the path to a Python file containing the spec, '
                                         'followed by a colon and the name of the variable defining the specification (e.g., `spec.py:spec`)')
 

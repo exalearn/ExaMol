@@ -1,12 +1,67 @@
 """Tools for computing the properties of molecules from their record"""
+from dataclasses import dataclass, field
+
 from ase import units
 import numpy as np
 
+from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.store.models import MoleculeRecord
 
 
+@dataclass(frozen=True)
+class SimulationRequest:
+    """Request for a specific simulation type"""
+
+    xyz: str = field(repr=False)
+    """XYZ structure to use as the starting point"""
+    optimize: bool = ...
+    """Whether to perform an optimization"""
+    config_name: str = ...
+    """Name of the computation configuration"""
+    charge: int = ...
+    """Charge on the molecule"""
+    solvent: str | None = ...
+    """Name of solvent, if any"""
+
+
+@dataclass(frozen=True)
+class RequiredGeometry:
+    """Geometry level required for a recipe"""
+
+    config_name: str = ...
+    """Level of computation required for this geometry"""
+    charge: int = ...
+    """Charge on the molecule used during optimization"""
+
+
+@dataclass(frozen=True)
+class RequiredEnergy:
+    """Energy computation level required for a geometry"""
+
+    config_name: str = ...
+    """Level of computation required for the energy"""
+    charge: int = ...
+    """Charge on the molecule"""
+    solvent: str | None = None
+    """Name of solvent, if any"""
+
+
 class PropertyRecipe:
-    """Compute the property given a :class:`~MoleculeRecord`"""
+    """Compute the property given a :class:`~examol.store.models.MoleculeRecord`
+
+    **Creating a New Recipe**
+
+    Define a recipe by implementing three operations:
+
+    1. :meth:`__init__`: Take a users options for the recipe (e.g., what level of accuracy to use)
+        then define a name and level for the recipe. Pass the name and level to the superclass's constructor.
+    2. :meth:`recipe`: Return a mapping of the different types of geometries defined
+        using :class:`RequiredGeometry` and the energies which must be computed for
+        each geometry using :class:`RequiredEnergy`.
+    3. :meth:`compute_property`: Compute the property using the record and raise
+        either a ``ValueError``, ``KeyError``, or ``AssertionError`` if the record
+        lacks the required information.
+    """
 
     def __init__(self, name: str, level: str):
         """
@@ -16,6 +71,11 @@ class PropertyRecipe:
         """
         self.name = name
         self.level = level
+
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        """List of the geometries required for this recipe and the energies which must be computed for them"""
+        raise NotImplementedError()
 
     def lookup(self, record: MoleculeRecord, recompute: bool = False) -> float | None:
         """Lookup the value of a property from a record
@@ -57,11 +117,64 @@ class PropertyRecipe:
 
         Args:
             record: Data about the molecule
-
         Returns:
             Property value
         """
         raise NotImplementedError()
+
+    def suggest_computations(self, record: MoleculeRecord) -> list[SimulationRequest]:
+        """Generate a list of computations that should be performed next on a molecule
+
+        The list of computations may not be sufficient to complete a recipe.
+        For example, you may need to first relax a structure and then compute the energy of the relaxed
+        structure under different conditions.
+
+        Args:
+            record: Data about the molecule
+        Returns:
+            List of computations to perform
+        """
+
+        output = []
+        for geometry, energies in self.recipe.items():
+            # Determine if the geometry has been computed
+            matching_conformers = [
+                (x.get_energy(geometry.config_name, geometry.charge, solvent=None), x) for x in record.conformers
+                if x.source == 'relaxation' and x.config_name == geometry.config_name and x.charge == geometry.charge
+            ]
+            if len(matching_conformers) > 0:
+                _, conformer = min(matching_conformers)
+            else:
+                # If there are no conformers, make an XYZ to start with
+                if len(record.conformers) == 0:
+                    _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
+                    output.append(
+                        SimulationRequest(xyz=xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
+                    )
+                    continue
+
+                # Get the conformer with the closest charge or the most-recent addition
+                best_score = (float('inf'), float('inf'))
+                best_xyz = None
+                for conf in record.conformers:
+                    my_score = (abs(conf.charge - geometry.charge), -conf.date_created.timestamp())
+                    if my_score < best_score:
+                        best_score = my_score
+                        best_xyz = conf.xyz
+
+                output.append(
+                    SimulationRequest(xyz=best_xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
+                )
+                continue
+
+            # Add any required energies
+            for energy in energies:
+                if conformer.get_energy_index(energy.config_name, charge=energy.charge, solvent=energy.solvent) is None:
+                    output.append(
+                        SimulationRequest(xyz=conformer.xyz, config_name=energy.config_name, charge=energy.charge, optimize=False, solvent=energy.solvent)
+                    )
+
+        return output
 
 
 class SolvationEnergy(PropertyRecipe):
@@ -77,6 +190,12 @@ class SolvationEnergy(PropertyRecipe):
         self.solvent = solvent
         self.config_name = config_name
 
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        return {
+            RequiredGeometry(config_name=self.config_name, charge=0): [RequiredEnergy(config_name=self.config_name, charge=0, solvent=self.solvent)]
+        }
+
     def compute_property(self, record: MoleculeRecord) -> float:
         # Get the lowest-energy conformer with both solvent and solvation energy
         vacuum_energy: float = np.inf
@@ -88,7 +207,8 @@ class SolvationEnergy(PropertyRecipe):
                 output = conf.energies[sol_ind].energy - conf.energies[vac_ind].energy
                 vacuum_energy = conf.energies[sol_ind].energy
 
-        assert output is not None, f'Missing data for config="{self.config_name}", solvent={self.solvent}'
+        if output is None:
+            raise ValueError(f'Missing data for config="{self.config_name}", solvent={self.solvent}')
         return output * units.mol / units.kcal
 
 
@@ -132,6 +252,22 @@ class RedoxEnergy(PropertyRecipe):
         self.vertical = vertical
         self.solvent = solvent
 
+    @property
+    def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
+        if self.vertical:
+            return {
+                RequiredGeometry(config_name=self.energy_config, charge=0): [
+                    RequiredEnergy(config_name=self.energy_config, charge=0, solvent=self.solvent),
+                    RequiredEnergy(config_name=self.energy_config, charge=self.charge, solvent=self.solvent)
+                ]
+            }
+        else:
+            return dict(
+                (RequiredGeometry(config_name=self.energy_config, charge=c),
+                 [RequiredEnergy(config_name=self.energy_config, charge=c, solvent=self.solvent)])
+                for c in [0, self.charge]
+            )
+
     def compute_property(self, record: MoleculeRecord) -> float:
         # Get the lowest energy conformer of the neutral molecule
         neutral_conf, neutral_energy = record.find_lowest_conformer(self.energy_config, 0, self.solvent)
@@ -143,6 +279,7 @@ class RedoxEnergy(PropertyRecipe):
         else:
             # Ge the lowest-energy conformer for the charged molecule
             charged_conf, charged_energy = record.find_lowest_conformer(self.energy_config, self.charge, self.solvent)
-            assert charged_conf.xyz_hash != neutral_conf.xyz_hash, 'We do not have a relaxed charged molecule'
+            if charged_conf.xyz_hash == neutral_conf.xyz_hash:
+                raise ValueError('We do not have a relaxed charged molecule')
 
         return charged_energy - neutral_energy

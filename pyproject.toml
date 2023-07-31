@@ -1,6 +1,6 @@
 [project]
 name = "examol"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
     { name = "Logan Ward", email = "lward@anl.gov" },
 ]
@@ -8,7 +8,7 @@ description = 'Designing molecules as fast as possible'
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-keywords = ["HPC", "AI", "Workflows", "Quantum Chemsitry", "Chemical Engineering"]
+keywords = ["HPC", "AI", "Workflows", "Quantum Chemistry", "Chemical Engineering"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -22,15 +22,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "colmena>=0.4",
+    "colmena==0.5.*",
     "ase>=3.22",
     "rdkit>=2022.9",
     "networkx>=2.8",
     "parsl>=2022.12",
-    "scikit-learn==1.2.*",
     "more_itertools==9.*",
-    "foundry_ml",
     "mongoengine>=0.27",
+    "tabulate>=0.9",
+    "modAL-python==0.4.*",
     "tqdm"
 ]
 
@@ -44,8 +44,12 @@ repository = "https://github.com/exalearn/examol"
 test = [
     'flake8',
     'pytest',
+    'pytest-forked',
     'pytest-timeout',
     'pytest-cov',
+]
+botorch = [
+    'botorch==0.8.*'
 ]
 
 [project.scripts]

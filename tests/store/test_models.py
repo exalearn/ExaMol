@@ -4,6 +4,8 @@ from copy import copy
 from pytest import raises
 
 from examol.store.models import Conformer, MoleculeRecord
+from examol.utils.chemistry import parse_from_molecule_string
+from examol.utils.conversions import write_to_string
 
 
 def test_make_conformer(sim_result):
@@ -18,12 +20,23 @@ def test_make_conformer(sim_result):
     # Change the configuration name, make sure it add something else
     sim_result.config_name = 'other_method'
     assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 2
+
+    # Change the charge
+    sim_result.charge = 1
+    assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 3
+
+    # Change the solvent
+    sim_result.solvent = 'acn'
+    assert conf.add_energy(sim_result)
+    assert len(conf.energies) == 4
 
 
 def test_identifiers():
     # Test SMILES and InChI
     record_1 = MoleculeRecord.from_identifier('C')
-    record_2 = MoleculeRecord.from_identifier(inchi=record_1.identifier['inchi'])
+    record_2 = MoleculeRecord.from_identifier(record_1.identifier['inchi'])
     assert record_1.key == record_2.key
 
     # Make sure a parse can fail
@@ -51,6 +64,21 @@ def test_add_conformer(record, sim_result):
     assert len(record.conformers) == 2
     assert record.conformers[0].energies[1].charge == 1
     assert record.conformers[0].energies[1].energy == charged_vert.energy
+
+
+def test_translated_sim(record, sim_result):
+    """Ensure that we can still match conformers even if coordinates are translated"""
+    assert record.add_energies(sim_result)
+
+    # Move the xyz
+    atoms = sim_result.atoms
+    atoms.translate([1, 1, 1])
+    sim_result.xyz = write_to_string(atoms, 'xyz')
+    sim_result.config_name = 'test-2'
+
+    # Make sure we don't add an atom in
+    assert not record.add_energies(sim_result)
+    assert len(record.conformers[0].energies) == 2
 
 
 def test_find_lowest_conformer(record, sim_result):
@@ -86,3 +114,8 @@ def test_find_lowest_conformer(record, sim_result):
 
 def test_properties(record):
     assert len(record.properties) == 0
+
+
+def test_problematic_smiles():
+    record = MoleculeRecord.from_identifier("C1=CC=[N+](C=C1)CCOS(=O)(=O)[O-]")
+    assert parse_from_molecule_string(record.identifier.inchi) is not None

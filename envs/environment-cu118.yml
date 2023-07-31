@@ -1,0 +1,29 @@
+# Environment that uses CUDA 11.8
+#  Installs packages needed for all features
+name: examol
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python==3.10.*
+  - pandas==1.*
+  - xtb-python==22.*
+  - scikit-learn>=1
+  - pymongo
+  - jupyterlab
+  - matplotlib
+
+  # Need torch for BOTorch
+  - pytorch==2.0.*
+  - pytorch-cuda==11.8
+
+  - pytest
+  - pip
+  - pip:
+      # Need TF for NFP MPNNs
+      - tensorflow
+      - nfp
+
+      - -e ..[botorch,test]

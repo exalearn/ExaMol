@@ -1,30 +1,36 @@
 """Test single objective optimizer"""
 import json
 import logging
+from pathlib import Path
 
-from parsl.configs.htex_local import config
+from parsl.config import Config
+from parsl.executors import HighThroughputExecutor
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
+from proxystore.connectors.file import FileConnector
+from proxystore.store import Store, register_store
 from pytest import fixture, mark
+from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit import RDKitScorer, make_knn_model
-from examol.select.random import RandomSelector
+from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
-from examol.steer.single import SingleObjectiveThinker
+from examol.start.fast import RandomStarter
+from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='xtb', vertical=False)
+    return RedoxEnergy(charge=1, energy_config='xtb', vertical=True)
 
 
 @fixture()
 def training_set(recipe) -> list[MoleculeRecord]:
     """Make a starting training set"""
     output = []
-    for i, smiles in enumerate(['C', 'CC', 'CCC']):
+    for i, smiles in enumerate(['CCCC', 'CCO']):
         record = MoleculeRecord.from_identifier(smiles)
         record.properties[recipe.name] = {recipe.level: i}
         output.append(record)
@@ -32,14 +38,18 @@ def training_set(recipe) -> list[MoleculeRecord]:
 
 
 @fixture()
-def search_space() -> list[MoleculeRecord]:
-    return [MoleculeRecord.from_identifier(x) for x in ['CO', 'CCCC', 'CCO']]
+def search_space(tmp_path) -> Path:
+    path = tmp_path / 'search-space.smi'
+    with path.open('w') as fp:
+        for s in ['C', 'N', 'O', 'Cl', 'S']:
+            print(s, file=fp)
+    return path
 
 
 @fixture()
-def scorer(recipe) -> RDKitScorer:
+def scorer() -> tuple[RDKitScorer, Pipeline]:
     pipeline = make_knn_model()
-    return RDKitScorer(recipe.name, recipe.level, pipeline=pipeline)
+    return RDKitScorer(), pipeline
 
 
 @fixture()
@@ -50,12 +60,23 @@ def simulator(tmp_path) -> ASESimulator:
 @fixture()
 def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     """Make a start the task server"""
+    # Unpack inputs
+    scorer, _ = scorer
 
-    queues = PipeQueues(topics=['inference', 'simulation', 'train'])
-    config.run_dir = tmp_path
+    # Make the queues
+    store = Store(name='file', connector=FileConnector(store_dir=str(tmp_path)))
+    register_store(store, exist_ok=True)
+    queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_name=store.name)
+
+    # Make parsl configuration
+    config = Config(
+        run_dir=str(tmp_path),
+        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='localhost')]
+    )
+
     doer = ParslTaskServer(
         queues=queues,
-        methods=[scorer.score, simulator.optimize_structure, scorer.retrain],
+        methods=[scorer.score, simulator.optimize_structure, simulator.compute_energy, scorer.retrain],
         config=config,
         timeout=15,
     )
@@ -67,23 +88,26 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleObjectiveThinker:
+def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleStepThinker:
     run_dir = tmp_path / 'run'
-    return SingleObjectiveThinker(
+    scorer, model = scorer
+    return SingleStepThinker(
         queues=queues,
         run_dir=run_dir,
-        recipe=recipe,
+        recipes=[recipe],
         database=training_set,
-        models=[scorer],
+        scorer=scorer,
+        starter=RandomStarter(4, 1),
+        models=[[model, model]],
         selector=RandomSelector(10),
         num_workers=1,
-        num_to_run=2,
-        search_space=zip([x.identifier.smiles for x in search_space], scorer.transform_inputs(search_space)),
+        num_to_run=3,
+        search_space=[search_space],
     )
 
 
-@mark.timeout(10)
-def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
+@mark.timeout(120)
+def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right
@@ -94,15 +118,25 @@ def test_thinker(thinker: SingleObjectiveThinker, training_set, caplog):
     thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
 
+    # Check if there are points where the
+    run_log = (thinker.run_dir / 'run.log').read_text().splitlines(keepends=False)
+    assert any('Training set is smaller than the threshold size (2<4)' in x for x in run_log)
+    assert any('Too few to entries to train. Waiting for 4' in x for x in run_log)
+
     # Check the output files
     with (thinker.run_dir / 'inference-results.json').open() as fp:
         record = json.loads(fp.readline())
         assert record['success']
 
+    # Make sure we have more than a few simulation records
+    with (thinker.run_dir / 'simulation-records.json').open() as fp:
+        record_count = sum(1 for _ in fp)
+    assert record_count > thinker.num_to_run
+
     assert len(thinker.database) >= len(training_set) + thinker.num_to_run
 
 
-@mark.timeout(10)
+@mark.timeout(120)
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 
