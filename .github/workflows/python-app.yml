@@ -27,7 +27,7 @@ jobs:
     - name: Set up environment
       uses: conda-incubator/setup-miniconda@v2
       with:
-        environment-file: envs/environment-cpu.yml
+        environment-file: ${{ matrix.os == 'ubuntu-latest' && 'envs/environment-cpu.yml' || 'envs/environment-macos.yml' }}
         mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}
     - name: Display Environment
       run: conda list

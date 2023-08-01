@@ -1,0 +1,34 @@
+# Environment with CPU-only packages meant for MacOS
+#  Installs packages needed for all features
+name: examol
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python==3.10.*
+
+  # Basic numeric and data analysis libraries
+  - pandas==1.*
+  - scikit-learn>=1
+  - matplotlib
+  - pymongo
+
+  # Quantum chemistry
+  - xtb-python==22.*
+
+  # Use Conda PyTorch to avoid numpy and OpenMP disagreement
+  - pytorch==2.0.*
+  - cpuonly
+
+  # Etc
+  - jupyterlab
+  - pytest
+  - pip
+  - pip:
+    # Need TF for NFP MPNNs
+    - nfp
+    - tensorflow-macos
+    
+    # Need torch for BOTorch
+    - -e ..[botorch,test]
