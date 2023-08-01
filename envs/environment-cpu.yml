@@ -20,7 +20,7 @@ dependencies:
   # Use Conda and TF PyTorch to avoid numpy and OpenMP disagreement
   - pytorch==2.0.*
   - cpuonly
-  - tensorflow-cpu
+  - tensorflow>=2=*cpu*
 
   # Etc
   - jupyterlab
