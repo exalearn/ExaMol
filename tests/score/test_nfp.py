@@ -18,7 +18,7 @@ def model() -> 'tf.keras.Model':
 
 
 @fixture()
-def scorer() -> NFPScorer:
+def scorer() -> 'NFPScorer':
     return NFPScorer()
 
 
@@ -108,6 +108,7 @@ def test_padded_outputs(atomwise: bool, training_set, scorer):
     assert np.isclose(outputs_2, outputs_3[:2, :]).all()
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_score(model, scorer, training_set):
     parsed_inputs = scorer.transform_inputs(training_set)
     model_msg = scorer.prepare_message(model)
@@ -116,8 +117,9 @@ def test_score(model, scorer, training_set):
     assert len(outputs) == len(training_set)
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 @mark.parametrize('retrain', [True, False])
-def test_train(model, scorer: NFPScorer, training_set, retrain: bool, recipe):
+def test_train(model, scorer: 'NFPScorer', training_set, retrain: bool, recipe):
     scorer.retrain_from_scratch = retrain
     parsed_inputs = scorer.transform_inputs(training_set)
     parsed_outputs = scorer.transform_outputs(training_set, recipe)
@@ -129,6 +131,7 @@ def test_train(model, scorer: NFPScorer, training_set, retrain: bool, recipe):
     scorer.update(model, update_msg)
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_message(model):
     """Make sure we can serialize"""
     # Create the message
