@@ -27,9 +27,5 @@ dependencies:
   - pytest
   - pip
   - pip:
-    # Need TF for NFP MPNNs
-    - nfp
-    - tensorflow
-    
     # Need torch for BOTorch
     - -e ..[botorch,test]

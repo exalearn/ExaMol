@@ -1,14 +1,19 @@
 import pickle as pkl
 
+try:
+    import tensorflow as tf
+    from examol.score.nfp import convert_string_to_dict, make_simple_network, NFPScorer, make_data_loader, NFPMessage
+except ImportError:
+    has_tf = False
+else:
+    has_tf = True
 import numpy as np
-import tensorflow as tf
-from pytest import raises, fixture, mark
 
-from examol.score.nfp import convert_string_to_dict, make_simple_network, NFPScorer, make_data_loader, NFPMessage
+from pytest import raises, fixture, mark
 
 
 @fixture()
-def model() -> tf.keras.Model:
+def model() -> 'tf.keras.Model':
     return make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16])
 
 
@@ -17,6 +22,7 @@ def scorer() -> NFPScorer:
     return NFPScorer()
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_convert():
     mol_dict = convert_string_to_dict('C')
     assert mol_dict['atom'] == [6, 1, 1, 1, 1]
@@ -30,12 +36,14 @@ def test_convert():
     assert 'unconnected atoms' in str(error.value)
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_parse_inputs(scorer, training_set):
     parsed_inputs = scorer.transform_inputs(training_set)
     assert len(parsed_inputs) == len(training_set)
     assert isinstance(parsed_inputs[0], dict)
 
 
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_data_loader(scorer, training_set, model, recipe):
     # Make the dictionary inputs
     parsed_inputs = scorer.transform_inputs(training_set)
@@ -72,7 +80,7 @@ def test_data_loader(scorer, training_set, model, recipe):
     x, _ = next(iter(loader))
 
     assert x['atom'].shape == (3, 11)  # CCC has 11 atoms
-    assert x['bond'].shape == (3, 20)   # CCC has 10 bonds (x2 for bidirectional)
+    assert x['bond'].shape == (3, 20)  # CCC has 10 bonds (x2 for bidirectional)
 
     loader = make_data_loader(parsed_inputs[:2], values)
     x, _ = next(iter(loader))
@@ -82,6 +90,7 @@ def test_data_loader(scorer, training_set, model, recipe):
 
 
 @mark.parametrize('atomwise', [True, False])
+@mark.skipif(not has_tf, reason='TF is not installed')
 def test_padded_outputs(atomwise: bool, training_set, scorer):
     model = make_simple_network(8, message_steps=4, output_layers=[32], atomwise=atomwise)
 
