@@ -29,6 +29,8 @@ jobs:
       with:
         environment-file: envs/environment-cpu.yml
         mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}
+    - name: Display Environment
+      run: conda list
     - name: Install test dependencies
       run: |
         pip install -e .[test]
