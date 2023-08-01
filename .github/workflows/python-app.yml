@@ -48,7 +48,7 @@ jobs:
       run: |
         brew install cp2k
     - name: Test with pytest
-      run: pytest --cov=examol --forked --timeout=300 tests
+      run: pytest --cov=examol --timeout=300 tests
     - name: Coveralls
       run: |
         pip install coveralls
