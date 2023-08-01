@@ -7,23 +7,27 @@ channels:
   - pytorch
 dependencies:
   - python==3.10.*
-  - pandas==1.*
-  - xtb-python==22.*
-  - scikit-learn>=1
-  - pymongo
-  - jupyterlab
-  - matplotlib
-  - pytest
 
-  # Use Conda PyTorch to avoid OpenMP disagreement
-  #  with xTB
+  # Basic numeric and data analysis libraries
+  - pandas==1.*
+  - scikit-learn>=1
+  - matplotlib
+  - pymongo
+
+  # Quantum chemistry
+  - xtb-python==22.*
+
+  # Use Conda and TF PyTorch to avoid numpy and OpenMP disagreement
   - pytorch==2.0.*
   - cpuonly
+  - tensorflow-cpu
 
+  # Etc
+  - jupyterlab
+  - pytest
   - pip
   - pip:
     # Need TF for NFP MPNNs
-    - tensorflow-cpu
     - nfp
     
     # Need torch for BOTorch
