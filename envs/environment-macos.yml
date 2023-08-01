@@ -28,7 +28,7 @@ dependencies:
   - pip:
     # Need TF for NFP MPNNs
     - nfp
-    - tensorflow-macos
+    - tensorflow
     
     # Need torch for BOTorch
     - -e ..[botorch,test]
