@@ -11,6 +11,7 @@ dependencies:
   # Basic numeric and data analysis libraries
   - pandas==1.*
   - scikit-learn>=1
+  - numpy==1.24.*  # To be compatible with latest TF
   - matplotlib
   - pymongo
 
