@@ -37,7 +37,7 @@ writer = DatabaseWriter()
 
 # Make the parsl (compute) and proxystore (optional data fabric) configuration
 config = Config(
-    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block', address='localhost')],
+    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block', address='127.0.0.1')],
     run_dir=str((my_path / 'parsl-logs')),
 )
 store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)
