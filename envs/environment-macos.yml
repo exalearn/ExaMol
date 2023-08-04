@@ -17,6 +17,7 @@ dependencies:
 
   # Quantum chemistry
   - xtb-python==22.*
+  - rdkit==2023.03.2
 
   # Use Conda PyTorch to avoid numpy and OpenMP disagreement
   - pytorch==2.0.*
