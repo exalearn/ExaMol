@@ -14,8 +14,9 @@ from examol.simulate.ase.utils import make_ephemeral_calculator
 from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.conversions import write_to_string
 
-
 _files_dir = Path(__file__).parent / 'files'
+
+has_cpk2 = shutil.which('cp2k_shell') is not None
 
 
 class FakeCP2K(LennardJones):

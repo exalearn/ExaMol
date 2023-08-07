@@ -1,6 +1,7 @@
 """Utilities for simulation using ASE"""
 import json
 import os
+import re
 from hashlib import sha512
 from pathlib import Path
 from shutil import rmtree, move
@@ -16,31 +17,35 @@ from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
 import examol.utils.conversions
 from . import utils
+from .utils import add_vacuum_buffer
 from ..base import BaseSimulator, SimResult
 
 # Mapping between basis set and a converged cutoff energy
-#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/converge-parameters-mt.ipynb
+#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/
 #  We increase the cutoff slightly to be on the safe side
-_cutoff_lookup = {
-    'TZVP-GTH': 850.,
-    'DZVP-GTH': 600.,
-    'SZV-GTH': 600.
+_cutoff_lookup: dict[tuple[str, str], float] = {
+    ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
+    ('B3LYP', 'DZVP-MOLOPT-GTH'): 700.,
 }
 
 # Base input file
 _cp2k_inp = """&FORCE_EVAL
 &DFT
   &XC
-     &XC_FUNCTIONAL BLYP
+     &XC_FUNCTIONAL $XC$
      &END XC_FUNCTIONAL
   &END XC
   &POISSON
      PERIODIC NONE
      PSOLVER MT
   &END POISSON
+  &MGRID
+    NGRIDS 5
+    REL_CUTOFF 60
+  &END MGRID
   &SCF
     &OUTER_SCF
-     MAX_SCF 9
+      MAX_SCF 9
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -142,17 +147,21 @@ class ASESimulator(BaseSimulator):
                     **kwargs
                 }
             }
-        elif name.startswith('cp2k_blyp'):
+        elif name.startswith('cp2k_'):
             # Get the name the basis set
-            basis_set_id = name.rsplit('_')[-1]
-            basis_set_name = f'{basis_set_id}-GTH'.upper()
+            xc_name, basis_set_id = name.rsplit('_')[-2:]
+            xc_name = xc_name.upper()
+            basis_set_name = f'{basis_set_id}-MOLOPT-GTH'.upper()
+
+            # Inject the proper XC functional
+            inp = _cp2k_inp
+            inp = inp.replace('$XC$', xc_name)
 
             # Get the cutoff
             assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
-            cutoff = _cutoff_lookup[basis_set_name]
+            cutoff = _cutoff_lookup[(xc_name, basis_set_name)]
 
             # Add solvent information, if desired
-            inp = _cp2k_inp
             if solvent is not None:
                 assert solvent in _solv_data, f"Solvent {solvent} not defined. Available: {', '.join(_solv_data.keys())}"
                 gamma, e0 = _solv_data[solvent]
@@ -172,7 +181,7 @@ METHOD ANDREUSSI
 
             return {
                 'name': 'cp2k',
-                'buffer_size': 10.0,
+                'buffer_size': 5.0,
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
@@ -180,7 +189,7 @@ METHOD ANDREUSSI
                     inp=inp,
                     cutoff=cutoff * units.Ry,
                     max_scf=10,
-                    basis_set_file='GTH_BASIS_SETS',
+                    basis_set_file='BASIS_MOLOPT',
                     basis_set=basis_set_name,
                     pseudo_potential='GTH-BLYP',
                     poisson_solver=None,
@@ -207,7 +216,9 @@ METHOD ANDREUSSI
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
-                # Buffer the cell if using CP2K
+                # Prepare the structure for a specific code
+                if 'cp2k' in config_name:
+                    calc_cfg['buffer_size'] *= 1.5  # In case the molecule expands
                 self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Recover the history from a previous run
@@ -303,7 +314,7 @@ METHOD ANDREUSSI
             config: Configuration detail
         """
         if 'cp2k' in config['name']:
-            atoms.center(vacuum=config['buffer_size'])
+            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['inp'].upper()) is not None)
         elif 'xtb' in config['name']:
             utils.initialize_charges(atoms, charge)
 

@@ -87,4 +87,3 @@ def add_vacuum_buffer(atoms: ase.Atoms, buffer_size: float, cubic: bool = False)
         atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
     else:
         atoms.center(vacuum=buffer_size)
-
