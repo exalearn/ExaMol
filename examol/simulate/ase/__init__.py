@@ -24,6 +24,7 @@ from ..base import BaseSimulator, SimResult
 #  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/
 #  We increase the cutoff slightly to be on the safe side
 _cutoff_lookup: dict[tuple[str, str], float] = {
+    ('BLYP', 'SZV-MOLOPT-GTH'): 700.,
     ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
     ('B3LYP', 'DZVP-MOLOPT-GTH'): 700.,
 }
@@ -158,7 +159,7 @@ class ASESimulator(BaseSimulator):
             inp = inp.replace('$XC$', xc_name)
 
             # Get the cutoff
-            assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
+            assert (xc_name, basis_set_name) in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
             cutoff = _cutoff_lookup[(xc_name, basis_set_name)]
 
             # Add solvent information, if desired
@@ -314,7 +315,7 @@ METHOD ANDREUSSI
             config: Configuration detail
         """
         if 'cp2k' in config['name']:
-            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['inp'].upper()) is not None)
+            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is not None)
         elif 'xtb' in config['name']:
             utils.initialize_charges(atoms, charge)
 

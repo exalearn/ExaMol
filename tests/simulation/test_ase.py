@@ -39,11 +39,11 @@ def test_cp2k_configs(tmpdir, strc):
 
     # Easy example
     config = sim.create_configuration('cp2k_blyp_szv', strc, charge=0, solvent=None)
-    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
 
     # With a charge
     config = sim.create_configuration('cp2k_blyp_szv', strc, charge=1, solvent=None)
-    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
 
