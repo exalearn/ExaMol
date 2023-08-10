@@ -30,7 +30,7 @@ if __name__ == "__main__":
     config_name = args.configuration
 
     # Load in the molecules to be evaluated
-    to_run = pd.read_json('data/g4mp2-mols.json', lines=True)
+    to_run = pd.read_json('data/g4mp2-mols.json', lines=True).sample(frac=1., random_state=1)
     if args.max_to_run is not None:
         to_run = to_run.iloc[:args.max_to_run]
 
@@ -44,8 +44,8 @@ if __name__ == "__main__":
     )
 
     # Get what has already ran
-    if Path('output.json').is_file():
-        already_ran = set(map(tuple, pd.read_json('output.json', lines=True)[["smiles", "charge", "config_name"]].values))
+    if Path('optimization.json').is_file():
+        already_ran = set(map(tuple, pd.read_json('optimization.json', lines=True)[["smiles", "charge", "config_name"]].values))
     else:
         already_ran = set()
 
@@ -147,7 +147,7 @@ export GAUSS_LFLAGS="-vv"''',
                 print(json.dumps({**future.info, 'exception': str(exc)}), file=fp)
             continue
 
-        with open('output.json', 'a') as fp:
+        with open('optimization.json', 'a') as fp:
             res = future.result()
             print(json.dumps({
                 **future.info,
