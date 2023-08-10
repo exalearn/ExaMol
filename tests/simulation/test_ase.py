@@ -1,3 +1,5 @@
+import itertools
+import os
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +19,9 @@ from examol.utils.conversions import write_to_string
 _files_dir = Path(__file__).parent / 'files'
 
 has_cpk2 = shutil.which('cp2k_shell') is not None
+is_ci = os.environ.get('CI', None) == "true"
+
+cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x-d3_tzvpd']
 
 
 class FakeCP2K(LennardJones):
@@ -30,7 +35,7 @@ class FakeCP2K(LennardJones):
 
 @fixture()
 def strc() -> str:
-    atoms = molecule('H2O')
+    atoms = molecule('H2')
     return write_to_string(atoms, 'xyz')
 
 
@@ -53,11 +58,24 @@ def test_cp2k_configs(tmpdir, strc):
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
     assert 'GAPW' in config['kwargs']['inp']
-    assert config['kwargs']['basis_set_file'].is_file()
+    assert Path(config['kwargs']['basis_set_file']).is_file()
 
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
+
+
+@mark.skipif(is_ci, reason='Too slow for CI')
+@mark.skipif(not has_cpk2, reason='CP2K is not installed')
+@mark.parametrize(
+    'config,charge,solvent',
+    [(xc, c, None) for xc, c in itertools.product(cp2k_configs_to_test, [0, 1])]  # Closed and open shell
+    + [(xc, 0, 'acn') for xc in cp2k_configs_to_test]  # With a solvent
+    + [(cp2k_configs_to_test[0], -1, 'acn')]  # Open shell and a solvent
+)
+def test_ase_singlepoint(tmpdir, strc, config, charge, solvent):
+    sim = ASESimulator(scratch_dir=tmpdir)
+    sim.compute_energy('test', strc, config_name=config, charge=charge, solvent=solvent)
 
 
 def test_xtb_configs(tmpdir, strc):
@@ -188,7 +206,8 @@ def test_gaussian_configs(strc):
     assert not config['use_gaussian_opt']
 
 
-def test_gaussian_opt(strc, tmpdir):
+def test_gaussian_opt(tmpdir):
+    strc = write_to_string(molecule('H2O'), 'xyz')
     sim = ASESimulator(gaussian_command='g16', scratch_dir=tmpdir)
 
     if shutil.which('g16') is None:

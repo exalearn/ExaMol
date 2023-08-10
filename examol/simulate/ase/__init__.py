@@ -31,6 +31,7 @@ _cutoff_lookup: dict[tuple[str, str], float] = {
     ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
     ('B3LYP', 'def2-SVP'): 500.,
     ('B3LYP', 'def2-TZVPD'): 500.,
+    ('WB97X_D3', 'def2-TZVPD'): 500.,
 }
 
 # Base input file
@@ -161,7 +162,10 @@ class ASESimulator(BaseSimulator):
             xc_name = xc_name.upper()
 
             # Determine the proper basis set, pseudopotential, and method
-            if xc_name in ['B3LYP']:
+            if xc_name in ['B3LYP', 'WB97X-D3']:
+                xc_name = xc_name.replace("-", "_")  # Underscores used in LibXC
+                xc_section = f'\n&HYB_GGA_XC_{xc_name}\n&END HYB_GGA_XC_{xc_name}'
+
                 basis_set_name = f'def2-{basis_set_id.upper()}'
                 basis_set_file = _cp2k_basis_set_dir / 'DEF2_BASIS_SETS'
 
@@ -170,6 +174,8 @@ class ASESimulator(BaseSimulator):
 
                 method = 'GAPW'
             elif xc_name == 'BLYP':
+                xc_section = xc_name
+
                 basis_set_name = f'{basis_set_id}-MOLOPT-GTH'.upper()
                 basis_set_file = 'BASIS_MOLOPT'
 
@@ -182,11 +188,11 @@ class ASESimulator(BaseSimulator):
 
             # Inject the proper XC functional
             inp = _cp2k_inp
-            inp = inp.replace('$XC$', xc_name)
+            inp = inp.replace('$XC$', xc_section)
             inp = inp.replace('$METHOD$', method)
 
             # Get the cutoff
-            assert (xc_name, basis_set_name) in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
+            assert (xc_name, basis_set_name) in _cutoff_lookup, f'Cutoff energy not defined for {xc_name}//{basis_set_name}'
             cutoff = _cutoff_lookup[(xc_name, basis_set_name)]
 
             # Add solvent information, if desired
