@@ -84,7 +84,7 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
                 select_options="ngpus=4",
                 nodes_per_block=args.num_parallel * args.nodes_per_task,
                 min_blocks=0,
-                max_blocks=10,
+                max_blocks=2,
                 cpus_per_node=64,
             ),
         )
@@ -135,7 +135,7 @@ export GAUSS_LFLAGS="-vv"''',
         for charge in [-1, 0, 1]:
             if (row["smiles"], charge, config_name) in already_ran:
                 continue
-            future = app(xyz, charge=charge, config_name=config_name)
+            future = app(row['smiles'], xyz, charge=charge, config_name=config_name)
             future.info = {'filename': row['filename'], 'smiles': row['smiles'], 'charge': charge}
             futures.append(future)
 
