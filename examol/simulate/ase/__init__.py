@@ -217,7 +217,7 @@ METHOD ANDREUSSI
                     inp=inp,
                     cutoff=cutoff * units.Ry,
                     max_scf=32,
-                    basis_set_file=basis_set_file,
+                    basis_set_file=str(basis_set_file),
                     basis_set=basis_set_name,
                     pseudo_potential=potential,
                     potential_file=pp_file_name,
