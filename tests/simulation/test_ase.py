@@ -88,7 +88,7 @@ def test_xtb_configs(tmpdir, strc):
     assert config['kwargs'] == {'solvent': 'acetonitrile'}
 
 
-@mark.parametrize('config_name', ['cp2k_blyp_szv'])
+@mark.parametrize('config_name', ['cp2k_blyp_szv', 'xtb'])
 def test_optimization(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = Path(tmpdir) / 'data.db'
@@ -113,7 +113,7 @@ def test_optimization(config_name: str, strc, tmpdir):
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
-        (run_dir / 'lbfgs.traj').write_text('bad')  # Kill the restart file
+        (run_dir / 'opt.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
             assert len(db) == len(traj_res)

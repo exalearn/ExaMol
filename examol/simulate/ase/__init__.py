@@ -11,8 +11,8 @@ import ase
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
+from ase.optimize import QuasiNewton
 from ase.io.ulm import InvalidULMFileError
-from ase.optimize import LBFGSLineSearch
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
 import examol.utils.conversions
@@ -257,7 +257,7 @@ METHOD ANDREUSSI
                 self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Recover the history from a previous run
-                traj_path = Path('lbfgs.traj')
+                traj_path = Path('opt.traj')
                 if traj_path.is_file():
                     try:
                         # Overwrite our atoms with th last in the trajectory
@@ -291,7 +291,7 @@ METHOD ANDREUSSI
                 atoms.calc = calc
 
                 # Make the optimizer
-                dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
+                dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=str(traj_path))
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
