@@ -2,7 +2,7 @@
 from examol.simulate.ase import ASESimulator
 from examol.simulate.initialize import generate_inchi_and_xyz
 from parsl.executors import HighThroughputExecutor
-from parsl.addresses import address_by_hostname
+from parsl.addresses import address_by_hostname, address_by_interface
 from parsl.launchers import SimpleLauncher, SrunLauncher
 from parsl.providers import PBSProProvider, SlurmProvider
 from parsl.app.python import PythonApp
@@ -41,12 +41,6 @@ if __name__ == "__main__":
     sim = ASESimulator(
         scratch_dir='ase-files',
         ase_db_path='data.db',
-        gaussian_command='g16',  # Hard-coded for Bebop
-        cp2k_command=f'mpiexec -n {args.nodes_per_task * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                     f'--hostfile /tmp/hostfiles/$PBS_JOBID/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
-                     '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
-                     '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',  # Hard-coded for polaris for now
-
     )
 
     # Get what has already ran
@@ -58,7 +52,7 @@ if __name__ == "__main__":
     # Make the parsl configuration
     if args.system == 'polaris':
         htex = HighThroughputExecutor(
-            address=address_by_hostname(),
+            address=address_by_interface('bond0'),
             prefetch_capacity=0,  # Increase if you have many more tasks than workers
             start_method="fork",  # Needed to avoid interactions between MPI and os.fork
             max_workers=args.num_parallel,
@@ -88,6 +82,10 @@ conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
                 cpus_per_node=64,
             ),
         )
+        sim.cp2k_command = (f'mpiexec -n {args.nodes_per_task * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
+                            f'--hostfile /tmp/hostfiles/$PBS_JOBID/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
+                            '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
+                            '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp')
     elif args.system == 'bebop':
         htex = HighThroughputExecutor(
             label='bebop_gaussian',
@@ -112,7 +110,9 @@ export GAUSS_LFLAGS="-vv"''',
                 walltime="20:00:00"
             )
         )
-
+    elif args.system == 'local':
+        htex = HighThroughputExecutor(max_workers=1, address='127.0.0.1')
+        sim.cp2k_command = '/home/lward/Software/cp2k-2022.2/exe/local_cuda/cp2k_shell.ssmp'
     else:
         raise ValueError(f'System not recognized')
 

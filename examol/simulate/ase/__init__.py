@@ -343,7 +343,7 @@ METHOD ANDREUSSI
             config: Configuration detail
         """
         if 'cp2k' in config['name']:
-            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is not None)
+            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
         elif 'xtb' in config['name']:
             utils.initialize_charges(atoms, charge)
 
