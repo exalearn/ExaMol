@@ -47,6 +47,14 @@ def test_cp2k_configs(tmpdir, strc):
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
 
+    # With B3LYP
+    config = sim.create_configuration('cp2k_b3lyp_tzvpd', strc, charge=1, solvent=None)
+    assert config['kwargs']['cutoff'] == 500 * units.Ry
+    assert config['kwargs']['charge'] == 1
+    assert config['kwargs']['uks']
+    assert 'GAPW' in config['kwargs']['inp']
+    assert config['kwargs']['basis_set_file'].is_file()
+
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)

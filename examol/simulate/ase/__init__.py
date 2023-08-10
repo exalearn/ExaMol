@@ -20,13 +20,17 @@ from . import utils
 from .utils import add_vacuum_buffer
 from ..base import BaseSimulator, SimResult
 
+# Location of additional basis sets
+_cp2k_basis_set_dir = (Path(__file__).parent / 'cp2k-basis').resolve()
+
 # Mapping between basis set and a converged cutoff energy
-#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/
+#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/
 #  We increase the cutoff slightly to be on the safe side
 _cutoff_lookup: dict[tuple[str, str], float] = {
     ('BLYP', 'SZV-MOLOPT-GTH'): 700.,
     ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
-    ('B3LYP', 'DZVP-MOLOPT-GTH'): 700.,
+    ('B3LYP', 'def2-SVP'): 500.,
+    ('B3LYP', 'def2-TZVPD'): 500.,
 }
 
 # Base input file
@@ -38,15 +42,18 @@ _cp2k_inp = """&FORCE_EVAL
   &END XC
   &POISSON
      PERIODIC NONE
-     PSOLVER MT
+     PSOLVER WAVELET
   &END POISSON
   &MGRID
     NGRIDS 5
     REL_CUTOFF 60
   &END MGRID
+  &QS
+    METHOD $METHOD$
+  &END QS
   &SCF
     &OUTER_SCF
-      MAX_SCF 9
+      MAX_SCF 5
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -83,7 +90,7 @@ class ASESimulator(BaseSimulator):
       additional arguments to Gaussian as keyword arguments.
     - *CP2K*: Supports only a few combinations of basis sets and XC functions,
       those for which we have determined appropriate cutoff energies:
-      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
+      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_b3lyp_svp``, ``cp2k_b3lyp_tzvpd``
 
 
     Args:
@@ -102,7 +109,7 @@ class ASESimulator(BaseSimulator):
                  clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None,
                  retain_failed: bool = True):
-        super().__init__(scratch_dir)
+        super().__init__(scratch_dir, retain_failed=retain_failed)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
@@ -152,11 +159,31 @@ class ASESimulator(BaseSimulator):
             # Get the name the basis set
             xc_name, basis_set_id = name.rsplit('_')[-2:]
             xc_name = xc_name.upper()
-            basis_set_name = f'{basis_set_id}-MOLOPT-GTH'.upper()
+
+            # Determine the proper basis set, pseudopotential, and method
+            if xc_name in ['B3LYP']:
+                basis_set_name = f'def2-{basis_set_id.upper()}'
+                basis_set_file = _cp2k_basis_set_dir / 'DEF2_BASIS_SETS'
+
+                potential = 'ALL'
+                pp_file_name = 'ALL_POTENTIALS'
+
+                method = 'GAPW'
+            elif xc_name == 'BLYP':
+                basis_set_name = f'{basis_set_id}-MOLOPT-GTH'.upper()
+                basis_set_file = 'BASIS_MOLOPT'
+
+                potential = 'GTH-BLYP'
+                pp_file_name = None  # Use the default
+
+                method = 'GPW'
+            else:  # pragma: no-coverage
+                raise ValueError(f'XC functional "{xc_name}" not yet supported')
 
             # Inject the proper XC functional
             inp = _cp2k_inp
             inp = inp.replace('$XC$', xc_name)
+            inp = inp.replace('$METHOD$', method)
 
             # Get the cutoff
             assert (xc_name, basis_set_name) in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
@@ -182,17 +209,18 @@ METHOD ANDREUSSI
 
             return {
                 'name': 'cp2k',
-                'buffer_size': 5.0,
+                'buffer_size': 3.0,
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
                     uks=charge != 0,
                     inp=inp,
                     cutoff=cutoff * units.Ry,
-                    max_scf=10,
-                    basis_set_file='BASIS_MOLOPT',
+                    max_scf=32,
+                    basis_set_file=basis_set_file,
                     basis_set=basis_set_name,
-                    pseudo_potential='GTH-BLYP',
+                    pseudo_potential=potential,
+                    potential_file=pp_file_name,
                     poisson_solver=None,
                     stress_tensor=False,
                     command=self.cp2k_command)
