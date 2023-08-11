@@ -15,8 +15,8 @@ dependencies:
   - matplotlib
   - pymongo
 
-  # Quantum chemistry
-  - xtb-python==22.*
+  # Quantum chemistry (only MOPAC, no xTB)
+  - mopac
   - rdkit==2023.03.2
 
   # Use Conda PyTorch to avoid numpy and OpenMP disagreement
