@@ -75,6 +75,8 @@ class ASESimulator(BaseSimulator):
     - *Gaussian*: Supports any of the methods and basis sets of Gaussian
       using names of the format ``gaussian_[method]_[basis]``. Supply
       additional arguments to Gaussian as keyword arguments.
+    - *MOPAC*: Semiempirical quantum chemistry. Choose a method
+      by providing a configuration name of the form ``mopac_[method]``
     - *CP2K*: Supports only a few combinations of basis sets and XC functions,
       those for which we have determined appropriate cutoff energies:
       ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
