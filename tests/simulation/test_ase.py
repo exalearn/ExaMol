@@ -14,6 +14,11 @@ from examol.simulate.ase.utils import make_ephemeral_calculator
 from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.conversions import write_to_string
 
+try:
+    import xtb  # noqa: F401
+    has_xtb = True
+except ImportError:
+    has_xtb = False
 
 _files_dir = Path(__file__).parent / 'files'
 
@@ -124,7 +129,7 @@ def test_solvent(strc, tmpdir):
             assert db.count() == 1
 
 
-@mark.parametrize('config_name', ['xtb', 'mopac_pm7'])
+@mark.parametrize('config_name', ['mopac_pm7'] + (['xtb'] if has_xtb else []))
 def test_fast_methods(tmpdir, strc, config_name):
     sim = ASESimulator(scratch_dir=tmpdir)
 
