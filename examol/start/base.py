@@ -30,6 +30,8 @@ class Starter:
         """
         # Determine how many to pull
         count = max(self.min_to_select, count)
+        if count > len(to_select):
+            raise ValueError(f"Cannot select {count} molecules from {len(to_select)} molecules.")
 
         # Get the pool to draw from
         if self.max_to_consider is not None:
