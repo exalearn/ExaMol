@@ -8,12 +8,15 @@ channels:
 dependencies:
   - python==3.10.*
   - pandas==1.*
-  - xtb-python==22.*
   - scikit-learn>=1
   - pymongo
   - jupyterlab
   - matplotlib
   - pytest
+
+  # Quantum chemistry codes
+  - xtb-python==22.*
+  - mopac
 
   # Use Conda PyTorch to avoid OpenMP disagreement
   #  with xTB
