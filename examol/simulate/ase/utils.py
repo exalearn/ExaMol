@@ -57,6 +57,9 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     elif name == 'xtb':
         from xtb.ase.calculator import XTB
         yield XTB(*args, **kwargs)
+    elif name == 'mopac':
+        from ase.calculators.mopac import MOPAC
+        yield MOPAC(*args, **kwargs)
     else:
         raise ValueError('No such calculator')
 

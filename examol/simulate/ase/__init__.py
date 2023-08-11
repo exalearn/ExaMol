@@ -11,7 +11,7 @@ from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
 from ase.io.ulm import InvalidULMFileError
-from ase.optimize import LBFGSLineSearch
+from ase.optimize import QuasiNewton
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
 import examol.utils.conversions
@@ -75,6 +75,8 @@ class ASESimulator(BaseSimulator):
     - *Gaussian*: Supports any of the methods and basis sets of Gaussian
       using names of the format ``gaussian_[method]_[basis]``. Supply
       additional arguments to Gaussian as keyword arguments.
+    - *MOPAC*: Semiempirical quantum chemistry. Choose a method
+      by providing a configuration name of the form ``mopac_[method]``
     - *CP2K*: Supports only a few combinations of basis sets and XC functions,
       those for which we have determined appropriate cutoff energies:
       ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
@@ -104,11 +106,21 @@ class ASESimulator(BaseSimulator):
 
     def create_configuration(self, name: str, xyz: str, charge: int, solvent: str | None, **kwargs) -> dict:
         if name == 'xtb':
-            kwargs = {}
+            kwargs = {'accuracy': 0.05}
             if solvent is not None:
-                assert solvent in _xtb_solv_names
+                if solvent not in _xtb_solv_names:  # pragma: no-coverage
+                    raise ValueError(f'Solvent not defined: {solvent}')
                 kwargs['solvent'] = _xtb_solv_names[solvent]
-            return {'name': 'xtb', 'kwargs': kwargs, 'accuracy': 0.05}
+            return {'name': 'xtb', 'kwargs': kwargs}
+        elif name.startswith('mopac_'):
+            method = name.split("_")[-1]
+            kwargs = {'method': method.upper(), 'task': '1SCF GRADIENTS'}
+            if solvent is not None:
+                if solvent not in _solv_data:  # pragma: no-coverage
+                    raise ValueError(f'Solvent not defined: {solvent}')
+                _, e0 = _solv_data[solvent]
+                kwargs['task'] += f" EPS={e0}"  # Use the defaults for the other parameters
+            return {'name': 'mopac', 'kwargs': kwargs}
         elif name.startswith('gaussian_'):
             # Unpack the name
             if name.count("_") != 2:
@@ -245,7 +257,7 @@ METHOD ANDREUSSI
                 atoms.calc = calc
 
                 # Make the optimizer
-                dyn = LBFGSLineSearch(atoms, logfile='opt.log', trajectory=str(traj_path))
+                dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=str(traj_path))
 
                 # Reply the trajectory
                 if Path('history.traj').is_file():
@@ -304,7 +316,7 @@ METHOD ANDREUSSI
         """
         if 'cp2k' in config['name']:
             atoms.center(vacuum=config['buffer_size'])
-        elif 'xtb' in config['name']:
+        elif 'xtb' in config['name'] or 'mopac' in config['name']:
             utils.initialize_charges(atoms, charge)
 
     def compute_energy(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, forces: bool = True,
