@@ -25,7 +25,7 @@ if run_dir.is_dir():
     shutil.rmtree(run_dir)
 
 # Make the recipe
-recipe = RedoxEnergy(1, energy_config='xtb', solvent='acn')
+recipe = RedoxEnergy(1, energy_config='mopac_pm7', solvent='acn')
 
 # Make the scorer
 pipeline = make_knn_model()
