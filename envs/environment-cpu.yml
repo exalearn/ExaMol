@@ -7,17 +7,19 @@ channels:
   - pytorch
 dependencies:
   - python==3.10.*
-
-  # Basic numeric and data analysis libraries
   - pandas==1.*
   - scikit-learn>=1
-  - matplotlib
   - pymongo
+  - jupyterlab
+  - matplotlib
+  - pytest
 
-  # Quantum chemistry
+  # Quantum chemistry codes
   - xtb-python==22.*
+  - mopac
 
-  # Use Conda and TF PyTorch to avoid numpy and OpenMP disagreement
+  # Use Conda PyTorch to avoid OpenMP disagreement
+  #  with xTB
   - pytorch==2.0.*
   - cpuonly
   - tensorflow>=2=*cpu*
@@ -29,6 +31,10 @@ dependencies:
   - pip:
     # Need TF for NFP MPNNs
     - nfp
+
+    # Temporary: Use a patched version of ASE 
+    #  Fixes a bug in Gaussian parsing and has support for new MOPAC
+    - git+https://gitlab.com/wardlt/ase.git@gaussian-opt-fio
     
     # Need torch for BOTorch
     - -e ..[botorch,test]
