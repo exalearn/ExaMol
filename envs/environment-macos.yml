@@ -28,5 +28,9 @@ dependencies:
   - pytest
   - pip
   - pip:
+    # Temporary: Use a patched version of ASE
+    #  Fixes a bug in Gaussian parsing and has support for new MOPAC
+    - git+https://gitlab.com/wardlt/ase.git@gaussian-opt-fio
+
     # Need torch for BOTorch
     - -e ..[botorch,test]
