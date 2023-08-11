@@ -1,4 +1,3 @@
-import sys
 import logging
 from pathlib import Path
 
@@ -8,7 +7,6 @@ from examol.cli import main
 from examol import __version__
 
 _spec_dir = (Path(__file__).parent / '../../examples/redoxmers/').resolve()
-on_mac = (sys.platform == 'darwin')
 
 
 def test_version(capsys):
@@ -23,7 +21,6 @@ def test_dryrun(caplog, capsys):
     assert 'dry run' in caplog.messages[-1]
 
 
-@mark.skipif(on_mac, reason='Debugging')
 @mark.timeout(240)
 def test_full(caplog):
     with caplog.at_level(logging.INFO):
@@ -34,7 +31,6 @@ def test_full(caplog):
     assert (_spec_dir / 'run' / 'database.json').is_file()
 
 
-@mark.skipif(on_mac, reason='Debugging')
 @mark.timeout(240)
 def test_timeout(caplog):
     with caplog.at_level(logging.INFO):
