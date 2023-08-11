@@ -23,7 +23,7 @@ from examol.store.recipes import RedoxEnergy
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='xtb', vertical=True)
+    return RedoxEnergy(charge=1, energy_config='mopac_pm7', vertical=True)
 
 
 @fixture()
