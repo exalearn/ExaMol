@@ -43,6 +43,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt install -y cp2k
+    - name: Run example
+      run: examol run examples/redoxmers/spec.py:spec
     - name: Test with pytest
       run: pytest --cov=examol --timeout=300 tests
     - name: Coveralls
