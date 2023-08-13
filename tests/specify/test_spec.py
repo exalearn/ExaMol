@@ -31,7 +31,7 @@ def database(recipe, tmp_path) -> Path:
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(1, 'xtb')
+    return RedoxEnergy(1, 'mopac_pm7')
 
 
 @fixture()

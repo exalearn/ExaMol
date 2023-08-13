@@ -15,29 +15,38 @@ defaults:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    strategy:
+        matrix:
+          os: [ubuntu-latest, macos-latest]
+        max-parallel: 5
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v3
     - name: Set up environment
       uses: conda-incubator/setup-miniconda@v2
       with:
-        environment-file: envs/environment-cpu.yml
-        mamba-version: "*"
+        environment-file: ${{ matrix.os == 'ubuntu-latest' && 'envs/environment-cpu.yml' || 'envs/environment-macos.yml' }}
+        mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}
+    - name: Display Environment
+      run: conda list
     - name: Install test dependencies
       run: |
         pip install -e .[test]
     - name: Lint with flake8
       run: |
         pip install flake8
-        flake8 examol tests examples
-    - name: Add quantum chemistry tools
+        flake8 examol tests
+    - name: Add quantum chemistry tools (Linux)
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         sudo apt-get update
         sudo apt install -y cp2k
+    - name: Run example
+      run: examol run examples/redoxmers/spec.py:spec
     - name: Test with pytest
-      run: pytest --cov=examol --forked --timeout=300 tests
+      run: pytest --cov=examol --timeout=300 tests
     - name: Coveralls
       run: |
         pip install coveralls
