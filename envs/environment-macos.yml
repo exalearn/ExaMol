@@ -1,5 +1,5 @@
 # Environment with CPU-only packages meant for MacOS
-#  Installs packages needed for all features
+#  Installs packages needed for the examples
 name: examol
 channels:
   - defaults
