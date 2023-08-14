@@ -36,6 +36,16 @@ Start by creating or activating a virtual environment for ExaMol then invoke pip
 The default installation will install all _necessary_ packages but will skip some required for
 some components, such as ``tensorflow`` and ``nfp`` for the :class:`~examol.scorer.nfp.NFPScorer`.
 
+Running ExaMol on Mac
+---------------------
+
+The `environment-macos.yml <https://github.com/exalearn/ExaMol/blob/main/envs/environment-macos.yml>`_ is 
+designed to run on OS X. It will not run all features (e.g., xTB computations and Tensorflow-based models)
+but is enough to test many features
+
+.. code-block:: shell
+    conda env create --file envs/environment-cpu.yaml
+
 Modifying an Installation
 -------------------------
 

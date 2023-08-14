@@ -1,12 +1,15 @@
 import os
+import sys
 from math import isclose
 
 from ase.calculators.calculator import Calculator
 from ase.calculators.lj import LennardJones
 from ase.build import molecule
-from pytest import mark, fixture
+from pytest import mark, fixture, param
 
 from examol.simulate.ase.utils import make_ephemeral_calculator, initialize_charges
+
+on_mac = (sys.platform == 'darwin')
 
 
 @fixture()
@@ -18,8 +21,8 @@ def atoms():
 
 @mark.parametrize('calc', [
     LennardJones(),
-    {'name': 'cp2k', 'kwargs': {'label': 'test'}},
-    {'name': 'xtb'}
+    param({'name': 'cp2k', 'kwargs': {'label': 'test'}}, marks=mark.skipif(on_mac, reason='Do not test CP2K on Mac')),
+    param({'name': 'xtb'}, marks=mark.skipif(on_mac, reason='Do not test xTB on Mac'))
 ])
 def test_make(calc, atoms, tmpdir):
     os.chdir(tmpdir)

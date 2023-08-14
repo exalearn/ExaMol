@@ -1,6 +1,7 @@
 """Specification of the optimization problem"""
 from pathlib import Path
 import shutil
+import sys
 
 from parsl import Config, HighThroughputExecutor
 from proxystore.store import Store
@@ -25,7 +26,7 @@ if run_dir.is_dir():
     shutil.rmtree(run_dir)
 
 # Make the recipe
-recipe = RedoxEnergy(1, energy_config='xtb', solvent='acn')
+recipe = RedoxEnergy(1, energy_config='mopac_pm7', solvent='acn')
 
 # Make the scorer
 pipeline = make_knn_model()
@@ -36,8 +37,9 @@ reporter = MarkdownReporter()
 writer = DatabaseWriter()
 
 # Make the parsl (compute) and proxystore (optional data fabric) configuration
+is_mac = sys.platform == 'darwin'
 config = Config(
-    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='block', address='localhost')],
+    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='none' if is_mac else 'block', address='127.0.0.1')],
     run_dir=str((my_path / 'parsl-logs')),
 )
 store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)

@@ -136,5 +136,5 @@ class FingerprintTransformer(BaseEstimator, TransformerMixin):
         """
 
         with ProcessPoolExecutor(max_workers=self.n_jobs) as pool:
-            fing = pool.map(self.function, X)
+            fing = list(pool.map(self.function, X))
         return np.vstack(fing)

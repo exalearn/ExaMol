@@ -23,7 +23,7 @@ from examol.store.recipes import RedoxEnergy
 
 @fixture()
 def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='xtb', vertical=True)
+    return RedoxEnergy(charge=1, energy_config='mopac_pm7', vertical=True)
 
 
 @fixture()
@@ -71,7 +71,7 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     # Make parsl configuration
     config = Config(
         run_dir=str(tmp_path),
-        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='localhost')]
+        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='127.0.0.1')]
     )
 
     doer = ParslTaskServer(
