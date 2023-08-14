@@ -46,8 +46,10 @@ jobs:
     - name: Run example
       run: examol run examples/redoxmers/spec.py:spec
     - name: Test with pytest
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: pytest --cov=examol --timeout=300 tests
     - name: Coveralls
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         pip install coveralls
         coveralls --service=github

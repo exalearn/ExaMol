@@ -1,4 +1,5 @@
 """Test single objective optimizer"""
+import sys
 import json
 import logging
 from pathlib import Path
@@ -19,6 +20,8 @@ from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
+
+on_mac = (sys.platform == 'darwin')
 
 
 @fixture()
@@ -107,6 +110,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
 
 
 @mark.timeout(120)
+@mark.skipif(on_mac, reason='Skip parsl-related tests on Mac')
 def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
@@ -137,6 +141,7 @@ def test_thinker(thinker: SingleStepThinker, training_set, caplog):
 
 
 @mark.timeout(120)
+@mark.skipif(on_mac, reason='Skip parsl-related tests on Mac')
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 

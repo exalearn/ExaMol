@@ -20,3 +20,11 @@ examol.select.fast
    :members:
    :undoc-members:
    :show-inheritance:
+
+examol.select.kmeans
+--------------------
+
+.. automodule:: examol.start.kmeans
+   :members:
+   :undoc-members:
+   :show-inheritance:
