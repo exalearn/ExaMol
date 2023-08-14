@@ -142,7 +142,7 @@ class SingleStepThinker(MoleculeThinker):
         # If not, pick some
         self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
         needed = self.starter.threshold - train_size
-        subset = self.starter.select(interleave_longest(*self.search_space_keys), needed)
+        subset = self.starter.select(list(interleave_longest(*self.search_space_keys)), needed)
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
             for key in subset:
