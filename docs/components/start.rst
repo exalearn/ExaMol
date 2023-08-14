@@ -18,6 +18,9 @@ ExaMol provides a few different start methods
    * - :class:`~examol.start.fast.RandomStarter`
      - Fast
      - 100M
+   * - :class:`~examol.start.kmeans.KMeansStarter`
+     - KMeans
+     - 100K
 
 Using a Starter
 ---------------
