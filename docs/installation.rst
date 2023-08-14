@@ -39,7 +39,7 @@ some components, such as ``tensorflow`` and ``nfp`` for the :class:`~examol.scor
 Running ExaMol on Mac
 ---------------------
 
-The [environment-macos.yml](https://github.com/exalearn/ExaMol/blob/main/envs/environment-macos.yml) is 
+The `environment-macos.yml <https://github.com/exalearn/ExaMol/blob/main/envs/environment-macos.yml>`_ is 
 designed to run on OS X. It will not run all features (e.g., xTB computations and Tensorflow-based models)
 but is enough to test many features
 
