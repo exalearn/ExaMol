@@ -16,6 +16,12 @@ from examol.simulate.ase.utils import make_ephemeral_calculator
 from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.conversions import write_to_string
 
+try:
+    import xtb  # noqa: F401
+    has_xtb = True
+except ImportError:
+    has_xtb = False
+
 _files_dir = Path(__file__).parent / 'files'
 
 has_cpk2 = shutil.which('cp2k_shell') is not None
@@ -82,10 +88,10 @@ def test_xtb_configs(tmpdir, strc):
     sim = ASESimulator(scratch_dir=tmpdir)
     # For xTB
     config = sim.create_configuration('xtb', strc, charge=0, solvent=None)
-    assert config['kwargs'] == {}
+    assert config['kwargs'] == {'accuracy': 0.05}
 
     config = sim.create_configuration('xtb', strc, charge=0, solvent='acn')
-    assert config['kwargs'] == {'solvent': 'acetonitrile'}
+    assert config['kwargs'] == {'solvent': 'acetonitrile', 'accuracy': 0.05}
 
 
 @mark.parametrize('config_name', ['cp2k_blyp_szv', 'xtb'])
@@ -151,19 +157,20 @@ def test_solvent(strc, tmpdir):
             assert db.count() == 1
 
 
-def test_xtb(tmpdir, strc):
+@mark.parametrize('config_name', ['mopac_pm7'] + (['xtb'] if has_xtb else []))
+def test_fast_methods(tmpdir, strc, config_name):
     sim = ASESimulator(scratch_dir=tmpdir)
 
     # Ensure we get a different single point energy
-    neutral, _ = sim.compute_energy('name', strc, config_name='xtb', charge=0)
-    charged, _ = sim.compute_energy('name', strc, config_name='xtb', charge=1)
-    solvated, _ = sim.compute_energy('name', strc, config_name='xtb', charge=0, solvent='acn')
+    neutral, _ = sim.compute_energy('name', strc, config_name=config_name, charge=0)
+    charged, _ = sim.compute_energy('name', strc, config_name=config_name, charge=1)
+    solvated, _ = sim.compute_energy('name', strc, config_name=config_name, charge=0, solvent='acn')
     assert neutral.energy != charged.energy
     assert neutral.energy != solvated.energy
 
     # Ensure it relaxes under charge
-    charged_opt, _, _ = sim.optimize_structure('name', strc, config_name='xtb', charge=-1)
-    charged_opt_neutral, _ = sim.compute_energy('name', charged_opt.xyz, config_name='xtb', charge=0)
+    charged_opt, _, _ = sim.optimize_structure('name', strc, config_name=config_name, charge=-1)
+    charged_opt_neutral, _ = sim.compute_energy('name', charged_opt.xyz, config_name=config_name, charge=0)
     assert charged_opt.energy != charged_opt_neutral.energy
 
 

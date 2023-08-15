@@ -30,6 +30,10 @@ that are validated for the `recipes <store.html#recipes>`_ available through Exa
       - |ASESimulator|
       - Gaussian
       - Any method and basis set supported by Gaussian. Replace ``[method]`` and ``[basis]`` with desired settings
+    * - mopac_[method]
+      - |ASESimulator|
+      - MOPAC
+      - Any method supported by `MOPAC <http://openmopac.net/>`_. Replace ``[method]`` with the lower case method name
     * - cp2k_blyp_szv
       - |ASESimulator|
       - CP2K

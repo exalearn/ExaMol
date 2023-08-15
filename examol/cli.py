@@ -4,6 +4,7 @@ import os
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
+from time import sleep
 
 from rdkit import RDLogger
 from proxystore.store import get_store
@@ -80,10 +81,15 @@ def run_examol(args):
         logger.info('Launched the thinker. Waiting a second before launching the reporters')
 
         # Start the monitors
+        sleep(1.)
         for reporter in spec.reporters:
             reporter_threads.append(reporter.monitor(thinker, args.report_freq))
         logger.info('Launched the reporting threads')
 
+        # Make sure the doer is alive
+        if not doer.is_alive():  # no-coverage:
+            doer.join()
+            raise ValueError(f'Doer process exited with status code {doer.exitcode}')
         thinker.join(timeout=args.timeout)  # Wait until it completes
     except TimeoutError:
         logger.info('Hit timeout. Sending stop signal to Thinker then blocking until all ongoing tasks complete')
