@@ -2,7 +2,7 @@
 from examol.simulate.ase import ASESimulator
 from examol.simulate.base import SimResult
 from parsl.executors import HighThroughputExecutor
-from parsl.addresses import address_by_hostname
+from parsl.addresses import address_by_interface
 from parsl.launchers import SimpleLauncher, SrunLauncher
 from parsl.providers import PBSProProvider, SlurmProvider
 from parsl.app.python import PythonApp
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     )
 
     # Load in the geometries
-    optimizations = pd.read_json('output.json', lines=True)
+    optimizations = pd.read_json('optimization.json', lines=True)
     optimizations.query(f'config_name=="{config_name}"', inplace=True)
     print(f'Loaded {len(optimizations)} optimized geometries for {config_name}')
 
@@ -59,9 +59,9 @@ if __name__ == "__main__":
     # Make the parsl configuration
     if args.system == 'polaris':
         htex = HighThroughputExecutor(
-            address=address_by_hostname(),
+            address=address_by_interface('bond0'),
             prefetch_capacity=0,  # Increase if you have many more tasks than workers
-            start_method="fork",  # Needed to avoid interactions between MPI and os.fork
+            start_method="spawn",  # Needed to avoid interactions between MPI and os.fork
             max_workers=args.num_parallel,
             provider=PBSProProvider(
                 account="CSC249ADCD08",
@@ -78,14 +78,14 @@ pwd
 mkdir -p /tmp/hostfiles/$PBS_JOBID
 split --lines={args.nodes_per_task} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE /tmp/hostfiles/$PBS_JOBID/local_hostfile.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                walltime="6:00:00",
+                walltime="2:00:00",
                 queue="preemptable",
                 scheduler_options="#PBS -l filesystems=home:eagle:grand",
                 launcher=SimpleLauncher(),
                 select_options="ngpus=4",
                 nodes_per_block=args.num_parallel * args.nodes_per_task,
                 min_blocks=0,
-                max_blocks=10,
+                max_blocks=2,
                 cpus_per_node=64,
             ),
         )
@@ -135,7 +135,7 @@ export GAUSS_LFLAGS="-vv"''',
         # Upack the result to get the xyz
         result: SimResult = pkl.loads(b64decode(row['result']))[0]  # second part is metadata
 
-        future = app(result.xyz, charge=row['charge'], solvent=args.solvent, config_name=config_name)
+        future = app(row['smiles'], result.xyz, charge=row['charge'], solvent=args.solvent, config_name=config_name)
         future.info = {'filename': row['filename'], 'smiles': row['smiles'], 'charge': row['charge']}
         futures.append(future)
 
