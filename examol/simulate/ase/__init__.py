@@ -31,7 +31,7 @@ _cutoff_lookup: dict[tuple[str, str], float] = {
     ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
     ('B3LYP', 'def2-SVP'): 500.,
     ('B3LYP', 'def2-TZVPD'): 500.,
-    ('WB97X_D3', 'def2-TZVPD'): 500.,
+    ('WB97X_D3', 'def2-TZVPD'): 600.,
 }
 
 # Base input file
@@ -43,7 +43,7 @@ _cp2k_inp = """&FORCE_EVAL
   &END XC
   &POISSON
      PERIODIC NONE
-     PSOLVER WAVELET
+     PSOLVER MT
   &END POISSON
   &MGRID
     NGRIDS 5
@@ -215,7 +215,7 @@ METHOD ANDREUSSI
 
             return {
                 'name': 'cp2k',
-                'buffer_size': 3.0,
+                'buffer_size': 6.0,
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
