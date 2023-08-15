@@ -158,7 +158,8 @@ def test_solvent(strc, tmpdir):
 
 
 @mark.parametrize('config_name', ['mopac_pm7'] + (['xtb'] if has_xtb else []))
-def test_fast_methods(tmpdir, strc, config_name):
+def test_fast_methods(tmpdir, config_name):
+    strc = write_to_string(molecule('CH4'), 'xyz')
     sim = ASESimulator(scratch_dir=tmpdir)
 
     # Ensure we get a different single point energy

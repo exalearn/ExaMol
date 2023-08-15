@@ -243,6 +243,8 @@ METHOD ANDREUSSI
                     stress_tensor=False,
                     command=self.cp2k_command)
             }
+        else:  # pragma: no-cover
+            raise ValueError(f'Configuration not supported: {name}')
 
     def optimize_structure(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
