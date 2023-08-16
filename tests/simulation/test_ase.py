@@ -94,7 +94,7 @@ def test_xtb_configs(tmpdir, strc):
     assert config['kwargs'] == {'solvent': 'acetonitrile', 'accuracy': 0.05}
 
 
-@mark.parametrize('config_name', ['cp2k_blyp_szv', param('xtb', marks=mark.skipif(not has_xtb, 'xTB is not installed'))])
+@mark.parametrize('config_name', ['cp2k_blyp_szv', param('xtb', marks=mark.skipif(not has_xtb, reason='xTB is not installed'))])
 def test_optimization(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = Path(tmpdir) / 'data.db'
