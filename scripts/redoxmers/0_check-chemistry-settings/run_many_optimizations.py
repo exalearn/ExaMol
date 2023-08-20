@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('--system', choices=['bebop', 'local', 'polaris'], help='The system on which we are running')
     parser.add_argument('--configuration', default='cp2k_blyp_szv', help='Name of the ExaMol configuration')
     parser.add_argument('--nodes-per-task', default=1, type=int, help='Number of nodes to use per task')
-    parser.add_argument('--num-parallel', default=2, type=int, help='Number of nodes to run in parallel')
+    parser.add_argument('--num-parallel', default=2, type=int, help='Number of jobs per block')
     parser.add_argument('--max-to-run', default=None, type=int, help='Maximum number of tasks to run')
     args = parser.parse_args()
     config_name = args.configuration
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         htex = HighThroughputExecutor(
             address=address_by_interface('bond0'),
             prefetch_capacity=0,  # Increase if you have many more tasks than workers
-            start_method="fork",  # Needed to avoid interactions between MPI and os.fork
+            start_method="spawn",  # Needed to avoid interactions between MPI and os.fork
             max_workers=args.num_parallel,
             provider=PBSProProvider(
                 account="CSC249ADCD08",
@@ -71,21 +71,21 @@ pwd
 mkdir -p /tmp/hostfiles/$PBS_JOBID
 split --lines={args.nodes_per_task} --numeric-suffixes=1 --suffix-length=2 $PBS_NODEFILE /tmp/hostfiles/$PBS_JOBID/local_hostfile.
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env""",
-                walltime="6:00:00",
+                walltime="12:00:00",
                 queue="preemptable",
                 scheduler_options="#PBS -l filesystems=home:eagle:grand",
                 launcher=SimpleLauncher(),
                 select_options="ngpus=4",
                 nodes_per_block=args.num_parallel * args.nodes_per_task,
                 min_blocks=0,
-                max_blocks=2,
+                max_blocks=4,
                 cpus_per_node=64,
             ),
         )
         sim.cp2k_command = (f'mpiexec -n {args.nodes_per_task * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                             f'--hostfile /tmp/hostfiles/$PBS_JOBID/local_hostfile.`printf %02d $((PARSL_WORKER_RANK+1))` '
                             '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
-                            '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp')
+                            '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-2023.2/exe/local_cuda/cp2k_shell.psmp')
     elif args.system == 'bebop':
         htex = HighThroughputExecutor(
             label='bebop_gaussian',
@@ -144,7 +144,7 @@ export GAUSS_LFLAGS="-vv"''',
         exc = future.exception()
         if exc is not None:
             with open('failures.json', 'a') as fp:
-                print(json.dumps({**future.info, 'exception': str(exc)}), file=fp)
+                print(json.dumps({**future.info, 'config': config_name, 'exception': str(exc)}), file=fp)
             continue
 
         with open('optimization.json', 'a') as fp:
