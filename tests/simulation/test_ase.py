@@ -1,3 +1,5 @@
+import itertools
+import os
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -5,7 +7,7 @@ from unittest.mock import patch
 from ase import units
 from ase.calculators.gaussian import Gaussian
 from ase.db import connect
-from pytest import mark, fixture, raises
+from pytest import mark, fixture, raises, param
 from ase.build import molecule
 from ase.calculators.lj import LennardJones
 
@@ -22,6 +24,11 @@ except ImportError:
 
 _files_dir = Path(__file__).parent / 'files'
 
+has_cpk2 = shutil.which('cp2k_shell') is not None
+is_ci = os.environ.get('CI', None) == "true"
+
+cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x-d3_tzvpd']
+
 
 class FakeCP2K(LennardJones):
 
@@ -34,7 +41,7 @@ class FakeCP2K(LennardJones):
 
 @fixture()
 def strc() -> str:
-    atoms = molecule('H2O')
+    atoms = molecule('H2')
     return write_to_string(atoms, 'xyz')
 
 
@@ -43,17 +50,38 @@ def test_cp2k_configs(tmpdir, strc):
 
     # Easy example
     config = sim.create_configuration('cp2k_blyp_szv', strc, charge=0, solvent=None)
-    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
 
     # With a charge
     config = sim.create_configuration('cp2k_blyp_szv', strc, charge=1, solvent=None)
-    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
+
+    # With B3LYP
+    config = sim.create_configuration('cp2k_b3lyp_tzvpd', strc, charge=1, solvent=None)
+    assert config['kwargs']['cutoff'] == 500 * units.Ry
+    assert config['kwargs']['charge'] == 1
+    assert config['kwargs']['uks']
+    assert 'GAPW' in config['kwargs']['inp']
+    assert Path(config['kwargs']['basis_set_file']).is_file()
 
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
+
+
+@mark.skipif(is_ci, reason='Too slow for CI')
+@mark.skipif(not has_cpk2, reason='CP2K is not installed')
+@mark.parametrize(
+    'config,charge,solvent',
+    [(xc, c, None) for xc, c in itertools.product(cp2k_configs_to_test, [0, 1])]  # Closed and open shell
+    + [(xc, 0, 'acn') for xc in cp2k_configs_to_test]  # With a solvent
+    + [(cp2k_configs_to_test[0], -1, 'acn')]  # Open shell and a solvent
+)
+def test_ase_singlepoint(tmpdir, strc, config, charge, solvent):
+    sim = ASESimulator(scratch_dir=tmpdir)
+    sim.compute_energy('test', strc, config_name=config, charge=charge, solvent=solvent)
 
 
 def test_xtb_configs(tmpdir, strc):
@@ -66,7 +94,7 @@ def test_xtb_configs(tmpdir, strc):
     assert config['kwargs'] == {'solvent': 'acetonitrile', 'accuracy': 0.05}
 
 
-@mark.parametrize('config_name', ['cp2k_blyp_szv'])
+@mark.parametrize('config_name', ['cp2k_blyp_szv', param('xtb', marks=mark.skipif(not has_xtb, reason='xTB is not installed'))])
 def test_optimization(config_name: str, strc, tmpdir):
     with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
         db_path = Path(tmpdir) / 'data.db'
@@ -91,7 +119,7 @@ def test_optimization(config_name: str, strc, tmpdir):
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
-        (run_dir / 'lbfgs.traj').write_text('bad')  # Kill the restart file
+        (run_dir / 'opt.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
             assert len(db) == len(traj_res)
@@ -130,7 +158,8 @@ def test_solvent(strc, tmpdir):
 
 
 @mark.parametrize('config_name', ['mopac_pm7'] + (['xtb'] if has_xtb else []))
-def test_fast_methods(tmpdir, strc, config_name):
+def test_fast_methods(tmpdir, config_name):
+    strc = write_to_string(molecule('CH4'), 'xyz')
     sim = ASESimulator(scratch_dir=tmpdir)
 
     # Ensure we get a different single point energy
@@ -185,7 +214,8 @@ def test_gaussian_configs(strc):
     assert not config['use_gaussian_opt']
 
 
-def test_gaussian_opt(strc, tmpdir):
+def test_gaussian_opt(tmpdir):
+    strc = write_to_string(molecule('H2O'), 'xyz')
     sim = ASESimulator(gaussian_command='g16', scratch_dir=tmpdir)
 
     if shutil.which('g16') is None:

@@ -73,3 +73,20 @@ def initialize_charges(atoms: ase.Atoms, charge: int):
     """
     charges = np.ones((len(atoms),)) * (charge / len(atoms))
     atoms.set_initial_charges(charges)
+
+
+def add_vacuum_buffer(atoms: ase.Atoms, buffer_size: float, cubic: bool = False):
+    """Add a vacuum buffer around a molecule
+
+    Args:
+        atoms: Atoms object to be edited
+        buffer_size: Length of vacuum on each side of the molecule (unit: Angstrom)
+        cubic: Whether the resultant box should be cubic
+    """
+
+    if cubic:
+        atoms.positions -= atoms.positions.min(axis=0)
+        atoms.cell = [atoms.positions.max() + buffer_size * 2] * 3
+        atoms.positions += atoms.cell.max(axis=0) / 2 - atoms.positions.mean(axis=0)
+    else:
+        atoms.center(vacuum=buffer_size)

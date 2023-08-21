@@ -34,18 +34,21 @@ that are validated for the `recipes <store.html#recipes>`_ available through Exa
       - |ASESimulator|
       - MOPAC
       - Any method supported by `MOPAC <http://openmopac.net/>`_. Replace ``[method]`` with the lower case method name
-    * - cp2k_blyp_szv
+    * - cp2k_blyp_[basis]
       - |ASESimulator|
       - CP2K
-      - Gaussian-Augmented Plane Wave DFT with a BLYP XC function and the SZV-GTH basis set
-    * - cp2k_blyp_dzvp
+      - Gaussian Plane Wave DFT with a BLYP XC function and GTH basis sets.
+        Supports a basis of ``szv`` or ``dzvp`` for the ``SZV-MOLOPT-GTH`` and ``DZVP-MOLOPT-GTH``, respectively.
+    * - cp2k_b3lyp_[basis]
       - |ASESimulator|
       - CP2K
-      - Gaussian-Augmented Plane Wave DFT with a BLYP XC function and the DZVP-GTH basis set
-    * - cp2k_blyp_tzvp
+      - Gaussian-Augmented Plane Wave DFT with a B3LYP XC function.
+        Supports a basis of ``svp`` or ``tzvpd`` for the ``def2-SVP`` and ``def2-TZVPD``, respectively.
+    * - cp2k_wb97x-d3_[basis]
       - |ASESimulator|
       - CP2K
-      - Gaussian-Augmented Plane Wave DFT with a BLYP XC function and the TZVP-GTH basis set
+      - Gaussian-Augmented Plane Wave DFT with a ωB97x-D3 XC function.
+        Supports a basis of ``tzvpd`` for the ``def2-TZVPD``.
 
 
 After selecting a level of accuracy, select the interface needed to run it.

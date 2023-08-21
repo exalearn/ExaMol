@@ -1,6 +1,7 @@
 """Utilities for simulation using ASE"""
 import json
 import os
+import re
 from hashlib import sha512
 from pathlib import Path
 from shutil import rmtree, move
@@ -10,37 +11,50 @@ import ase
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
-from ase.io.ulm import InvalidULMFileError
 from ase.optimize import QuasiNewton
+from ase.io.ulm import InvalidULMFileError
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
 import examol.utils.conversions
 from . import utils
+from .utils import add_vacuum_buffer
 from ..base import BaseSimulator, SimResult
 
+# Location of additional basis sets
+_cp2k_basis_set_dir = (Path(__file__).parent / 'cp2k-basis').resolve()
+
 # Mapping between basis set and a converged cutoff energy
-#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/mt/converge-parameters-mt.ipynb
+#  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/
 #  We increase the cutoff slightly to be on the safe side
-_cutoff_lookup = {
-    'TZVP-GTH': 850.,
-    'DZVP-GTH': 600.,
-    'SZV-GTH': 600.
+_cutoff_lookup: dict[tuple[str, str], float] = {
+    ('BLYP', 'SZV-MOLOPT-GTH'): 700.,
+    ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
+    ('B3LYP', 'def2-SVP'): 500.,
+    ('B3LYP', 'def2-TZVPD'): 500.,
+    ('WB97X_D3', 'def2-TZVPD'): 600.,
 }
 
 # Base input file
 _cp2k_inp = """&FORCE_EVAL
 &DFT
   &XC
-     &XC_FUNCTIONAL BLYP
+     &XC_FUNCTIONAL $XC$
      &END XC_FUNCTIONAL
   &END XC
   &POISSON
      PERIODIC NONE
      PSOLVER MT
   &END POISSON
+  &MGRID
+    NGRIDS 5
+    REL_CUTOFF 60
+  &END MGRID
+  &QS
+    METHOD $METHOD$
+  &END QS
   &SCF
     &OUTER_SCF
-     MAX_SCF 9
+      MAX_SCF 5
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -79,7 +93,7 @@ class ASESimulator(BaseSimulator):
       by providing a configuration name of the form ``mopac_[method]``
     - *CP2K*: Supports only a few combinations of basis sets and XC functions,
       those for which we have determined appropriate cutoff energies:
-      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_blyp_tzvp``
+      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_b3lyp_svp``, ``cp2k_b3lyp_tzvpd``
 
 
     Args:
@@ -98,7 +112,7 @@ class ASESimulator(BaseSimulator):
                  clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None,
                  retain_failed: bool = True):
-        super().__init__(scratch_dir)
+        super().__init__(scratch_dir, retain_failed=retain_failed)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
         self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
@@ -154,17 +168,46 @@ class ASESimulator(BaseSimulator):
                     **kwargs
                 }
             }
-        elif name.startswith('cp2k_blyp'):
+        elif name.startswith('cp2k_'):
             # Get the name the basis set
-            basis_set_id = name.rsplit('_')[-1]
-            basis_set_name = f'{basis_set_id}-GTH'.upper()
+            xc_name, basis_set_id = name.rsplit('_')[-2:]
+            xc_name = xc_name.upper()
+
+            # Determine the proper basis set, pseudopotential, and method
+            if xc_name in ['B3LYP', 'WB97X-D3']:
+                xc_name = xc_name.replace("-", "_")  # Underscores used in LibXC
+                xc_section = f'\n&HYB_GGA_XC_{xc_name}\n&END HYB_GGA_XC_{xc_name}'
+
+                basis_set_name = f'def2-{basis_set_id.upper()}'
+                basis_set_file = _cp2k_basis_set_dir / 'DEF2_BASIS_SETS'
+
+                potential = 'ALL'
+                pp_file_name = 'ALL_POTENTIALS'
+
+                method = 'GAPW'
+            elif xc_name == 'BLYP':
+                xc_section = xc_name
+
+                basis_set_name = f'{basis_set_id}-MOLOPT-GTH'.upper()
+                basis_set_file = 'BASIS_MOLOPT'
+
+                potential = 'GTH-BLYP'
+                pp_file_name = None  # Use the default
+
+                method = 'GPW'
+            else:  # pragma: no-coverage
+                raise ValueError(f'XC functional "{xc_name}" not yet supported')
+
+            # Inject the proper XC functional
+            inp = _cp2k_inp
+            inp = inp.replace('$XC$', xc_section)
+            inp = inp.replace('$METHOD$', method)
 
             # Get the cutoff
-            assert basis_set_name in _cutoff_lookup, f'Cutoff energy not defined for {basis_set_name}'
-            cutoff = _cutoff_lookup[basis_set_name]
+            assert (xc_name, basis_set_name) in _cutoff_lookup, f'Cutoff energy not defined for {xc_name}//{basis_set_name}'
+            cutoff = _cutoff_lookup[(xc_name, basis_set_name)]
 
             # Add solvent information, if desired
-            inp = _cp2k_inp
             if solvent is not None:
                 assert solvent in _solv_data, f"Solvent {solvent} not defined. Available: {', '.join(_solv_data.keys())}"
                 gamma, e0 = _solv_data[solvent]
@@ -184,21 +227,24 @@ METHOD ANDREUSSI
 
             return {
                 'name': 'cp2k',
-                'buffer_size': 10.0,
+                'buffer_size': 6.0,
                 'kwargs': dict(
                     xc=None,
                     charge=charge,
                     uks=charge != 0,
                     inp=inp,
                     cutoff=cutoff * units.Ry,
-                    max_scf=10,
-                    basis_set_file='GTH_BASIS_SETS',
+                    max_scf=32,
+                    basis_set_file=str(basis_set_file),
                     basis_set=basis_set_name,
-                    pseudo_potential='GTH-BLYP',
+                    pseudo_potential=potential,
+                    potential_file=pp_file_name,
                     poisson_solver=None,
                     stress_tensor=False,
                     command=self.cp2k_command)
             }
+        else:  # pragma: no-cover
+            raise ValueError(f'Configuration not supported: {name}')
 
     def optimize_structure(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
@@ -219,11 +265,13 @@ METHOD ANDREUSSI
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
-                # Buffer the cell if using CP2K
+                # Prepare the structure for a specific code
+                if 'cp2k' in config_name:
+                    calc_cfg['buffer_size'] *= 1.5  # In case the molecule expands
                 self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Recover the history from a previous run
-                traj_path = Path('lbfgs.traj')
+                traj_path = Path('opt.traj')
                 if traj_path.is_file():
                     try:
                         # Overwrite our atoms with th last in the trajectory
@@ -315,7 +363,7 @@ METHOD ANDREUSSI
             config: Configuration detail
         """
         if 'cp2k' in config['name']:
-            atoms.center(vacuum=config['buffer_size'])
+            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
         elif 'xtb' in config['name'] or 'mopac' in config['name']:
             utils.initialize_charges(atoms, charge)
 
