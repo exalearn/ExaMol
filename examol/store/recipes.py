@@ -153,11 +153,11 @@ class PropertyRecipe:
                     )
                     continue
 
-                # Get the conformer with the closest charge or the most-recent addition
-                best_score = (float('inf'), float('inf'))
+                # Preference conformers created using the same method followed by same charge, followed by creation date
+                best_score = (True, float('inf'), float('inf'))
                 best_xyz = None
                 for conf in record.conformers:
-                    my_score = (abs(conf.charge - geometry.charge), -conf.date_created.timestamp())
+                    my_score = (conf.config_name != geometry.config_name, abs(conf.charge - geometry.charge), -conf.date_created.timestamp())
                     if my_score < best_score:
                         best_score = my_score
                         best_xyz = conf.xyz
