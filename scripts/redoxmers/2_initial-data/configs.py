@@ -27,22 +27,24 @@ def make_theta_config() -> tuple[Config, ASESimulator, list[str]]:
     """Make a configuration that will run computations locally"""
 
     config = Config(
+        retries=1,
         executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers=16,
                 cpu_affinity='block',
                 address=address_by_interface('vlan2360'),
                 provider=CobaltProvider(
-                    queue='debug-flat-quad',
+                    queue='default',
                     account='CSC249ADCD08',
                     launcher=AprunLauncher(overrides="-d 64 --cc depth"),
-                    walltime='00:30:00',
-                    nodes_per_block=2,
+                    walltime='1:00:00',
+                    nodes_per_block=128,
                     max_blocks=1,
-                    worker_init='''module load conda; source activate /lus/grand/projects/CSC249ADCD08/ExaMol/env-theta''',
+                    scheduler_options='#COBALT --attrs filesystems=home,theta-fs0:enable_ssh=1',
+                    worker_init='''module load miniconda-3; source activate /lus/grand/projects/CSC249ADCD08/ExaMol/env-theta; hostname''',
                     cmd_timeout=120,
                 ),
             )]
     )
-    sim = ASESimulator(scratch_dir='run_data')
+    sim = ASESimulator(scratch_dir='run_data', retain_failed=False)  # Reduce the disk footprint
     return config, sim, ['xtb', 'mopac_pm7']

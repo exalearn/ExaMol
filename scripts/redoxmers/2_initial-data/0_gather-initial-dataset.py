@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('--config-function', default='make_local_config', help='Name of the configuration function from `config.py`')
     parser.add_argument('--num-to-run', default=None, help='Maximum number of molecules to run', type=int)
     parser.add_argument('--halt-on-error', action='store_true', help='Halt the workflow if a single task fails')
+    parser.add_argument('--write-frequency', default=5, help='Minimum frequency of saving database', type=float)
     args = parser.parse_args()
 
     # Make a logger
@@ -70,11 +71,10 @@ if __name__ == "__main__":
 
     #  Get the right computational environment
     config_fn = getattr(configs, args.config_function)
-    config, sim, energy_configs = configs.make_local_config()
+    config, sim, energy_configs = config_fn()
     my_logger.info(f'Loaded configuration function "{args.config_function}"')
 
     # Get the recipes we should run
-    energy_configs = ['mopac_pm7', 'xtb']
     recipes = []
     for energy_level in energy_configs:
         for charge in [-1, 1]:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 # Compute the property
                 recipe.update_record(my_record)
             except ValueError as e:
-                logger.error(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error {e}')
+                logger.warning(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error: {e}')
                 if args.halt_on_error:
                     raise
                 return []
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     # Store and submit new records as they complete
     while len(futures) > 0:
         # Wait until all completed or 5s
-        done, futures = wait(futures, timeout=5, return_when=ALL_COMPLETED)
+        done, futures = wait(futures, timeout=args.write_frequency, return_when=ALL_COMPLETED)
 
         # Process completed records
         if len(done) == 0:
@@ -160,7 +160,13 @@ if __name__ == "__main__":
             record = dataset[future.key]
 
             # Update the record
-            result = future.result()
+            try:
+                result = future.result()
+            except BaseException as e:
+                my_logger.warning(f'Computation failed for {record.key}. Error: {e}')
+                if args.halt_on_error:
+                    raise
+                continue
             if future.optimize:
                 sim_result, steps, metadata = result
                 simulation_records.extend([sim_result] + steps)
@@ -187,6 +193,7 @@ if __name__ == "__main__":
         my_logger.info(f'Wrote updated dataset to {dataset_path}')
 
         # Write the energy/forces to disk
+        #  TODO (wardlt): Write to a temporary path and then copy
         with records_path.open('a') as fp:
             for record in simulation_records:
                 print(record.json(), file=fp)
