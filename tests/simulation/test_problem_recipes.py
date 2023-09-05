@@ -14,7 +14,7 @@ is_mac = platform.startswith("darwin")
 @fixture()
 def simulator() -> ASESimulator:
     simulator = ASESimulator(clean_after_run=False)
-    rmtree(simulator.scratch_dir)
+    rmtree(simulator.scratch_dir, ignore_errors=True)
     return simulator
 
 
