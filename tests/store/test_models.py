@@ -119,3 +119,24 @@ def test_properties(record):
 def test_problematic_smiles():
     record = MoleculeRecord.from_identifier("C1=CC=[N+](C=C1)CCOS(=O)(=O)[O-]")
     assert parse_from_molecule_string(record.identifier.inchi) is not None
+
+
+def test_match_opt_only(record, sim_result):
+    """Test matching conformers with and without filtering by whether they were optimized"""
+
+    # Add energy records for a neutral w/ and w/o charge
+    original_energy = sim_result.energy
+    assert record.add_energies(sim_result)
+    sim_result.charge = 1
+    assert not record.add_energies(sim_result)
+
+    # Add an adiabatic geometry, and make it higher in energy
+    sim_result.xyz = sim_result.xyz.replace("0.000", "0.010")
+    sim_result.energy += 1
+    assert record.add_energies(sim_result)
+
+    assert len(record.conformers) == 2
+
+    # Getting the conformer w/o filtering should be the original energy, filtering should yield the new higher energy
+    assert record.find_lowest_conformer(sim_result.config_name, 1, None, optimized_only=False)[1] == original_energy
+    assert record.find_lowest_conformer(sim_result.config_name, 1, None, optimized_only=True)[1] == sim_result.energy

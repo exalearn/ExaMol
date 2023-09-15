@@ -19,16 +19,19 @@ def simulator() -> ASESimulator:
 
 
 @mark.skipif(is_mac, reason='No xTB on OSX tests')
-def test_no_relaxed_charged(simulator: ASESimulator):
+@mark.parametrize('smiles,charge', [
+    ('N#CC1OC2CC2C1=O', 1),
+])
+def test_no_relaxed_charged(smiles: str, charge: int, simulator: ASESimulator):
     """A test where we do not create a new conformer after relaxation"""
 
     # Make the problem case
-    record = MoleculeRecord.from_identifier('N#CC1OC2CC2C1=O')
+    record = MoleculeRecord.from_identifier(smiles)
     recipes = [
-        RedoxEnergy(energy_config='mopac_pm7', charge=1, vertical=False),
-        RedoxEnergy(energy_config='mopac_pm7', charge=1, vertical=True),
-        RedoxEnergy(energy_config='xtb', charge=1, vertical=True),
-        RedoxEnergy(energy_config='xtb', charge=1, vertical=False)
+        RedoxEnergy(energy_config='xtb', charge=charge, vertical=True),
+        RedoxEnergy(energy_config='xtb', charge=charge, vertical=False),
+        RedoxEnergy(energy_config='mopac_pm7', charge=charge, vertical=False),
+        RedoxEnergy(energy_config='mopac_pm7', charge=charge, vertical=True),
     ]
 
     # Perform the recipe
