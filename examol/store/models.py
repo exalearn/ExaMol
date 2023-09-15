@@ -248,13 +248,15 @@ class MoleculeRecord(Document):
             self.conformers[my_match].add_energy(result)
             return False
 
-    def find_lowest_conformer(self, config_name: str, charge: int, solvent: str | None) -> tuple[Conformer, float]:
+    def find_lowest_conformer(self, config_name: str, charge: int, solvent: str | None, optimized_only: bool = True) -> tuple[Conformer, float]:
         """Get the energy of the lowest-energy conformer of a molecule in a certain state
 
         Args:
             config_name: Name of the compute configuration
             charge: Charge of the molecule
             solvent: Solvent in which the molecule is dissolved
+            optimized_only: Only match conformers which were optimized
+                with the specified configuration and charge
         Returns:
             - Lowest-energy conformer
             - Energy of the structure (eV)
@@ -268,6 +270,8 @@ class MoleculeRecord(Document):
 
         # Check all conformers
         for conf in self.conformers:
+            if optimized_only and (conf.config_name != config_name or conf.charge != charge):
+                continue
             energy_ind = conf.get_energy_index(config_name, charge, solvent)
             if energy_ind is not None and conf.energies[energy_ind].energy < lowest_energy:
                 stable_conformer = conf

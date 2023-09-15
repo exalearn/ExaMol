@@ -5,6 +5,7 @@ from math import isclose
 from pytest import raises
 from ase import units
 
+from examol.store.models import MissingData
 from examol.store.recipes import SolvationEnergy, RedoxEnergy
 
 
@@ -79,9 +80,9 @@ def test_redox_vacuum(record, sim_result):
     recipe = RedoxEnergy(1, 'test', vertical=False)
     assert 'adiabatic' in recipe.level
     assert 'oxid' in recipe.name
-    with raises(ValueError) as error:
+    with raises(MissingData) as error:
         recipe.compute_property(record)
-    assert 'We do not have a relaxed charged molecule' in str(error)
+    assert 'No data for config=test charge=1' in str(error.value)
 
     requests = recipe.suggest_computations(record)
     assert len(requests) == 1
