@@ -52,6 +52,12 @@ class SimResult:
 class BaseSimulator:
     """Uniform interface for common types of computations
 
+    **Creating a New Simulator**
+
+    There are a few considerations to weigh when fulfilling the abstract methods:
+
+    - Use underscores in the name of method configurations.
+
     Args:
         scratch_dir: Path in which to create temporary directories
         retain_failed: Whether to retain failed computations
