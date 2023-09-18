@@ -411,7 +411,7 @@ METHOD ANDREUSSI
                 out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
-
+                succeeded = True  # So tht we know whether to delete output directory
                 return out_result, json.dumps({'runtime': perf_counter() - start_time})
 
         finally:
