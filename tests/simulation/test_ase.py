@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 from ase import units
 from ase.calculators.gaussian import Gaussian
 from ase.db import connect
@@ -225,3 +226,17 @@ def test_gaussian_opt(tmpdir):
     relaxed, traj, _ = sim.optimize_structure('name', strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
     assert relaxed.energy < traj[0].energy
     assert relaxed.forces.max() < 0.01
+
+
+def test_opt_failure(tmpdir, strc):
+    sim = ASESimulator(scratch_dir=tmpdir, optimization_steps=1)
+
+    # Run with fewer steps than needed
+    with raises(ValueError):
+        opt, steps, _ = sim.optimize_structure('test', strc, 'mopac_pm7', charge=0, solvent=None)
+
+    # Run with enough
+    sim.optimization_steps = 100
+    opt, steps, _ = sim.optimize_structure('test', strc, 'mopac_pm7', charge=0, solvent=None)
+    assert np.max(opt.forces) <= 0.02, 'Optimization did not finish successfully'
+    assert len(steps) < 100
