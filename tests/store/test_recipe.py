@@ -2,7 +2,7 @@
 import copy
 from math import isclose
 
-from pytest import raises
+from pytest import raises, mark
 from ase import units
 
 from examol.store.models import MissingData
@@ -38,10 +38,10 @@ def test_solvation(record, sim_result):
     record.add_energies(sim_result)
 
     # Compute the solvation energy
-    assert recipe.level == 'test_acn'
+    assert recipe.level == 'test-acn'
     assert isclose(recipe.compute_property(record), -1)
     recipe.update_record(record)
-    assert isclose(record.properties['solvation_energy']['test_acn'], -1)
+    assert isclose(record.properties['solvation_energy']['test-acn'], -1)
     assert recipe.lookup(record) is not None
     assert recipe.lookup(record, recompute=True) is not None
 
@@ -213,3 +213,17 @@ def test_adia_redox(record):
     recipe = RedoxEnergy(1, 'test', vertical=False)
     suggestions = recipe.suggest_computations(record)
     assert len(suggestions) == 2
+
+
+@mark.parametrize(
+    'recipe_cls,prop,level',
+    [
+        (SolvationEnergy, 'solvation_energy', 'test-acn'),
+        (RedoxEnergy, 'oxidation_potential', 'test-acn-vertical'),
+        (RedoxEnergy, 'double_reduction_potential', 'test-vertical'),
+    ]
+)
+def test_from_name(recipe_cls, prop, level):
+    recipe = recipe_cls.from_name(prop, level)
+    assert recipe.name == prop
+    assert recipe.level == level

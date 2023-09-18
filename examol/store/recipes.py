@@ -55,12 +55,15 @@ class PropertyRecipe:
 
     1. :meth:`__init__`: Take a users options for the recipe (e.g., what level of accuracy to use)
         then define a name and level for the recipe. Pass the name and level to the superclass's constructor.
+        It is better to avoid using underscores when creating the name as underscores are
+        used in the names of simulation configurations.
     2. :meth:`recipe`: Return a mapping of the different types of geometries defined
         using :class:`RequiredGeometry` and the energies which must be computed for
         each geometry using :class:`RequiredEnergy`.
     3. :meth:`compute_property`: Compute the property using the record and raise
         either a ``ValueError``, ``KeyError``, or ``AssertionError`` if the record
         lacks the required information.
+    4. :meth:`from_name`: Restore a recipe from its name and level.
     """
 
     def __init__(self, name: str, level: str):
@@ -71,6 +74,16 @@ class PropertyRecipe:
         """
         self.name = name
         self.level = level
+
+    @classmethod
+    def from_name(cls, name: str, level: str) -> 'PropertyRecipe':
+        """Generate a recipe from the name
+
+        Args:
+            name: Name of the property
+            level: Level at which it is computed
+        """
+        raise NotImplementedError()
 
     @property
     def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
@@ -178,17 +191,22 @@ class PropertyRecipe:
 
 
 class SolvationEnergy(PropertyRecipe):
-    """Compute the solvation energy in kcal/mol"""
+    """Compute the solvation energy in kcal/mol
+
+    Args:
+        config_name: Name of the configuration used to compute energy
+        solvent: Target solvent
+    """
 
     def __init__(self, config_name: str, solvent: str):
-        """
-        Args:
-            config_name: Name of the configuration used to compute energy
-            solvent: Target solvent
-        """
-        super().__init__('solvation_energy', level=f'{config_name}_{solvent}')
+        super().__init__('solvation_energy', level=f'{config_name}-{solvent}')
         self.solvent = solvent
         self.config_name = config_name
+
+    @classmethod
+    def from_name(cls, name: str, level: str) -> 'SolvationEnergy':
+        config_name, solvent = level.split("-")
+        return cls(config_name, solvent)
 
     @property
     def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
@@ -218,19 +236,13 @@ class RedoxEnergy(PropertyRecipe):
     The level is named by the configuration used to compute the energy,
     whether a solvent was included, and whether we are computing the vertical or adiabatic energy.
 
-    At present, we do not check how geometries were acquired and simplify find the lowest-energy
-    conformer for the neutral and, if we are computing adiabatic energies, the charge state.
+    Args:
+        charge: Amount the charge of the molecule should change by
+        energy_config: Configuration used to compute the energy
+        solvent: Solvent in which molecule is dissolved, if any
     """
 
     def __init__(self, charge: int, energy_config: str, vertical: bool = False, solvent: str | None = None):
-        """
-
-        Args:
-            charge: Amount the charge of the molecule should change by
-            energy_config: Configuration used to compute the energy
-            solvent: Solvent in which molecule is dissolved, if any
-        """
-
         # Make the name of the property based on the charge state
         assert abs(charge) > 0
         prefix = {
@@ -242,8 +254,8 @@ class RedoxEnergy(PropertyRecipe):
         # Name the level based on the energy level and solvent
         level = energy_config
         if solvent is not None:
-            level += "_" + solvent
-        level += ("_vertical" if vertical else "_adiabatic")
+            level += "-" + solvent
+        level += ("-vertical" if vertical else "-adiabatic")
         super().__init__(name, level)
 
         # Save the settings
@@ -251,6 +263,21 @@ class RedoxEnergy(PropertyRecipe):
         self.charge = charge
         self.vertical = vertical
         self.solvent = solvent
+
+    @classmethod
+    def from_name(cls, name: str, level: str) -> 'RedoxEnergy':
+        # Determine the charge state
+        charge = -1 if 'reduction' in name else 1
+        if 'double' in name:
+            charge *= 2
+
+        # Determine the level
+        if level.count('-') == 1:
+            solvent = None
+            config_name, approx = level.split("-")
+        else:
+            config_name, solvent, approx = level.split("-")
+        return cls(charge=charge, energy_config=config_name, vertical=approx == 'vertical', solvent=solvent)
 
     @property
     def recipe(self) -> dict[RequiredGeometry, list[RequiredEnergy]]:
