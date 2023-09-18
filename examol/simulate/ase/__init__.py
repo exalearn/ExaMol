@@ -8,6 +8,7 @@ from shutil import rmtree, move
 from time import perf_counter
 
 import ase
+import numpy as np
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
@@ -99,6 +100,7 @@ class ASESimulator(BaseSimulator):
     Args:
         cp2k_command: Command to launch CP2K
         gaussian_command: Command to launch Gaussian. Only the path to the executable is generally needed
+        optimization_steps: Maximum number of optimization steps
         scratch_dir: Path in which to create temporary directories
         clean_after_run: Whether to clean output files after a run exits successfully
         ase_db_path: Path to an ASE db in which to store results
@@ -108,12 +110,14 @@ class ASESimulator(BaseSimulator):
     def __init__(self,
                  cp2k_command: str | None = None,
                  gaussian_command: str | None = None,
+                 optimization_steps: int = 250,
                  scratch_dir: Path | str | None = None,
                  clean_after_run: bool = True,
                  ase_db_path: Path | str | None = None,
                  retain_failed: bool = True):
         super().__init__(scratch_dir, retain_failed=retain_failed)
         self.cp2k_command = 'cp2k_shell' if cp2k_command is None else cp2k_command
+        self.optimization_steps = optimization_steps
         self.gaussian_command = Gaussian.command if gaussian_command is None else f'{gaussian_command} < PREFIX.com > PREFIX.log'
         self.ase_db_path = None if ase_db_path is None else Path(ase_db_path).absolute()
         self.clean_after_run = clean_after_run
@@ -248,6 +252,7 @@ METHOD ANDREUSSI
 
     def optimize_structure(self, mol_key: str, xyz: str, config_name: str, charge: int = 0, solvent: str | None = None, **kwargs) \
             -> tuple[SimResult, list[SimResult], str | None]:
+        fmax_conv = 0.02  # Convergence threshold in eV/Ang
         start_time = perf_counter()  # Measure when we started
 
         # Make the configuration
@@ -288,7 +293,7 @@ METHOD ANDREUSSI
                 if isinstance(calc, Gaussian) and calc_cfg['use_gaussian_opt']:
                     # Start the optimization
                     dyn = GaussianOptimizer(atoms, calc)
-                    dyn.run(fmax='tight', steps=100, opt='calcfc')
+                    dyn.run(fmax='tight', steps=self.optimization_steps, opt='calcfc')
 
                     # Read the energies from the output file
                     traj = read('Gaussian.log', index=':')
@@ -313,7 +318,10 @@ METHOD ANDREUSSI
                     os.unlink('history.traj')
 
                 # Run an optimization
-                dyn.run(fmax=0.02, steps=250)
+                dyn.run(fmax=fmax_conv, steps=self.optimization_steps)
+                max_force = np.max(atoms.get_forces())
+                if max_force > fmax_conv:
+                    raise ValueError(f'Convergence failed after {self.optimization_steps}. fmax={fmax_conv:.3f}')
 
                 # Get the trajectory
                 with Trajectory(str(traj_path), mode='r') as traj:
@@ -403,7 +411,7 @@ METHOD ANDREUSSI
                 out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
-
+                succeeded = True  # So tht we know whether to delete output directory
                 return out_result, json.dumps({'runtime': perf_counter() - start_time})
 
         finally:
