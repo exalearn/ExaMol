@@ -153,6 +153,9 @@ def test_solvent(strc, tmpdir):
         result, metadata = sim.compute_energy('name', strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
         assert result.energy
 
+        # Make sure the run directory was deleted
+        assert len(list(Path(tmpdir).glob('name/single_*'))) == 0
+
         # Check that the data was added
         with connect(db_path) as db:
             assert db.count() == 1
