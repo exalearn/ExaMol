@@ -1,5 +1,4 @@
-import pandas as pd
-
+"""Train a model and save results into a directory structure"""
 from examol.store.recipes import RedoxEnergy, PropertyRecipe
 from examol.score.nfp import NFPScorer, make_simple_network
 from examol.store.models import MoleculeRecord
@@ -8,9 +7,12 @@ from sklearn import metrics
 from argparse import ArgumentParser
 from pathlib import Path
 from hashlib import md5
+from tqdm import tqdm
+import pandas as pd
+import gzip
 import json
 
-database = '../../0_check-chemistry-settings/database.json'
+database = Path('../../2_initial-data/datasets/mdf-mos.json.gz')
 
 if __name__ == "__main__":
     # Parse input arguments
@@ -29,42 +31,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load in the training data
-    recipe: PropertyRecipe = {
-        'ea': RedoxEnergy(-1, energy_config=args.level, vertical=False, solvent='acn'),
-        'ip': RedoxEnergy(1, energy_config=args.level, vertical=False, solvent='acn')
+    prop: str = {
+        'ea': 'reduction_potential',
+        'ip': 'oxidation_potential',
     }[args.property]
-    all_records: list[MoleculeRecord] = []
-    database_hasher = md5()
-    with open(database) as fp:
-        for line in fp:
-            record = MoleculeRecord.from_json(line)
-            try:
-                recipe.update_record(record)
-                all_records.append(record)
-                database_hasher.update(record.key.encode())
-            except ValueError:
-                continue
-    if len(all_records) == 0:
-        raise ValueError(f'Did not find any training data for {args.property}//{args.level}')
-    database_hash = database_hasher.hexdigest()
-    print(f'Found {len(all_records)} records. Data hash: {database_hash}')
-
-    # Make a run directory
-    run_settings = args.__dict__.copy()
-    run_settings.pop('overwrite')
-    run_settings['name'] = recipe.name
-    run_settings['level'] = recipe.level
-    settings_hash = md5(json.dumps(args.__dict__).encode()).hexdigest()[-8:]
-    run_dir = Path(f'runs/f={args.atom_features}-T={args.message_steps}-r={args.reduce_op}-atomwise={args.atomwise}-hash={settings_hash}')
-    if run_dir.exists() and not args.overwrite:
-        raise ValueError('Run already done')
-    run_dir.mkdir(exist_ok=True, parents=True)
-    (run_dir / 'params.json').write_text(json.dumps(run_settings))
-    (run_dir / 'database.md5').write_text(database_hash)
-
-    # Split the data into training and test sets
-    train_records, test_records = train_test_split(all_records, shuffle=True, random_state=1)
-    print(f'Split off {len(train_records)} for a training set')
+    data_path = Path(f'../datasets/mdf-mos/{prop}-{args.level}')
+    data_hash = (data_path / 'dataset.md5').read_text()
+    with gzip.open(data_path / 'train.json.gz', 'rt') as fp:
+        train_records = [MoleculeRecord.from_json(line) for line in fp]
+    with gzip.open(data_path / 'test.json.gz', 'rt') as fp:
+        test_records = [MoleculeRecord.from_json(line) for line in fp]
+    print(f'Found {len(train_records)} train, {len(test_records)} test records. Data hash: {data_hash}')
 
     # Make the network
     model = make_simple_network(
