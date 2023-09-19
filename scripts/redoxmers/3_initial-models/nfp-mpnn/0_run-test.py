@@ -2,12 +2,10 @@
 from examol.store.recipes import RedoxEnergy, PropertyRecipe
 from examol.score.nfp import NFPScorer, make_simple_network
 from examol.store.models import MoleculeRecord
-from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from argparse import ArgumentParser
 from pathlib import Path
 from hashlib import md5
-from tqdm import tqdm
 import pandas as pd
 import gzip
 import json
@@ -35,6 +33,9 @@ if __name__ == "__main__":
         'ea': 'reduction_potential',
         'ip': 'oxidation_potential',
     }[args.property]
+    recipe = RedoxEnergy.from_name(prop, args.level)
+    print(f'Training a model for {recipe.name}//{recipe.level}')
+
     data_path = Path(f'../datasets/mdf-mos/{prop}-{args.level}')
     data_hash = (data_path / 'dataset.md5').read_text()
     with gzip.open(data_path / 'train.json.gz', 'rt') as fp:
@@ -42,6 +43,19 @@ if __name__ == "__main__":
     with gzip.open(data_path / 'test.json.gz', 'rt') as fp:
         test_records = [MoleculeRecord.from_json(line) for line in fp]
     print(f'Found {len(train_records)} train, {len(test_records)} test records. Data hash: {data_hash}')
+
+    #  Make a run directory
+    run_settings = args.__dict__.copy()
+    run_settings.pop('overwrite')
+    run_settings['name'] = recipe.name
+    run_settings['level'] = recipe.level
+    run_settings['hash'] = data_hash
+    settings_hash = md5(json.dumps(args.__dict__).encode()).hexdigest()[-8:]
+    run_dir = Path(f'runs/f={args.atom_features}-T={args.message_steps}-r={args.reduce_op}-atomwise={args.atomwise}-hash={settings_hash}')
+    if (run_dir / 'test_results.csv').exists() and not args.overwrite:
+        raise ValueError('Run already done')
+    run_dir.mkdir(exist_ok=True, parents=True)
+    (run_dir / 'params.json').write_text(json.dumps(run_settings))
 
     # Make the network
     model = make_simple_network(
