@@ -135,6 +135,7 @@ which python""",
                     max_blocks=max_blocks,
                     cpus_per_node=64,
                     cmd_timeout=120,
+                    parallelism=nodes_per_block  # Better reflect workers/block
                 )),
             ]
     )
@@ -145,7 +146,7 @@ which python""",
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',
     )
-    return config, sim, max_blocks * (cp2k_per_block * nodes_per_block) * (prefetch + 1), ['cp2k_b3lyp_svp']
+    return config, sim, max_blocks * cp2k_per_block * (prefetch + 1), ['cp2k_b3lyp_svp']
 
 
 def make_polaris_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
