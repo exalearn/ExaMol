@@ -3,12 +3,11 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 
 import numpy as np
-from pytest import fixture, raises
+from pytest import fixture
 from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit.descriptors import compute_doan_2020_fingerprints
 from examol.score.rdkit import make_knn_model, RDKitScorer, make_gpr_model
-from examol.store.models import MoleculeRecord
 
 
 @fixture()

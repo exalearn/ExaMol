@@ -180,4 +180,5 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     model_msg = scorer.prepare_message(model, training=False)
     preds = scorer.score(model_msg, parsed_inputs)
     assert np.isfinite(preds).all()
-    assert np.isclose(preds, collect_outputs(training_set, multifi_recipes)).all()  # We should not actually use model predictions, so result should be the same
+    # We should not actually use model predictions, so result should be the same
+    assert np.isclose(preds, collect_outputs(training_set, multifi_recipes)[:, -1]).all()

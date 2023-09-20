@@ -336,7 +336,8 @@ class NFPScorer(Scorer):
 
         # For multi-objective, add in the use the known outputs in place of the NN outputs
         best_outputs = np.where(np.isinf(known_outputs), ml_outputs, known_outputs)
-        return best_outputs.cumsum(axis=1)  # The outputs of the networks are deltas
+        best_outputs = best_outputs.cumsum(axis=1)  # The outputs of the networks are deltas
+        return best_outputs[:, -1]  # Return only the highest level of fidelity
 
     def retrain(self,
                 model_msg: dict | NFPMessage,
