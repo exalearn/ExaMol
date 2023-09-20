@@ -115,10 +115,18 @@ def make_simple_network(
     # Build the output layers
     output_networks = []
     for output_id in range(outputs):
+        # Build the MLP
         output = start_state
         for i, shape in enumerate(output_layers):
             output = tf.keras.layers.Dense(shape, activation='relu', name=f'output_{output_id}_layer_{i}')(output)
         output = tf.keras.layers.Dense(1)(output)
+
+        # Reduce to a single prediction per network if needed
+        if atomwise:
+            output = ReduceAtoms(reduce_op)(output)
+
+        # Apply a scale layer then append to the outputs
+        output = tf.keras.layers.Dense(1, activation='linear', name=f'scale_{output_id}')(output)
         output_networks.append(output)
 
     # Combine them if needed
@@ -126,12 +134,6 @@ def make_simple_network(
         output = output_networks[0]
     else:
         output = tf.keras.layers.Concatenate(axis=-1)(output_networks)
-
-    # Reduce to a single prediction per network if needed
-    if atomwise:
-        output = ReduceAtoms(reduce_op)(output)
-
-    output = tf.keras.layers.Dense(outputs, activation='linear', name='scale')(output)
 
     # Construct the tf.keras model
     return tf.keras.Model([atom, bond, connectivity], [output])
@@ -428,11 +430,12 @@ class NFPScorer(Scorer):
 
         # Define initial guesses for the "scaling" later
         try:
-            scale_layer = model.get_layer('scale')
             outputs = np.array(outputs)
-            outputs_std = max(np.nanstd(outputs, axis=0), 1e-6)
-            outputs_mean = np.nanmean(outputs, axis=0)
-            scale_layer.set_weights([np.atleast_2d(outputs_std), np.atleast_1d(outputs_mean)])
+            output_mean = np.nanmean(outputs, axis=0)
+            outputs_std = np.clip(np.nanstd(outputs, axis=0), 1e-6, a_max=None)
+            for i, (m, s) in enumerate(zip(np.atleast_1d(output_mean), np.atleast_1d(outputs_std))):
+                scale_layer = model.get_layer(f'scale_{i}')
+                scale_layer.set_weights([np.atleast_2d(s), np.atleast_1d(m)])
         except ValueError:
             pass
 
