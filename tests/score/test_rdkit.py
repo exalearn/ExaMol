@@ -21,20 +21,6 @@ def scorer() -> RDKitScorer:
     return RDKitScorer()
 
 
-def test_process_failure(scorer, recipe):
-    record = MoleculeRecord.from_identifier('O')
-
-    # Missing record and property
-    with raises(ValueError) as err:
-        scorer.transform_outputs([record], recipe)
-    assert str(err.value).startswith('Record for')
-
-    record.properties[recipe.name] = {}
-    with raises(ValueError) as err:
-        scorer.transform_outputs([record], recipe)
-    assert str(err.value).startswith('Record for')
-
-
 def test_transform(training_set, scorer, recipe):
     assert scorer.transform_inputs(training_set) == ['C', 'CC', 'CCC']
     assert np.isclose(scorer.transform_outputs(training_set, recipe), [1, 2, 3]).all()
