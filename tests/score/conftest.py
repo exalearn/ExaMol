@@ -15,7 +15,7 @@ def recipe() -> PropertyRecipe:
 
 @fixture()
 def multifi_recipes(recipe) -> list[PropertyRecipe]:
-    return [recipe, FakeRecipe(recipe.name, 'slow')]
+    return [recipe, FakeRecipe(recipe.name, 'medium'), FakeRecipe(recipe.name, 'slow')]
 
 
 @fixture()

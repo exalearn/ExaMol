@@ -159,14 +159,14 @@ def test_multifi_loader(training_set, scorer, multifi_recipes):
     input_dicts, _ = zip(*inputs)  # Get just the input dictionaries
     loader = make_data_loader(input_dicts, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((2,), dtype=tf.float32))
     batch_x, batch_y = next(iter(loader))
-    assert np.isclose(batch_y, [1., 2.]).all()
+    assert np.isclose(batch_y, [1., 2., 3.]).all()  # All three levels
 
 
 @mark.parametrize('atomwise', [True, False])
 def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     # Make the network
-    model = make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16], outputs=2)
-    assert model.output_shape == (None, 2)
+    model = make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16], outputs=3)
+    assert model.output_shape == (None, 3)
     true_outputs = collect_outputs(training_set, multifi_recipes)[:, -1]
 
     # Train it

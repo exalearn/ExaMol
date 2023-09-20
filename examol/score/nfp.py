@@ -344,7 +344,7 @@ class NFPScorer(Scorer):
         if not is_single:
             inputs, known_outputs = zip(*inputs)
             known_outputs = np.array(known_outputs)
-            known_outputs[:, 1:] -= known_outputs[:, [0]]  # Compute the deltas
+            known_outputs[:, 1:] = np.diff(known_outputs)
 
         # Run inference
         loader = make_data_loader(inputs, batch_size=batch_size)
