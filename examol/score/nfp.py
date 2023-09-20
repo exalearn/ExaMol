@@ -351,7 +351,7 @@ class NFPScorer(Scorer):
             return ml_outputs
 
         # For multi-objective, add in the use the known outputs in place of the NN outputs
-        best_outputs = np.where(np.isinf(known_outputs), ml_outputs, known_outputs)
+        best_outputs = np.where(np.isnan(known_outputs), ml_outputs, known_outputs)
         best_outputs = best_outputs.cumsum(axis=1)  # The outputs of the networks are deltas
         return best_outputs[:, -1]  # Return only the highest level of fidelity
 

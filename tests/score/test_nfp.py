@@ -182,3 +182,11 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     assert np.isfinite(preds).all()
     # We should not actually use model predictions, so result should be the same
     assert np.isclose(preds, collect_outputs(training_set, multifi_recipes)[:, -1]).all()
+
+    # Eliminate the top level and verify that we still get predictions
+    top_level = multifi_recipes[-1]
+    for record in training_set:
+        record.properties[top_level.name].pop(top_level.level)
+    parsed_inputs = scorer.transform_inputs(training_set, multifi_recipes)
+    preds = scorer.score(model_msg, parsed_inputs)
+    assert np.isfinite(preds).all()
