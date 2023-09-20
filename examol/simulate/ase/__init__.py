@@ -12,7 +12,7 @@ import numpy as np
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
-from ase.optimize import QuasiNewton, MDMin
+from ase.optimize import QuasiNewton, FIRE
 from ase.io.ulm import InvalidULMFileError
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
@@ -308,9 +308,9 @@ METHOD ANDREUSSI
 
                 # Continue to append to the same trajectory from previous runs
                 with Trajectory(str(traj_path), mode='a', atoms=atoms) as traj:
-                    # Start with a MDMin optimization to moderate convergence threshold
-                    dyn = MDMin(atoms, logfile='opt.log', trajectory=traj)
-                    dyn.run(fmax=0.1, steps=self.optimization_steps)
+                    # Start with a MDMin optimization to very thin convergence threshold
+                    dyn = FIRE(atoms, logfile='opt.log', trajectory=traj)
+                    dyn.run(fmax=0.7, steps=self.optimization_steps)  # TODO (wardlt) make the fmax configurable
 
                     # Make the optimizer
                     dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=traj)
