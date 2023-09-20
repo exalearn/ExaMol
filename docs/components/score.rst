@@ -71,8 +71,8 @@ Multi-fidelity Learning
 -----------------------
 
 Some Scorer classes support using properties computed at lower levels of accuracy
-to improve training and inference.
-The strategies employed by each may be different, but have the same interface.
+to improve performance.
+The strategies employed by each Scorer may be different, but all have the same interface.
 
 Use the multi-fidelity capability of a Scorer by providing multiple recipes when preprocessing
 for *both* inputs and outputs for training or inference.

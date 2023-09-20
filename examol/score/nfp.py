@@ -292,12 +292,11 @@ class NFPScorer(Scorer):
     NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware.
 
     Multi-fidelity models predict the lowest, most-plentiful level of fidelity directly and
-    correction factors to adjust the low-level predictions for the higher levels (i.e., delta learning)
+    correction factors to adjust the low-level predictions for the higher levels (i.e., delta learning).
     Training does not require all levels of fidelity to be available and will only measure loss
     against the available data.
-    Inferences predicts the low-fidelity value and all correction factors for higher levels,
-    but uses known values in place of them if available (e.g., the low-fidelity value or
-    any known correction values).
+    Inference predicts the low-fidelity value and all correction factors for higher levels,
+    but uses known values in place of them if available.
     """
 
     _supports_multi_fidelity = True
