@@ -99,7 +99,7 @@ class Scorer:
             is_single = True
             recipes = [recipe]
         else:
-            if not self._supports_multi_fidelity:  # program: no-coverage
+            if not self._supports_multi_fidelity:  # pragma: no-coverage
                 raise ValueError(f'{self.__class__.__name__} does not support multi-fidelity training')
             recipes = recipe
 

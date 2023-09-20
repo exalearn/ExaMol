@@ -57,14 +57,22 @@ def make_simple_network(
         atomwise: bool = True,
         outputs: int = 1,
 ) -> tf.keras.models.Model:
-    """Construct a Keras model using the settings provided by a user
+    """Construct a basic MPNN model using the settings provided by a user
+
+    Models will have embeddings for atoms with atomic numbers up to 63,
+    and 4 types of bonds (single, double, triple, aromatic).
+
+    The models use edge, node, and global update for each message passing layer
+    and a separate set of MLPs for each of the outputs.
+    There is also a "scaling" layer which can be used to adjust the mean
+    and standard deviation of the prediction.
 
     Args:
         atom_features: Number of features used per atom and bond
         message_steps: Number of message passing steps
         output_layers: Number of neurons in the readout layers
         reduce_op: Operation used to reduce from atom-level to molecule-level vectors
-        atomwise: Whether to reduce atomwise contributions to form an output,
+        atomwise: Whether to reduce atomwise contributions after the output layers,
                   or reduce to a single vector per molecule before the output layers
         outputs: Number of output properties. Each will use their own output network
     Returns:
@@ -281,7 +289,16 @@ def make_data_loader(mol_dicts: list[dict],
 class NFPScorer(Scorer):
     """Train message-passing neural networks based on the `NFP <https://github.com/NREL/nfp>`_ library.
 
-    NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware."""
+    NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware.
+
+    Multi-fidelity models predict the lowest, most-plentiful level of fidelity directly and
+    correction factors to adjust the low-level predictions for the higher levels (i.e., delta learning)
+    Training does not require all levels of fidelity to be available and will only measure loss
+    against the available data.
+    Inferences predicts the low-fidelity value and all correction factors for higher levels,
+    but uses known values in place of them if available (e.g., the low-fidelity value or
+    any known correction values).
+    """
 
     _supports_multi_fidelity = True
 

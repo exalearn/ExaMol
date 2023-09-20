@@ -66,3 +66,22 @@ copy of the model:
 
     update_msg = scorer.retrain(model_msg, inputs, outputs)  # Can be run remotely
     model = scorer.update(model, update_msg)
+
+Multi-fidelity Learning
+-----------------------
+
+Some Scorer classes support using properties computed at lower levels of accuracy
+to improve training and inference.
+The strategies employed by each may be different, but have the same interface.
+
+Use the multi-fidelity capability of a Scorer by providing multiple recipes when preprocessing
+for *both* inputs and outputs for training or inference.
+The recipes must be ordered from lowest- to highest-fidelity.
+
+.. code-block:: python
+
+    outputs = model.transform_outputs(records, [recipe_low, recipe_high])
+    inputs = model.transform_inputs(records, [recipe_low, recipe_high])
+
+The outputs will, by default, contain the recipe computed at each level of fidelity
+with ``np.nan`` values for missing data.
