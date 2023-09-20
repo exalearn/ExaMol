@@ -414,7 +414,7 @@ class NFPScorer(Scorer):
 
             # Prepare the outputs
             outputs = outputs.copy()
-            outputs[:, 1:] -= outputs[:, [0]]  # Compute the deltas
+            outputs[:, 1:] = np.diff(outputs)  # Compute the deltas between successive stages
             value_spec = tf.TensorSpec((outputs.shape[1],), dtype=tf.float32)
 
         # Split off a validation set
@@ -445,7 +445,9 @@ class NFPScorer(Scorer):
         decay_rate = (final_learn_rate / init_learn_rate) ** (1. / (num_epochs - 1))
 
         def lr_schedule(epoch, lr):
-            return lr * decay_rate
+            if epoch > 1:
+                return lr * decay_rate
+            return lr
 
         # Compile the model then train
         model.compile(

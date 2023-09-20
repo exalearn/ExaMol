@@ -26,7 +26,7 @@ def training_set(multifi_recipes) -> list[MoleculeRecord]:
     for s, y in zip(['C', 'CC', 'CCC'], [1, 2, 3]):
         record = MoleculeRecord.from_identifier(s)
         record.properties[multifi_recipes[0].name] = dict(
-            (recipe.level, y) for recipe in multifi_recipes
+            (recipe.level, y + i) for i, recipe in enumerate(multifi_recipes)
         )
         output.append(record)
     return output

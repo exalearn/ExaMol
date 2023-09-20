@@ -152,14 +152,14 @@ def test_multifi_loader(training_set, scorer, multifi_recipes):
     # Convert the input data
     inputs = scorer.transform_inputs(training_set, multifi_recipes)
     outputs = scorer.transform_outputs(training_set, multifi_recipes)
-    assert np.isclose(inputs[0][1], [1., 1.]).all()
+    assert np.isclose(inputs[0][1], [1., 2.]).all()
     assert np.isclose(outputs[0], inputs[0][1]).all()
 
     # Test the loader
     input_dicts, _ = zip(*inputs)  # Get just the input dictionaries
     loader = make_data_loader(input_dicts, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((2,), dtype=tf.float32))
     batch_x, batch_y = next(iter(loader))
-    assert np.isclose(batch_y, [1., 1.]).all()
+    assert np.isclose(batch_y, [1., 2.]).all()
 
 
 @mark.parametrize('atomwise', [True, False])
@@ -167,6 +167,7 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     # Make the network
     model = make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16], outputs=2)
     assert model.output_shape == (None, 2)
+    true_outputs = collect_outputs(training_set, multifi_recipes)[:, -1]
 
     # Train it
     parsed_inputs = scorer.transform_inputs(training_set, multifi_recipes)
@@ -181,7 +182,7 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     preds = scorer.score(model_msg, parsed_inputs)
     assert np.isfinite(preds).all()
     # We should not actually use model predictions, so result should be the same
-    assert np.isclose(preds, collect_outputs(training_set, multifi_recipes)[:, -1]).all()
+    assert np.isclose(preds, true_outputs).all()
 
     # Eliminate the top level and verify that we still get predictions
     top_level = multifi_recipes[-1]
@@ -190,3 +191,4 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     parsed_inputs = scorer.transform_inputs(training_set, multifi_recipes)
     preds = scorer.score(model_msg, parsed_inputs)
     assert np.isfinite(preds).all()
+    assert np.isclose(preds, true_outputs, atol=1e-1).all()  # It should still be _close_
