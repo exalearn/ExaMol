@@ -231,7 +231,9 @@ def test_gaussian_opt(tmpdir):
     assert relaxed.forces.max() < 0.01
 
 
-def test_opt_failure(tmpdir, strc):
+def test_opt_failure(tmpdir):
+    atoms = molecule('bicyclobutane')
+    strc = write_to_string(atoms, 'xyz')
     sim = ASESimulator(scratch_dir=tmpdir, optimization_steps=1)
 
     # Run with fewer steps than needed
