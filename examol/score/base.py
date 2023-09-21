@@ -1,10 +1,26 @@
 """Base classes for scoring functions"""
 from dataclasses import dataclass
+from typing import Sequence
 
 import numpy as np
 
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
+
+
+def collect_outputs(records: list[MoleculeRecord], recipes: list[PropertyRecipe]) -> np.ndarray:
+    """Collect the outputs for several recipe for each molecule
+
+    Args:
+        records: Molecule records to be summarized
+        recipes: List of recipes to include
+    Returns:
+        Matrix where each row is a different molecule, and each column is a different recipe
+    """
+    return np.array([
+        [record.properties.get(recipe.name, {}).get(recipe.level, np.nan) for recipe in recipes]
+        for record in records
+    ])
 
 
 @dataclass
@@ -40,32 +56,58 @@ class Scorer:
         outputs = scorer.transform_outputs(records, recipe)  # Prepares label for a specific recipe
         update_msg = scorer.retrain(model_msg, inputs, outputs)  # Run remotely
         model = scorer.update(model, update_msg)
+
+    **Multi-fidelity scoring**
+
+    Multi-fidelity learning methods employ lower-fidelity estimates of a target value to improve the prediction of that value.
+    ExaMol supports multi-fidelity through the ability to provide more than one recipe as inputs to
+    :meth:`transform_inputs` and :meth:`transform_outputs`.
+
+    Implementations of Scorers must be designed to support multi-fidelity learning.
     """
 
-    def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
+    _supports_multi_fidelity: bool = False
+    """Whether the class supports multi-fidelity optimization"""
+
+    def transform_inputs(self, record_batch: list[MoleculeRecord], recipes: Sequence[PropertyRecipe] | None = None) -> list:
         """Form inputs for the model based on the data in a molecule record
 
         Args:
             record_batch: List of records to pre-process
+            recipes: List of recipes ordered from lowest to highest fidelity.
+                Only used in multi-fidelity scoring algorithms
         Returns:
             List of inputs ready for :meth:`score` or :meth:`retrain`
         """
         raise NotImplementedError()
 
-    def transform_outputs(self, records: list[MoleculeRecord], recipe: PropertyRecipe) -> np.ndarray:
+    # TODO (wardlt): I'm not super-happy with multi-fidelity being inferred from input types. What if we want multi-objective learning
+    def transform_outputs(self, records: list[MoleculeRecord], recipe: PropertyRecipe | Sequence[PropertyRecipe]) -> np.ndarray:
         """Gather the target outputs of the model
 
         Args:
             records: List of records from which to extract outputs
-            recipe: Target recipe for the scorer
+            recipe: Target recipe for the scorer for single-fidelity learning
+                or a list of recipes ordered from lowest to highest fidelity
+                for multi-objective learning.
         Returns:
             Outputs ready for model training
         """
-        for record in records:
-            if recipe.name not in record.properties or recipe.level not in record.properties[recipe.name]:
-                raise ValueError(f'Record for {record.identifier.smiles} missing property {recipe.name} at level {recipe.level}')
+        # Determine if we are doing single or multi-fidelity learning
+        is_single = False
+        if isinstance(recipe, PropertyRecipe):
+            is_single = True
+            recipes = [recipe]
+        else:
+            if not self._supports_multi_fidelity:  # pragma: no-coverage
+                raise ValueError(f'{self.__class__.__name__} does not support multi-fidelity training')
+            recipes = recipe
 
-        return np.array([x.properties[recipe.name][recipe.level] for x in records])
+        # Gather the outputs
+        output = collect_outputs(records, recipes)
+        if is_single:
+            return output[:, 0]
+        return output
 
     def prepare_message(self, model: object, training: bool = False) -> object:
         """Get the model state as a serializable object

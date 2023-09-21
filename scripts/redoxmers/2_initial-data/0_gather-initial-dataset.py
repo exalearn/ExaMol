@@ -21,7 +21,7 @@ from colmena.queue import PipeQueues
 from colmena.models import Result
 
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes import RedoxEnergy, SolvationEnergy
 
 import configs
 
@@ -173,7 +173,7 @@ class BruteForceThinker(BaseThinker):
         # Pause for the user-specified amount of time
         sleep(self.args.write_frequency)
         temp_path = self.database_path.parent / f'{self.database_path.name}.new'
-        with temp_path.open('w') as fp:
+        with gzip.open(temp_path, 'wt') as fp:
             for record in dataset.values():
                 print(record.to_json(), file=fp)
         move(temp_path, self.database_path)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     my_logger.info(f'Loaded {len(molecules)} molecules to screen')
 
     # Get the path to the dataset
-    dataset_path = Path('datasets') / f'{search_path.name[:-4]}.json'
+    dataset_path = Path('datasets') / f'{search_path.name[:-4]}.json.gz'
     records_path = dataset_path.parent / f'{search_path.name[:-4]}-simulation-records.json.gz'
     dataset_path.parent.mkdir(exist_ok=True)
     dataset = {}
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     else:
         my_logger.info(f'Creating an initial dataset at {dataset_path}')
         # Ensure each molecule in the search space is in this database
-        with dataset_path.open('w') as fp:
+        with gzip.open(dataset_path, 'wt') as fp:
             for smiles in molecules:
                 record = MoleculeRecord.from_identifier(smiles)
                 if record.key not in dataset:
@@ -238,13 +238,16 @@ if __name__ == "__main__":
 
     # Get the recipes we should run
     recipes = []
+    solvents = ['acn']
     for energy_level in energy_configs:
         for charge in [-1, 1]:
-            for solvent in [None, 'acn']:
+            for solvent in [None] + solvents:
                 recipes.extend([
                     RedoxEnergy(energy_config=energy_level, vertical=True, charge=charge, solvent=solvent),
                     RedoxEnergy(energy_config=energy_level, vertical=False, charge=charge, solvent=solvent),
                 ])
+        for solvent in solvents:
+            recipes.append(SolvationEnergy(config_name=energy_level, solvent=solvent))
     my_logger.info(f'Assembled a list of {len(recipes)} recipes to compute')
 
     # Create the queues which will connect task server and thinker
@@ -278,7 +281,7 @@ if __name__ == "__main__":
 
     # Save the result one last time
     temp_path = dataset_path.parent / f'{dataset_path.name}.new'
-    with temp_path.open('w') as fp:
+    with gzip.open(temp_path, 'wt') as fp:
         for record in dataset.values():
             print(record.to_json(), file=fp)
     move(temp_path, dataset_path)

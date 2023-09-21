@@ -44,7 +44,8 @@ designed to run on OS X. It will not run all features (e.g., xTB computations an
 but is enough to test many features
 
 .. code-block:: shell
-    conda env create --file envs/environment-cpu.yaml
+
+    conda env create --file envs/environment-macos.yaml
 
 Modifying an Installation
 -------------------------

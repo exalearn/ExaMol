@@ -4,7 +4,7 @@ import os
 import re
 from hashlib import sha512
 from pathlib import Path
-from shutil import rmtree, move
+from shutil import rmtree
 from time import perf_counter
 
 import ase
@@ -12,7 +12,7 @@ import numpy as np
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
-from ase.optimize import QuasiNewton
+from ase.optimize import QuasiNewton, FIRE
 from ase.io.ulm import InvalidULMFileError
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
@@ -281,12 +281,9 @@ METHOD ANDREUSSI
                     try:
                         # Overwrite our atoms with th last in the trajectory
                         with Trajectory(traj_path, mode='r') as traj:
-                            for atoms in traj:
-                                pass
-
-                        # Move the history so we can use it to over
-                        move(traj_path, 'history.traj')
+                            atoms = traj[-1]
                     except InvalidULMFileError:
+                        traj_path.unlink()
                         pass
 
                 # Special case: use Gaussian's optimizer
@@ -309,16 +306,17 @@ METHOD ANDREUSSI
                 # Attach the calculator
                 atoms.calc = calc
 
-                # Make the optimizer
-                dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=str(traj_path))
+                # Continue to append to the same trajectory from previous runs
+                with Trajectory(str(traj_path), mode='a', atoms=atoms) as traj:
+                    # Start with a MDMin optimization to very thin convergence threshold
+                    dyn = FIRE(atoms, logfile='opt.log', trajectory=traj)
+                    dyn.run(fmax=0.7, steps=self.optimization_steps)  # TODO (wardlt) make the fmax configurable
 
-                # Reply the trajectory
-                if Path('history.traj').is_file():
-                    dyn.replay_trajectory('history.traj')
-                    os.unlink('history.traj')
+                    # Make the optimizer
+                    dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=traj)
 
-                # Run an optimization
-                dyn.run(fmax=fmax_conv, steps=self.optimization_steps)
+                    # Run an optimization
+                    dyn.run(fmax=fmax_conv, steps=self.optimization_steps)
                 max_force = np.max(atoms.get_forces())
                 if max_force > fmax_conv:
                     raise ValueError(f'Convergence failed after {self.optimization_steps}. fmax={fmax_conv:.3f}')

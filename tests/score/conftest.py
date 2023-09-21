@@ -14,12 +14,19 @@ def recipe() -> PropertyRecipe:
 
 
 @fixture()
-def training_set(recipe) -> list[MoleculeRecord]:
+def multifi_recipes(recipe) -> list[PropertyRecipe]:
+    return [recipe, FakeRecipe(recipe.name, 'medium'), FakeRecipe(recipe.name, 'slow')]
+
+
+@fixture()
+def training_set(multifi_recipes) -> list[MoleculeRecord]:
     """Fake training set"""
 
     output = []
     for s, y in zip(['C', 'CC', 'CCC'], [1, 2, 3]):
         record = MoleculeRecord.from_identifier(s)
-        record.properties[recipe.name] = {recipe.level: y}
+        record.properties[multifi_recipes[0].name] = dict(
+            (recipe.level, y + i) for i, recipe in enumerate(multifi_recipes)
+        )
         output.append(record)
     return output

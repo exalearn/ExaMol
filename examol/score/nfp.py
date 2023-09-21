@@ -1,6 +1,7 @@
 """Train neural network models using `NFP <https://github.com/NREL/nfp>`_"""
 
 from sklearn.model_selection import train_test_split
+
 try:
     from tensorflow.keras import callbacks as cb
 except ImportError as e:  # pragma: no-coverage
@@ -11,7 +12,8 @@ import nfp
 
 from examol.store.models import MoleculeRecord
 from examol.utils.conversions import convert_string_to_nx
-from .base import Scorer
+from examol.store.recipes import PropertyRecipe
+from .base import Scorer, collect_outputs
 from .utils.tf import LRLogger, TimeLimitCallback, EpochTimeLogger
 
 
@@ -53,16 +55,26 @@ def make_simple_network(
         output_layers: list[int] = (512, 256, 128),
         reduce_op: str = 'mean',
         atomwise: bool = True,
+        outputs: int = 1,
 ) -> tf.keras.models.Model:
-    """Construct a Keras model using the settings provided by a user
+    """Construct a basic MPNN model using the settings provided by a user
+
+    Models will have embeddings for atoms with atomic numbers up to 63,
+    and 4 types of bonds (single, double, triple, aromatic).
+
+    The models use edge, node, and global update for each message passing layer
+    and a separate set of MLPs for each of the outputs.
+    There is also a "scaling" layer which can be used to adjust the mean
+    and standard deviation of the prediction.
 
     Args:
         atom_features: Number of features used per atom and bond
         message_steps: Number of message passing steps
         output_layers: Number of neurons in the readout layers
         reduce_op: Operation used to reduce from atom-level to molecule-level vectors
-        atomwise: Whether to reduce atomwise contributions to form an output,
+        atomwise: Whether to reduce atomwise contributions after the output layers,
                   or reduce to a single vector per molecule before the output layers
+        outputs: Number of output properties. Each will use their own output network
     Returns:
         A model instantiated with the user-defined options
     """
@@ -94,16 +106,34 @@ def make_simple_network(
         )
         global_state = tf.keras.layers.Add()([global_state, new_global_state])
 
-    # Pass the global state through an output
-    output = atom_state
+    # Condense the features into a single vector if building a molecular fingerprint
     if not atomwise:
-        output = ReduceAtoms(reduce_op)(output)
-    for shape in output_layers:
-        output = tf.keras.layers.Dense(shape, activation='relu')(output)
-    output = tf.keras.layers.Dense(1)(output)
-    if atomwise:
-        output = ReduceAtoms(reduce_op)(output)
-    output = tf.keras.layers.Dense(1, activation='linear', name='scale')(output)
+        start_state = ReduceAtoms(reduce_op)(atom_state)
+    else:
+        start_state = atom_state
+
+    # Build the output layers
+    output_networks = []
+    for output_id in range(outputs):
+        # Build the MLP
+        output = start_state
+        for i, shape in enumerate(output_layers):
+            output = tf.keras.layers.Dense(shape, activation='relu', name=f'output_{output_id}_layer_{i}')(output)
+        output = tf.keras.layers.Dense(1)(output)
+
+        # Reduce to a single prediction per network if needed
+        if atomwise:
+            output = ReduceAtoms(reduce_op)(output)
+
+        # Apply a scale layer then append to the outputs
+        output = tf.keras.layers.Dense(1, activation='linear', name=f'scale_{output_id}')(output)
+        output_networks.append(output)
+
+    # Combine them if needed
+    if len(output_networks) == 1:
+        output = output_networks[0]
+    else:
+        output = tf.keras.layers.Concatenate(axis=-1)(output_networks)
 
     # Construct the tf.keras model
     return tf.keras.Model([atom, bond, connectivity], [output])
@@ -261,7 +291,17 @@ def make_data_loader(mol_dicts: list[dict],
 class NFPScorer(Scorer):
     """Train message-passing neural networks based on the `NFP <https://github.com/NREL/nfp>`_ library.
 
-    NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware."""
+    NFP uses Keras to define message-passing networks, which is backed by Tensorflow for executing the networks on different hardware.
+
+    Multi-fidelity models predict the lowest, most-plentiful level of fidelity directly and
+    correction factors to adjust the low-level predictions for the higher levels (i.e., delta learning).
+    Training does not require all levels of fidelity to be available and will only measure loss
+    against the available data.
+    Inference predicts the low-fidelity value and all correction factors for higher levels,
+    but uses known values in place of them if available.
+    """
+
+    _supports_multi_fidelity = True
 
     def __init__(self, retrain_from_scratch: bool = True):
         """
@@ -276,10 +316,17 @@ class NFPScorer(Scorer):
         else:
             return NFPMessage(model)
 
-    def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
-        return [convert_string_to_dict(record.identifier.inchi) for record in record_batch]
+    def transform_inputs(self, record_batch: list[MoleculeRecord], recipes: list[PropertyRecipe] | None = None) -> list[dict | tuple[dict, np.ndarray]]:
+        mol_dicts = [convert_string_to_dict(record.identifier.inchi) for record in record_batch]
 
-    def score(self, model_msg: NFPMessage, inputs: list[dict], batch_size: int = 64, **kwargs) -> np.ndarray:
+        # Return only the molecular dicts for single-fidelity runs
+        if recipes is None:
+            return mol_dicts
+
+        # Return both the molecular dictionary and known properties for multi-fidelity
+        return list(zip(mol_dicts, collect_outputs(record_batch, recipes)))
+
+    def score(self, model_msg: NFPMessage, inputs: list[dict | tuple[dict, np.ndarray]], batch_size: int = 64, **kwargs) -> np.ndarray:
         """Assign a score to molecules
 
         Args:
@@ -290,8 +337,25 @@ class NFPScorer(Scorer):
             The scores to a set of records
         """
         model = model_msg.get_model()  # Unpack the model
+
+        # Unpack the known values if running multiobjective learning
+        is_single = isinstance(inputs[0], dict)
+        known_outputs = None
+        if not is_single:
+            inputs, known_outputs = zip(*inputs)
+            known_outputs = np.array(known_outputs)
+            known_outputs[:, 1:] = np.diff(known_outputs)
+
+        # Run inference
         loader = make_data_loader(inputs, batch_size=batch_size)
-        return model.predict(loader, verbose=False)
+        ml_outputs = model.predict(loader, verbose=False)
+        if is_single:
+            return ml_outputs
+
+        # For multi-objective, add in the use the known outputs in place of the NN outputs
+        best_outputs = np.where(np.isnan(known_outputs), ml_outputs, known_outputs)
+        best_outputs = best_outputs.cumsum(axis=1)  # The outputs of the networks are deltas
+        return best_outputs[:, -1]  # Return only the highest level of fidelity
 
     def retrain(self,
                 model_msg: dict | NFPMessage,
@@ -330,24 +394,48 @@ class NFPScorer(Scorer):
             model = model_msg.get_model()
         elif isinstance(model_msg, dict):
             model = tf.keras.Model.from_config(model_msg, custom_objects=custom_objects)
-        else:
+        else:  # pragma: no-coverage
             raise NotImplementedError(f'Unrecognized message type: {type(model_msg)}')
+
+        # Prepare data for single- vs multi-objective
+        is_single = isinstance(inputs[0], dict)
+        if is_single:
+            # Nothing special: Use a standard loss function, no preprocessing required
+            loss = 'mean_squared_error'
+            value_spec = tf.TensorSpec((), dtype=tf.float32)
+        else:
+            # Use a loss function which ignores the NaN values
+            def loss(y_true, y_pred):
+                """Measure loss only on the non NaN values"""
+                is_known = tf.math.is_finite(y_true)
+                return tf.keras.losses.mean_squared_error(y_true[is_known], y_pred[is_known])
+
+            inputs, _ = zip(*inputs)  # We do not need the input values for training
+
+            # Prepare the outputs
+            outputs = outputs.copy()
+            outputs[:, 1:] = np.diff(outputs)  # Compute the deltas between successive stages
+            value_spec = tf.TensorSpec((outputs.shape[1],), dtype=tf.float32)
 
         # Split off a validation set
         train_x, valid_x, train_y, valid_y = train_test_split(inputs, outputs, test_size=validation_split)
 
         # Make the loaders
         steps_per_epoch = len(train_x) // batch_size
-        train_loader = make_data_loader(train_x, train_y, repeat=True, batch_size=batch_size, drop_last_batch=True, shuffle_buffer=32768)
+        train_loader = make_data_loader(train_x, train_y, repeat=True, batch_size=batch_size, drop_last_batch=True, shuffle_buffer=32768, value_spec=value_spec)
         valid_steps = len(valid_x) // batch_size
-        assert valid_steps > 0, 'We need some validation data'
-        valid_loader = make_data_loader(valid_x, valid_y, batch_size=batch_size, drop_last_batch=True)
+        if valid_steps == 0:  # pragma: no-coverage
+            raise ValueError(f'Insufficient validation data. Need at least {batch_size} records')
+        valid_loader = make_data_loader(valid_x, valid_y, batch_size=batch_size, drop_last_batch=True, value_spec=value_spec)
 
         # Define initial guesses for the "scaling" later
         try:
-            scale_layer = model.get_layer('scale')
             outputs = np.array(outputs)
-            scale_layer.set_weights([outputs.std()[None, None], outputs.mean()[None]])
+            output_mean = np.nanmean(outputs, axis=0)
+            outputs_std = np.clip(np.nanstd(outputs, axis=0), 1e-6, a_max=None)
+            for i, (m, s) in enumerate(zip(np.atleast_1d(output_mean), np.atleast_1d(outputs_std))):
+                scale_layer = model.get_layer(f'scale_{i}')
+                scale_layer.set_weights([np.atleast_2d(s), np.atleast_1d(m)])
         except ValueError:
             pass
 
@@ -357,13 +445,14 @@ class NFPScorer(Scorer):
         decay_rate = (final_learn_rate / init_learn_rate) ** (1. / (num_epochs - 1))
 
         def lr_schedule(epoch, lr):
-            return lr * decay_rate
+            if epoch > 0:
+                return lr * decay_rate
+            return lr
 
         # Compile the model then train
         model.compile(
             tf.optimizers.Adam(init_learn_rate),
-            'mean_squared_error',
-            metrics=['mean_absolute_error'],
+            loss=loss,
             steps_per_execution=steps_per_exec,
         )
 

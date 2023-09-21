@@ -3,12 +3,11 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 
 import numpy as np
-from pytest import fixture, raises
+from pytest import fixture
 from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit.descriptors import compute_doan_2020_fingerprints
 from examol.score.rdkit import make_knn_model, RDKitScorer, make_gpr_model
-from examol.store.models import MoleculeRecord
 
 
 @fixture()
@@ -19,20 +18,6 @@ def pipeline() -> Pipeline:
 @fixture()
 def scorer() -> RDKitScorer:
     return RDKitScorer()
-
-
-def test_process_failure(scorer, recipe):
-    record = MoleculeRecord.from_identifier('O')
-
-    # Missing record and property
-    with raises(ValueError) as err:
-        scorer.transform_outputs([record], recipe)
-    assert str(err.value).startswith('Record for')
-
-    record.properties[recipe.name] = {}
-    with raises(ValueError) as err:
-        scorer.transform_outputs([record], recipe)
-    assert str(err.value).startswith('Record for')
 
 
 def test_transform(training_set, scorer, recipe):

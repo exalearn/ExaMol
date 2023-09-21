@@ -110,20 +110,20 @@ def test_optimization(config_name: str, strc, tmpdir):
 
         # Make sure everything is stored in the DB
         with connect(db_path) as db:
-            assert len(db) == len(traj_res)
+            assert len(db) <= len(traj_res)
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it doesn't write new stuff
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) == len(traj_res)
+            assert len(db) <= len(traj_res)
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
         (run_dir / 'opt.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) == len(traj_res)
+            assert len(db) <= len(traj_res)
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it cleans up after itself
@@ -131,7 +131,7 @@ def test_optimization(config_name: str, strc, tmpdir):
         shutil.rmtree(run_dir)
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) == len(traj_res)
+            assert len(db) <= len(traj_res)
             assert next(db.select())['total_charge'] == 1
         assert not run_dir.is_dir()
 
@@ -231,7 +231,9 @@ def test_gaussian_opt(tmpdir):
     assert relaxed.forces.max() < 0.01
 
 
-def test_opt_failure(tmpdir, strc):
+def test_opt_failure(tmpdir):
+    atoms = molecule('bicyclobutane')
+    strc = write_to_string(atoms, 'xyz')
     sim = ASESimulator(scratch_dir=tmpdir, optimization_steps=1)
 
     # Run with fewer steps than needed
