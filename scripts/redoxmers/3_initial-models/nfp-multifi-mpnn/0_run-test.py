@@ -6,6 +6,7 @@ from sklearn import metrics
 from argparse import ArgumentParser
 from pathlib import Path
 from hashlib import md5
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import gzip
@@ -25,6 +26,9 @@ if __name__ == "__main__":
     parser.add_argument('--num-epochs', type=int, default=4, help='Number of training epochs')
     parser.add_argument('--batch-size', type=int, default=32, help='Number of records per batch')
     parser.add_argument('--lower-levels', nargs='*', help='Lower levels of fidelity to use in model training and inference')
+    parser.add_argument('--pipeline-factor', default=1., type=float,
+                        help='Fraction of calculations computed at each successive level of fidelity. '
+                             'If 1, 100% of calculations at level N are computed at level N+1.')
     parser.add_argument('property', choices=['ea', 'ip'], help='Name of the property to assess')
     parser.add_argument('level', help='Accuracy level of the property to predict')
 
@@ -46,17 +50,40 @@ if __name__ == "__main__":
     data_path = Path(f'../datasets/mdf-mos/{prop}-{args.level}')
     data_hash = (data_path / 'dataset.md5').read_text()
     with gzip.open(data_path / 'train.json.gz', 'rt') as fp:
-        train_records = [MoleculeRecord.from_json(line) for line in fp]
+        train_records = [MoleculeRecord.from_json(line) for line in tqdm(fp, desc='loading training...')]
     with gzip.open(data_path / 'test.json.gz', 'rt') as fp:
-        test_records = [MoleculeRecord.from_json(line) for line in fp]
+        test_records = [MoleculeRecord.from_json(line) for line in tqdm(fp, desc='loading test...')]
     print(f'Found {len(train_records)} train, {len(test_records)} test records. Data hash: {data_hash}')
 
-    # Get the top level of fidelity from the test records to use for the target value
-    test_outputs = np.array([record.properties[top_recipe.name].pop(top_recipe.level) for record in test_records])
+    # Drop calculations from the training set to emulate a pipeline dataset
+    #  Each record has a `1 - args.pipeline_factor` chance of making it through each level
+    rng = np.random.default_rng(1)
+    for record in train_records:
+        # Simulate whether it makes it through each level
+        for level in range(len(all_recipes) - 1):
+            if rng.random() < args.pipeline_factor:
+                # If smaller, it stopped at this level
+                stop_level = level
+                break
+        else:
+            # We go all the wya to the top
+            continue
+
+        # Eliminate all calculations larger than that level
+        for recipe in all_recipes[level + 1:]:
+            record.properties[recipe.name].pop(recipe.level)
+
+    # Count the number of records at each level of fidelity
+    train_counts = [0] * len(all_recipes)
+    for record in train_records:
+        for i, recipe in enumerate(all_recipes):
+            if recipe.level in record.properties[recipe.name]:
+                train_counts[i] += 1
 
     #  Make a run directory
     run_settings = args.__dict__.copy()
     run_settings.pop('overwrite')
+    run_settings['train_counts'] = train_counts
     run_settings['name'] = top_recipe.name
     run_settings['level'] = top_recipe.level
     run_settings['data_hash'] = data_hash
@@ -81,7 +108,6 @@ if __name__ == "__main__":
     # Run the training
     scorer = NFPScorer(retrain_from_scratch=True)
     train_inputs = scorer.transform_inputs(train_records, recipes=all_recipes)
-    test_inputs = scorer.transform_inputs(test_records, recipes=all_recipes)
     train_outputs = scorer.transform_outputs(train_records, all_recipes)
     print(f'Converted data to input formats')
 
@@ -93,17 +119,30 @@ if __name__ == "__main__":
     model.save(run_dir / 'model.keras')
     pd.DataFrame(update_msg[1]).to_csv(run_dir / 'log.csv', index=False)
 
-    # Measure the performance on the hold-out set
-    model_msg = scorer.prepare_message(model)
-    test_preds = scorer.score(model_msg, test_inputs)
+    # Get the top level of fidelity from the test records to use for the target value
+    test_outputs = np.array([record.properties[top_recipe.name].pop(top_recipe.level) for record in test_records])
 
-    summary = dict(
-        (f.__name__, f(test_outputs, test_preds)) for f in
-        [metrics.mean_absolute_error, metrics.r2_score, metrics.mean_squared_error]
-    )
+    # Measure the performance on the hold-out set starting from different levels
+    model_msg = scorer.prepare_message(model)
+    summary = {}
+    all_preds = {'smiles': [r.identifier.smiles for r in test_records],
+                 'true': test_outputs.squeeze()}
+    for level_id, recipe in tqdm(enumerate(all_recipes[::-1]), desc='testing'):
+        # Remove that level
+        for record in test_records:
+            record.properties[recipe.name].pop(recipe.level, None)
+
+        # Create the inputs
+        test_inputs = scorer.transform_inputs(test_records, all_recipes)
+        test_preds = scorer.score(model_msg, test_inputs)
+
+        # Append the summary and score
+        level_tag = f'level_{len(all_recipes) - level_id - 1}'
+        summary.update(dict(
+            (f'{level_tag }_{f.__name__}', f(test_outputs, test_preds)) for f in
+            [metrics.mean_absolute_error, metrics.r2_score, metrics.mean_squared_error]
+        ))
+        all_preds[f'{level_tag}-pred'] = test_preds.squeeze()
+    # Save results
     (run_dir / 'test_summary.json').write_text(json.dumps(summary, indent=2))
-    pd.DataFrame({
-        'smiles': [r.identifier.smiles for r in test_records],
-        'true': test_outputs.squeeze(),
-        'pred': test_preds.squeeze()
-    }).to_csv(run_dir / 'test_results.csv', index=False)
+    pd.DataFrame(all_preds).to_csv(run_dir / 'test_results.csv', index=False)
