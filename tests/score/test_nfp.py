@@ -152,12 +152,12 @@ def test_multifi_loader(training_set, scorer, multifi_recipes):
     # Convert the input data
     inputs = scorer.transform_inputs(training_set, multifi_recipes)
     outputs = scorer.transform_outputs(training_set, multifi_recipes)
-    assert np.isclose(inputs[0][1], [1., 2.]).all()
+    assert np.isclose(inputs[0][1], [1., 2., 3.]).all()
     assert np.isclose(outputs[0], inputs[0][1]).all()
 
     # Test the loader
     input_dicts, _ = zip(*inputs)  # Get just the input dictionaries
-    loader = make_data_loader(input_dicts, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((2,), dtype=tf.float32))
+    loader = make_data_loader(input_dicts, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((len(multifi_recipes),), dtype=tf.float32))
     batch_x, batch_y = next(iter(loader))
     assert np.isclose(batch_y, [1., 2., 3.]).all()  # All three levels
 
