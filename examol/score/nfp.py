@@ -445,7 +445,7 @@ class NFPScorer(Scorer):
         decay_rate = (final_learn_rate / init_learn_rate) ** (1. / (num_epochs - 1))
 
         def lr_schedule(epoch, lr):
-            if epoch > 1:
+            if epoch > 0:
                 return lr * decay_rate
             return lr
 
