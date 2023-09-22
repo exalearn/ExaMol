@@ -28,7 +28,7 @@ def make_theta_config() -> tuple[Config, ASESimulator, int, list[str]]:
     """Make a configuration that will run computations on larger theta allocations"""
 
     max_blocks = 4
-    prefetch = 16
+    prefetch = 0
     config = Config(
         retries=8,
         executors=[
@@ -50,14 +50,14 @@ def make_theta_config() -> tuple[Config, ASESimulator, int, list[str]]:
             )]
     )
     sim = ASESimulator(scratch_dir='/tmp/run_data', retain_failed=False)  # Avoid using the global filesystem
-    return config, sim, max_blocks * 128 * prefetch, ['xtb', 'mopac_pm7']
+    return config, sim, max_blocks * 128 * (prefetch + 1), ['xtb', 'mopac_pm7']
 
 
 def make_theta_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
     """Make a configuration that will run computations on a small job"""
 
     max_blocks = 1
-    prefetch = 4
+    prefetch = 0
     config = Config(
         retries=8,
         executors=[
@@ -80,7 +80,7 @@ def make_theta_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
             )]
     )
     sim = ASESimulator(scratch_dir='/tmp/run_data', retain_failed=False)
-    return config, sim, max_blocks * 4 * prefetch, ['xtb']
+    return config, sim, max_blocks * 4 * (prefetch + 1), ['xtb']
 
 
 def make_polaris_config() -> tuple[Config, ASESimulator, int, list[str]]:
@@ -141,6 +141,7 @@ which python""",
     )
     sim = ASESimulator(
         scratch_dir='cp2k-files',
+        optimization_steps=100,
         cp2k_command=f'mpiexec -n {nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                      f'--hostfile /tmp/hostfiles/local_hostfile.`printf %02d $PARSL_WORKER_RANK` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '

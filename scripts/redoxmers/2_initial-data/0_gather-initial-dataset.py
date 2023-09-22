@@ -58,7 +58,7 @@ class BruteForceThinker(BaseThinker):
         self.args = args
 
         # Determine where to store the task records
-        run_name = self.database_path.name[:-5]
+        run_name = self.database_path.name[:-8]
         self.record_path = self.database_path.parent / f'{run_name}-results.json.gz'
 
         # Output handles
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     if dataset_path.is_file():
         # Load the existing data
         my_logger.info(f'Loading initial data from {dataset_path}')
-        with dataset_path.open() as fp:
+        with gzip.open(dataset_path, 'rt') as fp:
             for line in fp:
                 record = MoleculeRecord.from_json(line)
                 dataset[record.key] = record
