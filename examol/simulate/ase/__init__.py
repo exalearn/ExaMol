@@ -270,12 +270,7 @@ METHOD ANDREUSSI
         try:
             os.chdir(run_path)
             with utils.make_ephemeral_calculator(calc_cfg) as calc:
-                # Prepare the structure for a specific code
-                if 'cp2k' in config_name:
-                    calc_cfg['buffer_size'] *= 1.5  # In case the molecule expands
-                self._prepare_atoms(atoms, charge, calc_cfg)
-
-                # Recover the history from a previous run
+                # Get the last atoms from a previous run
                 traj_path = Path('opt.traj')
                 if traj_path.is_file():
                     try:
@@ -285,6 +280,11 @@ METHOD ANDREUSSI
                     except InvalidULMFileError:
                         traj_path.unlink()
                         pass
+
+                # Prepare the structure for a specific code
+                if 'cp2k' in config_name:
+                    calc_cfg['buffer_size'] *= 2  # In case the molecule expands
+                self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Special case: use Gaussian's optimizer
                 if isinstance(calc, Gaussian) and calc_cfg['use_gaussian_opt']:
@@ -311,6 +311,10 @@ METHOD ANDREUSSI
                     # Start with a MDMin optimization to very thin convergence threshold
                     dyn = FIRE(atoms, logfile='opt.log', trajectory=traj)
                     dyn.run(fmax=0.7, steps=self.optimization_steps)  # TODO (wardlt) make the fmax configurable
+
+                    # If CP2K, re-expand the simulation cell in chase molecule has expanded
+                    if 'cp2k' in config_name:
+                        self._prepare_atoms(atoms, charge, calc_cfg)
 
                     # Make the optimizer
                     dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=traj)
