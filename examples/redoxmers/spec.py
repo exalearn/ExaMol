@@ -7,7 +7,6 @@ from parsl import Config, HighThroughputExecutor
 from proxystore.store import Store
 from proxystore.connectors.file import FileConnector
 
-
 from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
@@ -48,11 +47,11 @@ spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
     recipes=[recipe],
     search_space=[(my_path / 'search_space.smi')],
-    selector=GreedySelector(8, maximize=True),
-    simulator=ASESimulator(scratch_dir=(my_path / 'tmp')),
+    selector=GreedySelector(16, maximize=True),
+    simulator=ASESimulator(scratch_dir=(run_dir / 'tmp'), clean_after_run=False),
     scorer=scorer,
     models=[[pipeline]],
-    num_to_run=4,
+    num_to_run=32,
     thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,
