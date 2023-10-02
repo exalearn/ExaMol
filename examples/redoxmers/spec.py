@@ -11,10 +11,15 @@ from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
+from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
 from examol.select.baseline import GreedySelector
 from examol.specify import ExaMolSpecification
+
+# Parameters you may want to configure
+num_random: int = 2  # Number of randomly-selected molecules to run
+num_total: int = 8  # Total number of molecules to run
 
 # Get my path. We'll want to provide everything as absolute paths, as they are relative to this file
 my_path = Path().absolute()
@@ -38,7 +43,7 @@ writer = DatabaseWriter()
 # Make the parsl (compute) and proxystore (optional data fabric) configuration
 is_mac = sys.platform == 'darwin'
 config = Config(
-    executors=[HighThroughputExecutor(max_workers=4, cpu_affinity='none' if is_mac else 'block', address='127.0.0.1')],
+    executors=[HighThroughputExecutor(max_workers=1)],
     run_dir=str((my_path / 'parsl-logs')),
 )
 store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)
@@ -47,11 +52,12 @@ spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
     recipes=[recipe],
     search_space=[(my_path / 'search_space.smi')],
-    selector=GreedySelector(16, maximize=True),
+    starter=RandomStarter(threshold=num_random),
+    selector=GreedySelector(num_total, maximize=True),
     simulator=ASESimulator(scratch_dir=(run_dir / 'tmp'), clean_after_run=False),
     scorer=scorer,
     models=[[pipeline]],
-    num_to_run=32,
+    num_to_run=num_total,
     thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,
