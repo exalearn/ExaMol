@@ -46,7 +46,7 @@ class ExaMolSpecification:
     """Definition for how to compute the target properties"""
     search_space: list[Path | str] = ...
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
-    starter: Starter = RandomStarter(threshold=10, min_to_select=1)
+    starter: Starter = RandomStarter(threshold=10)
     """How to initialize the database if too small. Default: Pick a single random molecule"""
     selector: Selector = ...
     """How to identify which computation to perform next"""
