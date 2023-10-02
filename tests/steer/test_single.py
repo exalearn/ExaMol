@@ -100,7 +100,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         recipes=[recipe],
         database=training_set,
         scorer=scorer,
-        starter=RandomStarter(4, 1),
+        starter=RandomStarter(4),
         models=[[model, model]],
         selector=RandomSelector(10),
         num_workers=1,
