@@ -99,7 +99,7 @@ class SingleStepThinker(MoleculeThinker):
             with self.task_queue_lock:
                 if len(self.task_queue) == 0:
                     self.logger.info('No tasks available to run. Waiting')
-                    while not self.task_queue_lock.wait(timeout=10):
+                    while not self.task_queue_lock.wait(timeout=2):
                         if self.done.is_set():
                             yield None, None
                 smiles, score = self.task_queue.pop(0)  # Get the next task
@@ -141,8 +141,7 @@ class SingleStepThinker(MoleculeThinker):
 
         # If not, pick some
         self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
-        needed = self.starter.threshold - train_size
-        subset = self.starter.select(list(interleave_longest(*self.search_space_keys)), needed)
+        subset = self.starter.select(list(interleave_longest(*self.search_space_keys)), self.num_to_run)
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
             for key in subset:
