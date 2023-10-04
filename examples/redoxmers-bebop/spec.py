@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from parsl import Config, HighThroughputExecutor
-from parsl.addresses import address_by_hostname
+from parsl.addresses import address_by_interface
 from parsl.launchers import SrunLauncher
 from parsl.providers import SlurmProvider
 
@@ -15,6 +15,10 @@ from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
 from examol.select.bayes import ExpectedImprovement
 from examol.specify import ExaMolSpecification
+
+# Configuration you may want to change
+nodes_per_block: int = 5  # Number of nodes per job
+max_blocks: int = 1  # Number of jobs to submit
 
 # Get my path. We'll want to provide everything as absolute paths, as they are relative to this file
 my_path = Path().absolute()
@@ -39,13 +43,13 @@ sim = ASESimulator(
 
 # Make the parsl configuration
 htex = HighThroughputExecutor(
-    address=address_by_hostname(),
+    address=address_by_interface('eno1'),
     max_workers=1,  # Only one task per node
     provider=SlurmProvider(
-        partition='knlall',
+        partition='knl-preemptable',
         launcher=SrunLauncher(),
-        nodes_per_block=10,
-        max_blocks=2,
+        nodes_per_block=nodes_per_block,
+        max_blocks=max_blocks,
         scheduler_options="#SBATCH --account=ML-for-Redox",
         worker_init='''
 module load gaussian/16-a.03
@@ -54,7 +58,7 @@ export GAUSS_CDEF=0-63
 export GAUSS_MDEF=50GB
 export GAUSS_SDEF=ssh
 export GAUSS_LFLAGS="-vv"''',
-        walltime="20:00:00"
+        walltime="24:00:00"
     )
 )
 config = Config(
@@ -67,16 +71,16 @@ config = Config(
 run_dir = my_path / 'run'
 spec = ExaMolSpecification(
     database=run_dir / 'database.json',
-    recipes=recipe,
+    recipes=[recipe],
     search_space=[(my_path / 'search-space.smi')],
     selector=ExpectedImprovement(25, maximize=True, epsilon=0.1),
-    starter=RandomStarter(threshold=10, min_to_select=1),
+    starter=RandomStarter(threshold=10),
     simulator=sim,
     scorer=scorer,
-    models=[pipeline] * 8,
+    models=[[pipeline] * 8],
     num_to_run=200,
     thinker=SingleStepThinker,
-    thinker_options=dict(num_workers=20),
+    thinker_options=dict(num_workers=nodes_per_block * max_blocks),
     compute_config=config,
     reporters=[reporter, writer],
     run_dir=run_dir,
