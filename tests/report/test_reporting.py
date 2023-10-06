@@ -9,7 +9,7 @@ from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 example_dir = Path(__file__).parent / 'example'
 

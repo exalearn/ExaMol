@@ -19,7 +19,7 @@ from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 on_mac = (sys.platform == 'darwin')
 

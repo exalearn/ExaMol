@@ -2,7 +2,7 @@ from pytest import fixture
 import numpy as np
 
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 
 class TestRecipe(PropertyRecipe):

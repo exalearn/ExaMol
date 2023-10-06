@@ -1,5 +1,5 @@
 """Train a model and save results into a directory structure"""
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 from examol.score.nfp import NFPScorer, make_simple_network
 from examol.store.models import MoleculeRecord
 from sklearn import metrics

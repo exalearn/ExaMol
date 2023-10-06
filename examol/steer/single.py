@@ -22,7 +22,7 @@ from ..select.base import Selector
 from ..simulate.base import SimResult
 from ..start.base import Starter
 from ..store.models import MoleculeRecord
-from ..store.recipes import PropertyRecipe, SimulationRequest
+from ..store.recipes.base import PropertyRecipe, SimulationRequest
 
 
 class SingleStepThinker(MoleculeThinker):

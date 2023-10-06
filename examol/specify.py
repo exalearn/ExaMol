@@ -21,7 +21,7 @@ from examol.start.fast import RandomStarter
 from examol.steer.base import MoleculeThinker
 from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 logger = logging.getLogger(__name__)
 

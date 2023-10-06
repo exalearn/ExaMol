@@ -51,7 +51,7 @@ Recipes
 -------
 
 Recipes define how to compute property of a molecule from multiple energy computations.
-All are based on the :class:`~examol.store.recipes.PropertyRecipe` object, and provide a
+All are based on the :class:`~examol.store.recipes.base.PropertyRecipe` object, and provide a
 function to compute the property from a molecule data record
 and second to generate the list of computations required to complete a computation.
 

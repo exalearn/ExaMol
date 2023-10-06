@@ -13,7 +13,7 @@ from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 from examol.select.baseline import GreedySelector
 from examol.specify import ExaMolSpecification
 
