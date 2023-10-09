@@ -67,6 +67,12 @@ def test_cp2k_configs(tmpdir, strc):
     assert 'GAPW' in config['kwargs']['inp']
     assert Path(config['kwargs']['basis_set_file']).is_file()
 
+    # With PBE
+    config = sim.create_configuration('cp2k_pbe_dzvp', strc, charge=0, solvent=None)
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
+    assert 'PBE' in config['kwargs']['inp']
+    assert 'PERIODIC XYZ' in config['kwargs']['inp']
+
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
@@ -80,7 +86,8 @@ def test_cp2k_configs(tmpdir, strc):
     + [(xc, 0, 'acn') for xc in cp2k_configs_to_test]  # With a solvent
     + [(cp2k_configs_to_test[0], -1, 'acn')]  # Open shell and a solvent
 )
-def test_ase_singlepoint(tmpdir, strc, config, charge, solvent):
+def test_cp2k_0d_singlepoint(tmpdir, strc, config, charge, solvent):
+    """Test the computations w/o periodic boundary conditions."""
     sim = ASESimulator(scratch_dir=tmpdir)
     sim.compute_energy('test', strc, config_name=config, charge=charge, solvent=solvent)
 
