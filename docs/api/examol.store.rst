@@ -36,9 +36,16 @@ examol.store.recipes.basic
    :show-inheritance:
 
 
-examol.store.recipes.base
-+++++++++++++++++++++++++
+examol.store.recipes.redox
+++++++++++++++++++++++++++
 
-.. automodule:: examol.store.recipes.basic
+.. automodule:: examol.store.recipes.redox
+   :members:
+   :show-inheritance:
+
+examol.store.recipes.surface
+++++++++++++++++++++++++++++
+
+.. automodule:: examol.store.recipes.surface
    :members:
    :show-inheritance:
