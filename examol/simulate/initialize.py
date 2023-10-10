@@ -46,20 +46,33 @@ def generate_inchi_and_xyz(mol_string: str, special_cases: bool = True) -> tuple
         AllChem.AssignStereochemistryFrom3D(mol)
         inchi = Chem.MolToInchi(mol)
 
-        # Save geometry as 3D coordinates
-        xyz = f"{mol.GetNumAtoms()}\n"
-        xyz += inchi + "\n"
-        conf = mol.GetConformer()
-        for i, a in enumerate(mol.GetAtoms()):
-            s = a.GetSymbol()
-            c = conf.GetAtomPosition(i)
-            xyz += f"{s} {c[0]} {c[1]} {c[2]}\n"
+        # Save the conformer to an XYZ file
+        xyz = write_xyz_from_mol(mol, inchi)
 
         # Special cases for odd kinds of molecules
         if special_cases:
             xyz = fix_cyclopropenyl(xyz, mol_string)
 
         return inchi, xyz
+
+
+def write_xyz_from_mol(mol: Chem.Mol, comment: str = ""):
+    """Write an RDKit Mol object to an XYZ-format string
+
+    Args:
+        mol: Molecule to write
+        comment: Comment line for the file
+    Returns:
+        XYZ-format version of the molecule
+    """
+    xyz = f"{mol.GetNumAtoms()}\n"
+    xyz += comment + "\n"
+    conf = mol.GetConformer()
+    for i, a in enumerate(mol.GetAtoms()):
+        s = a.GetSymbol()
+        c = conf.GetAtomPosition(i)
+        xyz += f"{s} {c[0]} {c[1]} {c[2]}\n"
+    return xyz
 
 
 def fix_cyclopropenyl(xyz: str, mol_string: str) -> str:
