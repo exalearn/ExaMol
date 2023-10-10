@@ -127,9 +127,13 @@ class MoleculeThinker(BaseThinker):
                 for i, path in enumerate(search_space):
                     path = Path(path).resolve()
                     self.logger.info(f'Reading molecules from file {i + 1}/{len(search_space)}: {path.resolve()}')
-                    if path.name.lower().endswith('.smi') or path.name.lower().endswith('.json'):
-                        with path.open() as fp:
-                            for line in fp:
+
+                    # Determine how to read molecules out of the file
+                    filename_lower = path.name.lower()
+                    if any(filename_lower.endswith(ext) or filename_lower.endswith(f'{ext}.gz') for ext in ['.smi', '.json']):
+                        # Open with GZIP or normally depending on the extension
+                        with (gzip.open(path, 'rt') if filename_lower.endswith('.gz') else path.open()) as fmols:
+                            for line in fmols:
                                 yield line.strip()
                     else:
                         raise ValueError(f'File type is unrecognized for {path}')

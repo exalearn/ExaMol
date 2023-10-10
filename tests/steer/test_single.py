@@ -1,5 +1,6 @@
 """Test single objective optimizer"""
 import sys
+import gzip
 import json
 import logging
 from pathlib import Path
@@ -163,8 +164,8 @@ def test_json_inputs(queues, scorer, search_space, tmp_path, training_set):
     """Test using a JSON-format search space"""
 
     # Save the training data to JSON format
-    json_search_space = search_space.parent / 'search_space.json'
-    with search_space.open() as fi, json_search_space.open('w') as fo:
+    json_search_space = search_space.parent / 'search_space.json.gz'
+    with search_space.open() as fi, gzip.open(json_search_space, 'wt') as fo:
         for mol in fi:
             record = MoleculeRecord.from_identifier(mol.strip())
             print(record.to_json(), file=fo)
