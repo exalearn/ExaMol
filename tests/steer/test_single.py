@@ -117,7 +117,7 @@ def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right
-    assert len(thinker.search_space_keys) == 1
+    assert len(thinker.search_space_smiles) == 1
     assert len(thinker.database) == len(training_set)
 
     # Run it
@@ -177,5 +177,5 @@ def test_json_inputs(queues, scorer, search_space, tmp_path, training_set):
         scorer=scorer[0],
         database=training_set
     )
-    assert len(thinker.search_space_keys) == 1
-    assert len(thinker.search_space_keys[0]) == 5
+    assert len(thinker.search_space_smiles) == 1
+    assert len(thinker.search_space_smiles[0]) == 5

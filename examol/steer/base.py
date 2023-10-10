@@ -43,7 +43,7 @@ def _generate_inputs(input_data: str | dict, scorer: Scorer) -> tuple[str, objec
         readied = scorer.transform_inputs([record])[0]
     except (ValueError, RuntimeError):
         return None
-    return record.key, readied
+    return record.identifier.smiles, readied
 
 
 class MoleculeThinker(BaseThinker):
@@ -59,7 +59,7 @@ class MoleculeThinker(BaseThinker):
         inference_chunk_size: How many molecules per inference task
 
     Attributes:
-        search_space_keys: Keys associated with each molecule in the search space, broken into chunks
+        search_space_smiles: SMILES associated with each molecule in the search space, broken into chunks
         search_space_inputs: Inputs to the ML models for each molecule in the search space, broken into chucks
         database: Map between molecule InChI key and currently-known information about it
     """
@@ -87,9 +87,9 @@ class MoleculeThinker(BaseThinker):
 
         # Partition the search space into smaller chunks
         self.search_space_dir = self.run_dir / 'search-space'
-        self.search_space_keys: list[list[str]]
+        self.search_space_smiles: list[list[str]]
         self.search_space_inputs: list[list[object]]
-        self.search_space_keys, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, search_space))
+        self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, search_space))
 
     @property
     def inference_store(self) -> Store | None:
