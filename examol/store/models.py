@@ -74,7 +74,7 @@ class Conformer(EmbeddedDocument):
     # Provenance of the structure
     date_created = DateTimeField(required=True)
     """Date this conformer was inserted"""
-    source = StringField(required=True, choices=['relaxation', 'other'])
+    source = StringField(required=False)
     """Method used to generate this structure (e.g., via relaxation)"""
     config_name = StringField()
     """Configuration used to relax the structure, if applicable"""
@@ -97,25 +97,32 @@ class Conformer(EmbeddedDocument):
             sim_result: Simulation result
             source: How this conformer was determined
         Returns:
-            An initialized conformer record
+            An initialized conformer record which includes energies
         """
+        new_record = cls.from_xyz(sim_result.xyz, source=source, config_name=sim_result.config_name, charge=sim_result.charge)
+        new_record.add_energy(sim_result)
+        return new_record
 
+    @classmethod
+    def from_xyz(cls, xyz: str, **kwargs):
+        """Create a new object from a XYZ-format object
+
+        Args:
+            xyz: XYZ-format description of the molecule
+        Returns:
+            An initialized conformer object
+        """
         # Make sure the simulation results is center
-        atoms = read_from_string(sim_result.xyz, 'xyz')
+        atoms = read_from_string(xyz, 'xyz')
         atoms.center()
         xyz = write_to_string(atoms, 'xyz')
 
-        # Convert the sim result to a database record
-        new_record = cls(
+        return cls(
             xyz=xyz,
             xyz_hash=md5(xyz.encode()).hexdigest(),
             date_created=datetime.now(),
-            source=source,
-            config_name=sim_result.config_name,
-            charge=sim_result.charge,
+            **kwargs
         )
-        new_record.add_energy(sim_result)
-        return new_record
 
     def add_energy(self, sim_result: SimResult) -> bool:
         """Add the energy from a simulation result
