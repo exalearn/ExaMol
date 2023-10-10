@@ -19,23 +19,31 @@ from examol.score.base import Scorer
 from examol.store.models import MoleculeRecord
 
 
-def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
+def _generate_inputs(input_data: str | dict, scorer: Scorer) -> tuple[str, object] | None:
     """Parse a molecule then generate a form ready for inference
 
     Args:
-        smiles: Molecule to be parsed
+        input_data: Either an identifier string (e.g., SMILES) to be parsed,
+            or a JSON-serialized string
         scorer: Tool used for inference
     Returns:
         - Key for the molecule record
         - Inference-ready format
         Or None if the transformation fails
     """
+
     try:
-        record = MoleculeRecord.from_identifier(smiles.strip())
+        # Get a starting record
+        if input_data.startswith("{"):
+            record = MoleculeRecord.from_json(input_data)
+        else:
+            record = MoleculeRecord.from_identifier(input_data)
+
+        # Compute the features
         readied = scorer.transform_inputs([record])[0]
     except (ValueError, RuntimeError):
         return None
-    return smiles, readied
+    return record.key, readied
 
 
 class MoleculeThinker(BaseThinker):
@@ -119,7 +127,7 @@ class MoleculeThinker(BaseThinker):
                 for i, path in enumerate(search_space):
                     path = Path(path).resolve()
                     self.logger.info(f'Reading molecules from file {i + 1}/{len(search_space)}: {path.resolve()}')
-                    if path.name.lower().endswith('.smi'):
+                    if path.name.lower().endswith('.smi') or path.name.lower().endswith('.json'):
                         with path.open() as fp:
                             for line in fp:
                                 yield line.strip()
