@@ -123,7 +123,7 @@ def test_optimization(config_name: str, strc, tmpdir):
         (run_dir / 'opt.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) <= len(traj_res) + 2 
+            assert len(db) <= len(traj_res) + 2
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it cleans up after itself
