@@ -63,7 +63,7 @@ export GAUSS_LFLAGS="-vv"''',
 )
 config = Config(
     executors=[htex],
-    retries=4,
+    retries=24,  # Most often, will restart after a job finishes
     run_dir=str((my_path / 'parsl-logs')),
 )
 
