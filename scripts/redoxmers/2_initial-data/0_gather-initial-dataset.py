@@ -92,8 +92,8 @@ class BruteForceThinker(BaseThinker):
             my_record = self.database[key]
 
             # See if there is any new work to do
-            try:
-                for recipe in self.recipes:
+            for recipe in self.recipes:
+                try:
                     next_calculations = recipe.suggest_computations(my_record)
                     if len(next_calculations) > 0:
                         self.logger.debug(f'Submitting tasks for {my_record.key} recipe {recipe.name}@{recipe.level}')
@@ -114,10 +114,10 @@ class BruteForceThinker(BaseThinker):
 
                     # Compute the property
                     recipe.update_record(my_record)
-            except ValueError as e:
-                self.logger.warning(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error: {e}')
-                if self.args.halt_on_error:
-                    raise ValueError(f'Failed to submit new tasks for {my_record.key}')
+                except ValueError as e:
+                    self.logger.warning(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error: {e}')
+                    if self.args.halt_on_error:
+                        raise ValueError(f'Failed to submit new tasks for {my_record.key}')
 
         # If there are neither molecules no ongoing tasks, then we are done
         if len(self.ongoing_tasks) == 0:
