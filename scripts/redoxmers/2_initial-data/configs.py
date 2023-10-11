@@ -28,7 +28,7 @@ def make_theta_config() -> tuple[Config, ASESimulator, int, list[str]]:
     """Make a configuration that will run computations on larger theta allocations"""
 
     max_blocks = 4
-    prefetch = 16
+    prefetch = 0
     config = Config(
         retries=8,
         executors=[
@@ -50,14 +50,14 @@ def make_theta_config() -> tuple[Config, ASESimulator, int, list[str]]:
             )]
     )
     sim = ASESimulator(scratch_dir='/tmp/run_data', retain_failed=False)  # Avoid using the global filesystem
-    return config, sim, max_blocks * 128 * prefetch, ['xtb', 'mopac_pm7']
+    return config, sim, max_blocks * 128 * (prefetch + 1), ['xtb', 'mopac_pm7']
 
 
 def make_theta_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
     """Make a configuration that will run computations on a small job"""
 
     max_blocks = 1
-    prefetch = 4
+    prefetch = 0
     config = Config(
         retries=8,
         executors=[
@@ -80,7 +80,7 @@ def make_theta_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
             )]
     )
     sim = ASESimulator(scratch_dir='/tmp/run_data', retain_failed=False)
-    return config, sim, max_blocks * 4 * prefetch, ['xtb']
+    return config, sim, max_blocks * 4 * (prefetch + 1), ['xtb', 'mopac_pm7']
 
 
 def make_polaris_config() -> tuple[Config, ASESimulator, int, list[str]]:
@@ -92,7 +92,7 @@ def make_polaris_config() -> tuple[Config, ASESimulator, int, list[str]]:
     # Settings
     max_blocks = 8
     nodes_per_cp2k = 1
-    cp2k_per_block = 2
+    cp2k_per_block = 4
     prefetch = 0
     nodes_per_block = cp2k_per_block * nodes_per_cp2k
 
@@ -125,7 +125,7 @@ ls /tmp/hostfiles
 # Load anaconda
 conda activate /lus/grand/projects/CSC249ADCD08/ExaMol/env-polaris
 which python""",
-                    walltime="12:00:00",
+                    walltime="72:00:00",
                     queue="preemptable",
                     scheduler_options="#PBS -l filesystems=home:eagle:grand",
                     launcher=SimpleLauncher(),
@@ -141,12 +141,13 @@ which python""",
     )
     sim = ASESimulator(
         scratch_dir='cp2k-files',
+        optimization_steps=150,
         cp2k_command=f'mpiexec -n {nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                      f'--hostfile /tmp/hostfiles/local_hostfile.`printf %02d $PARSL_WORKER_RANK` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/cp2k-git/exe/local_cuda/cp2k_shell.psmp',
     )
-    return config, sim, max_blocks * cp2k_per_block * (prefetch + 1), ['cp2k_b3lyp_svp']
+    return config, sim, max_blocks * cp2k_per_block * (prefetch + 1), ['cp2k_b3lyp_svp', 'cp2k_b3lyp_tzvpd']
 
 
 def make_polaris_debug_config() -> tuple[Config, ASESimulator, int, list[str]]:
