@@ -12,7 +12,7 @@ import numpy as np
 from ase import units
 from ase.db import connect
 from ase.io import Trajectory, read
-from ase.optimize import QuasiNewton, FIRE
+from ase.optimize import BFGS, FIRE
 from ase.io.ulm import InvalidULMFileError
 from ase.calculators.gaussian import Gaussian, GaussianOptimizer
 
@@ -317,7 +317,7 @@ METHOD ANDREUSSI
                         self._prepare_atoms(atoms, charge, calc_cfg)
 
                     # Make the optimizer
-                    dyn = QuasiNewton(atoms, logfile='opt.log', trajectory=traj)
+                    dyn = BFGS(atoms, logfile='opt.log', trajectory=traj)
 
                     # Run an optimization
                     dyn.run(fmax=fmax_conv, steps=self.optimization_steps)
