@@ -284,6 +284,8 @@ METHOD ANDREUSSI
                 # Prepare the structure for a specific code
                 if 'cp2k' in config_name:
                     calc_cfg['buffer_size'] *= 2  # In case the molecule expands
+                elif 'gaussian' in config_name and Path('gauss.chk').is_file():
+                    calc.parameters['guess'] = 'read'  # Read the restart
                 self._prepare_atoms(atoms, charge, calc_cfg)
 
                 # Special case: use Gaussian's optimizer
@@ -312,9 +314,13 @@ METHOD ANDREUSSI
                     dyn = FIRE(atoms, logfile='opt.log', trajectory=traj)
                     dyn.run(fmax=0.7, steps=self.optimization_steps)  # TODO (wardlt) make the fmax configurable
 
-                    # If CP2K, re-expand the simulation cell in chase molecule has expanded
+                    # Optimizations for different codes
                     if 'cp2k' in config_name:
+                        # If CP2K, re-expand the simulation cell in chase molecule has expanded
                         self._prepare_atoms(atoms, charge, calc_cfg)
+                    elif 'gaussian' in config_name:
+                        # If Gaussian, start reading from the checkpoint file
+                        calc.parameters['guess'] = 'read'
 
                     # Make the optimizer
                     dyn = BFGS(atoms, logfile='opt.log', trajectory=traj)

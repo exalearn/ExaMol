@@ -220,7 +220,7 @@ def test_gaussian_configs(strc):
 
 def test_gaussian_opt(tmpdir):
     strc = write_to_string(molecule('H2O'), 'xyz')
-    sim = ASESimulator(gaussian_command='g16', scratch_dir=tmpdir)
+    sim = ASESimulator(gaussian_command='g16', clean_after_run=False)
 
     if shutil.which('g16') is None:
         # Fake execution by having it copy a known output to a target directory
@@ -229,6 +229,24 @@ def test_gaussian_opt(tmpdir):
     relaxed, traj, _ = sim.optimize_structure('name', strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
     assert relaxed.energy < traj[0].energy
     assert relaxed.forces.max() < 0.01
+
+    # Check using checkpoints
+    if shutil.which('g16') is None:
+        return
+
+    orig_fun = sim.create_configuration
+
+    def _force_ase_opt(self, *args, **kwargs):
+        conf = orig_fun(self, *args, **kwargs)
+        conf['use_gaussian_opt'] = False
+        return conf
+    sim.create_configuration = _force_ase_opt
+    relaxed, traj, _ = sim.optimize_structure('name', strc, 'gaussian_b3lyp_6-31g(2df,p)', charge=0)
+
+    # Make sure the run file has a restart in it
+    run_dir = next((Path(sim.scratch_dir) / 'name').iterdir())
+    assert 'opt.log' in [x.name for x in run_dir.iterdir()]
+    assert 'guess(read' in (run_dir / 'Gaussian.com').read_text()
 
 
 def test_opt_failure(tmpdir):

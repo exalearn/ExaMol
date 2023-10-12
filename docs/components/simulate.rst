@@ -26,7 +26,7 @@ that are validated for the `recipes <store.html#recipes>`_ available through Exa
       - |ASESimulator|
       - xTB
       - Tight binding using the GFN2-xTB parameterization
-    * - guassian_[method]_[basis]
+    * - gaussian_[method]_[basis]
       - |ASESimulator|
       - Gaussian
       - Any method and basis set supported by Gaussian. Replace ``[method]`` and ``[basis]`` with desired settings
