@@ -1,9 +1,11 @@
 """Test single objective optimizer"""
 import sys
+import gzip
 import json
 import logging
 from pathlib import Path
 
+from colmena.thinker import ResourceCounter
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
 from colmena.task_server import ParslTaskServer
@@ -18,6 +20,7 @@ from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
+from examol.steer.base import MoleculeThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
@@ -57,7 +60,7 @@ def scorer() -> tuple[RDKitScorer, Pipeline]:
 
 @fixture()
 def simulator(tmp_path) -> ASESimulator:
-    return ASESimulator(scratch_dir=tmp_path)
+    return ASESimulator(scratch_dir=tmp_path / 'ase-temp')
 
 
 @fixture()
@@ -115,7 +118,7 @@ def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right
-    assert len(thinker.search_space_keys) == 1
+    assert len(thinker.search_space_smiles) == 1
     assert len(thinker.database) == len(training_set)
 
     # Run it
@@ -155,3 +158,25 @@ def test_iterator(thinker, caplog):
 
     # Make sure we are warned about it
     assert 'C1C2CN3C1C1C3CN21' in caplog.messages[-1]
+
+
+def test_json_inputs(queues, scorer, search_space, tmp_path, training_set):
+    """Test using a JSON-format search space"""
+
+    # Save the training data to JSON format
+    json_search_space = search_space.parent / 'search_space.json.gz'
+    with search_space.open() as fi, gzip.open(json_search_space, 'wt') as fo:
+        for mol in fi:
+            record = MoleculeRecord.from_identifier(mol.strip())
+            print(record.to_json(), file=fo)
+
+    thinker = MoleculeThinker(
+        queues=queues,
+        rec=ResourceCounter(8),
+        run_dir=tmp_path / 'run',
+        search_space=[json_search_space],
+        scorer=scorer[0],
+        database=training_set
+    )
+    assert len(thinker.search_space_smiles) == 1
+    assert len(thinker.search_space_smiles[0]) == 5

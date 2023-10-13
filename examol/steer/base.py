@@ -19,23 +19,31 @@ from examol.score.base import Scorer
 from examol.store.models import MoleculeRecord
 
 
-def _generate_inputs(smiles: str, scorer: Scorer) -> tuple[str, object]:
+def _generate_inputs(input_data: str | dict, scorer: Scorer) -> tuple[str, object] | None:
     """Parse a molecule then generate a form ready for inference
 
     Args:
-        smiles: Molecule to be parsed
+        input_data: Either an identifier string (e.g., SMILES) to be parsed,
+            or a JSON-serialized string
         scorer: Tool used for inference
     Returns:
         - Key for the molecule record
         - Inference-ready format
         Or None if the transformation fails
     """
+
     try:
-        record = MoleculeRecord.from_identifier(smiles.strip())
+        # Get a starting record
+        if input_data.startswith("{"):
+            record = MoleculeRecord.from_json(input_data)
+        else:
+            record = MoleculeRecord.from_identifier(input_data)
+
+        # Compute the features
         readied = scorer.transform_inputs([record])[0]
     except (ValueError, RuntimeError):
         return None
-    return smiles, readied
+    return record.identifier.smiles, readied
 
 
 class MoleculeThinker(BaseThinker):
@@ -51,7 +59,7 @@ class MoleculeThinker(BaseThinker):
         inference_chunk_size: How many molecules per inference task
 
     Attributes:
-        search_space_keys: Keys associated with each molecule in the search space, broken into chunks
+        search_space_smiles: SMILES associated with each molecule in the search space, broken into chunks
         search_space_inputs: Inputs to the ML models for each molecule in the search space, broken into chucks
         database: Map between molecule InChI key and currently-known information about it
     """
@@ -79,9 +87,9 @@ class MoleculeThinker(BaseThinker):
 
         # Partition the search space into smaller chunks
         self.search_space_dir = self.run_dir / 'search-space'
-        self.search_space_keys: list[list[str]]
+        self.search_space_smiles: list[list[str]]
         self.search_space_inputs: list[list[object]]
-        self.search_space_keys, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, search_space))
+        self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, search_space))
 
     @property
     def inference_store(self) -> Store | None:
@@ -119,9 +127,13 @@ class MoleculeThinker(BaseThinker):
                 for i, path in enumerate(search_space):
                     path = Path(path).resolve()
                     self.logger.info(f'Reading molecules from file {i + 1}/{len(search_space)}: {path.resolve()}')
-                    if path.name.lower().endswith('.smi'):
-                        with path.open() as fp:
-                            for line in fp:
+
+                    # Determine how to read molecules out of the file
+                    filename_lower = path.name.lower()
+                    if any(filename_lower.endswith(ext) or filename_lower.endswith(f'{ext}.gz') for ext in ['.smi', '.json']):
+                        # Open with GZIP or normally depending on the extension
+                        with (gzip.open(path, 'rt') if filename_lower.endswith('.gz') else path.open()) as fmols:
+                            for line in fmols:
                                 yield line.strip()
                     else:
                         raise ValueError(f'File type is unrecognized for {path}')

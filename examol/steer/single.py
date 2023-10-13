@@ -141,7 +141,7 @@ class SingleStepThinker(MoleculeThinker):
 
         # If not, pick some
         self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
-        subset = self.starter.select(list(interleave_longest(*self.search_space_keys)), self.num_to_run)
+        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
             for key in subset:
@@ -252,7 +252,7 @@ class SingleStepThinker(MoleculeThinker):
                 self._model_proxy_keys[recipe_id][model_id] = get_key(model_msg)
             self.logger.info(f'Preparing to submit tasks for model {i + 1}/{self.num_models}.')
 
-            for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_keys)):
+            for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_smiles)):
                 self.queues.send_inputs(
                     model_msg, chunk_inputs,
                     method='score',
@@ -269,7 +269,7 @@ class SingleStepThinker(MoleculeThinker):
         ensemble_size = len(self.models[0])
         all_done: np.ndarray = np.zeros((len(self.recipes), ensemble_size, n_chunks), dtype=bool)  # Whether a chunk is finished. (recipe, chunk, model)
         inference_results: list[np.ndarray] = [
-            np.zeros((len(self.recipes), len(chunk), ensemble_size)) for chunk in self.search_space_keys
+            np.zeros((len(self.recipes), len(chunk), ensemble_size)) for chunk in self.search_space_smiles
         ]  # (chunk, recipe, molecule, model)
         n_tasks = self.num_models * n_chunks
 
@@ -299,7 +299,7 @@ class SingleStepThinker(MoleculeThinker):
             # Check if we are done for the whole chunk (all models for this chunk)
             if all_done[:, :, chunk_id].all():
                 self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
-                self.selector.add_possibilities(self.search_space_keys[chunk_id], inference_results[chunk_id])
+                self.selector.add_possibilities(self.search_space_smiles[chunk_id], inference_results[chunk_id])
 
             # If we are done with the model
             if all_done[:, model_id, :].all():
