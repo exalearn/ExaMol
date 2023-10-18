@@ -47,6 +47,7 @@ test = [
     'pytest-forked',
     'pytest-timeout',
     'pytest-cov',
+    'pytest-skip-slow'
 ]
 botorch = [
     'botorch==0.8.*'
