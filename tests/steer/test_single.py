@@ -178,6 +178,8 @@ def test_search_space(queues, search_space, tmp_path, training_set, use_json):
     thinker = MoleculeThinker(
         queues=queues,
         rec=ResourceCounter(8),
+        recipes=(),
+        num_to_run=3,
         run_dir=tmp_path / 'run',
         search_space=[json_search_space] if use_json else [search_space],
         database=training_set

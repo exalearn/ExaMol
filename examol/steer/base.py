@@ -2,14 +2,20 @@
 import gzip
 import json
 import logging
+from dataclasses import asdict
 from pathlib import Path
-from typing import Iterator
+from threading import Condition
+from typing import Iterator, Sequence
 
+import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
-from colmena.thinker import BaseThinker, ResourceCounter
+from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
+from pydantic.utils import defaultdict
 
+from examol.simulate.base import SimResult
 from examol.store.models import MoleculeRecord
+from examol.store.recipes import PropertyRecipe, SimulationRequest
 
 
 class MoleculeThinker(BaseThinker):
@@ -19,17 +25,26 @@ class MoleculeThinker(BaseThinker):
         queues: Queues used to communicate with the task server
         rec: Counter used to track availability of different resources
         run_dir: Directory in which to store results
+        recipes: List of recipes to compute
+        num_to_run: Number of new calculations to perform
         database: List of molecule records
-        search_space: Lists of molecules to be evaluated as a list of ".smi" or ".sdf" files
+        search_space: Lists of molecules to be evaluated as a list of ".smi" or ".json" files
     """
 
     database: dict[str, MoleculeRecord]
     """Map of InChI key to molecule record"""
 
+    task_queue: list[tuple[str, float]]
+    """List of tasks to run. Each entry is a SMILES string and score, and they are arranged descending in priority"""
+    task_queue_lock: Condition
+    """Lock used to control access to :attr:`task_queue`"""
+
     def __init__(self,
                  queues: ColmenaQueues,
                  rec: ResourceCounter,
                  run_dir: Path,
+                 recipes: Sequence[PropertyRecipe],
+                 num_to_run: int,
                  search_space: list[Path | str],
                  database: list[MoleculeRecord]):
         super().__init__(queues, resource_counter=rec)
@@ -44,6 +59,17 @@ class MoleculeThinker(BaseThinker):
         for logger in [self.logger, logging.getLogger('colmena'), logging.getLogger('proxystore')]:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
+
+        # Track progress
+        self.num_to_run: int = num_to_run
+        self.completed: int = 0
+        self.molecules_in_progress: dict[str, int] = defaultdict(int)  # Map of InChI Key -> number of ongoing computations
+
+        # Attributes related to simulation
+        self.recipes = tuple(recipes)
+        self.task_queue_lock = Condition()
+        self.task_queue = []  # List of tasks to run, SMILES string and score
+        self.task_iterator = self.task_iterator()  # Tool for pulling from the task queue
 
     def iterate_over_search_space(self, only_smiles: bool = False) -> Iterator[MoleculeRecord]:
         """Function to produce a stream of molecules from the input files
@@ -78,3 +104,125 @@ class MoleculeThinker(BaseThinker):
     def _write_result(self, result: Result, result_type: str):
         with (self.run_dir / f'{result_type}-results.json').open('a') as fp:
             print(result.json(exclude={'value', 'inputs'}), file=fp)
+
+    def task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
+        """Iterate over the next tasks in the task queue"""
+
+        while True:
+            # Get the next molecule to run
+            with self.task_queue_lock:
+                if len(self.task_queue) == 0:
+                    self.logger.info('No tasks available to run. Waiting')
+                    while not self.task_queue_lock.wait(timeout=2):
+                        if self.done.is_set():
+                            yield None, None
+                smiles, score = self.task_queue.pop(0)  # Get the next task
+                self.logger.info(f'Selected {smiles} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
+
+            # Get the molecule record
+            record = MoleculeRecord.from_identifier(smiles)
+            if record.key in self.database:
+                record = self.database[record.key]
+            else:
+                self.database[record.key] = record
+
+            # Determine which computations to run next
+            try:
+                suggestions = set()
+                for recipe in self.recipes:
+                    suggestions = set(recipe.suggest_computations(record))
+            except ValueError as exc:
+                self.logger.warning(f'Generating computations for {smiles} failed. Skipping. Reason: {exc}')
+                continue
+            self.logger.info(f'Found {len(suggestions)} more computations to do for {smiles}')
+            self.molecules_in_progress[record.key] += len(suggestions)  # Update the number of computations in progress for this molecule
+
+            for suggestion in suggestions:
+                yield record, suggestion
+
+    def _simulations_complete(self):
+        """This function is called when all ongoing computations for a molecule have finished"""
+        pass
+
+    @result_processor(topic='simulation')
+    def store_simulation(self, result: Result):
+        """Store the output of a simulation"""
+        # Trigger a new simulation to start
+        self.rec.release()
+
+        # Get the molecule record
+        mol_key = result.task_info["key"]
+        record = self.database[mol_key]
+        self.logger.info(f'Received a result for {mol_key}. Runtime={(result.time_running or np.nan):.1f}s, success={result.success}')
+
+        # Update the number of computations in progress
+        self.molecules_in_progress[mol_key] -= 1
+
+        # Add our result, see if finished
+        if result.success:
+            results: list[SimResult]
+            if result.method == 'optimize_structure':
+                sim_result, steps, metadata = result.value
+                results = [sim_result] + steps
+                record.add_energies(sim_result, steps)
+            elif result.method == 'compute_energy':
+                sim_result, metadata = result.value
+                results = [sim_result]
+                record.add_energies(sim_result)
+            else:
+                raise NotImplementedError()
+
+            # If we can compute then property than we are done
+            not_done = sum(recipe.lookup(record, recompute=True) is None for recipe in self.recipes)
+            if not_done == 0:
+                # If so, mark that we have finished computing the property
+                self.completed += 1
+                self.logger.info(f'Finished computing all recipes for {mol_key}. Completed {self.completed}/{self.num_to_run} molecules')
+                if self.completed == self.num_to_run:
+                    self.logger.info('Done!')
+                    self.done.set()
+
+                # Mark that we've finished with all recipes
+                result.task_info['status'] = 'finished'
+                result.task_info['result'] = [recipe.lookup(record) for recipe in self.recipes]
+            else:
+                # If not, see if we need to resubmit to finish the computation
+                self.logger.info(f'Finished {len(self.recipes) - not_done}/{len(self.recipes)} recipes for {mol_key}')
+                result.task_info['status'] = 'in progress'
+                if self.molecules_in_progress[mol_key] == 0:
+                    self.logger.info('We must submit new computations for this molecule. Re-adding it to the front of the task queue')
+                    with self.task_queue_lock:
+                        self.task_queue.insert(0, (record.identifier.smiles, np.inf))
+                        self.task_queue_lock.notify_all()
+
+            # Save the relaxation steps to disk
+            with open(self.run_dir / 'simulation-records.json', 'a') as fp:
+                for record in results:
+                    print(record.json(), file=fp)
+
+        self._write_result(result, 'simulation')
+
+    @task_submitter()
+    def submit_simulation(self):
+        """Submit a simulation task when resources are available"""
+        record, suggestion = next(self.task_iterator)
+        if record is None:
+            return  # The thinker is done
+
+        if suggestion.optimize:
+            self.logger.info(f'Optimizing structure for {record.key} with a charge of {suggestion.charge}')
+            self.queues.send_inputs(
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                method='optimize_structure',
+                topic='simulation',
+                task_info={'key': record.key, **asdict(suggestion)}
+            )
+        else:
+            self.logger.info(f'Getting single-point energy for {record.key} with a charge of {suggestion.charge} ' +
+                             ('' if suggestion.solvent is None else f'in {suggestion.solvent}'))
+            self.queues.send_inputs(
+                record.key, suggestion.xyz, suggestion.config_name, suggestion.charge, suggestion.solvent,
+                method='compute_energy',
+                topic='simulation',
+                task_info={'key': record.key, **asdict(suggestion)}
+            )
