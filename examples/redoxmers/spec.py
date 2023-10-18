@@ -11,6 +11,7 @@ from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
+from examol.specify.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
@@ -36,6 +37,15 @@ recipe = RedoxEnergy(1, energy_config='mopac_pm7', solvent='acn')
 pipeline = make_knn_model()
 scorer = RDKitScorer()
 
+# Define the tools needed to solve the problem
+solution = SingleFidelityActiveLearning(
+    starter=RandomStarter(threshold=num_random),
+    selector=GreedySelector(num_total, maximize=True),
+    scorer=scorer,
+    models=[[pipeline]],
+    num_to_run=num_total,
+)
+
 # Mark how we report outcomes
 reporter = MarkdownReporter()
 writer = DatabaseWriter()
@@ -52,12 +62,8 @@ spec = ExaMolSpecification(
     database=(my_path / 'training-data.json'),
     recipes=[recipe],
     search_space=[(my_path / 'search_space.smi')],
-    starter=RandomStarter(threshold=num_random),
-    selector=GreedySelector(num_total, maximize=True),
+    solution=solution,
     simulator=ASESimulator(scratch_dir=(run_dir / 'tmp'), clean_after_run=False),
-    scorer=scorer,
-    models=[[pipeline]],
-    num_to_run=num_total,
     thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,

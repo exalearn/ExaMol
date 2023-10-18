@@ -18,6 +18,7 @@ from sklearn.pipeline import Pipeline
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
+from examol.specify.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.steer.base import MoleculeThinker
@@ -97,17 +98,20 @@ def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
 def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleStepThinker:
     run_dir = tmp_path / 'run'
     scorer, model = scorer
+    solution = SingleFidelityActiveLearning(
+        scorer=scorer,
+        starter=RandomStarter(4),
+        models=[[model, model]],
+        selector=RandomSelector(10),
+        num_to_run=3,
+    )
     return SingleStepThinker(
         queues=queues,
         run_dir=run_dir,
         recipes=[recipe],
         database=training_set,
-        scorer=scorer,
-        starter=RandomStarter(4),
-        models=[[model, model]],
-        selector=RandomSelector(10),
         num_workers=1,
-        num_to_run=3,
+        solution=solution,
         search_space=[search_space],
     )
 

@@ -17,10 +17,8 @@ from proxystore.store.base import ConnectorKeyT
 from proxystore.store.utils import get_key
 
 from .base import MoleculeThinker
-from ..score.base import Scorer
-from ..select.base import Selector
 from ..simulate.base import SimResult
-from ..start.base import Starter
+from ..specify.solution import SingleFidelityActiveLearning
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe, SimulationRequest
 
@@ -33,11 +31,7 @@ class SingleStepThinker(MoleculeThinker):
         run_dir: Directory in which to store logs, etc.
         recipes: Recipes used to compute the target properties
         database: List of molecules which are already known
-        scorer: Tool used as part of model training
-        models: Models used to predict target property. We require the same ensemble size for each recipe
-        selector: Tool used to pick which computations to run
-        starter: How to pick calculations before enough data are available
-        num_to_run: Number of molecules to evaluate
+        solution: Settings related to tools used to solve the problem (e.g., active learning strategy)
         search_space: Search space of molecules. Provided as a list of paths to ".smi" files
         num_workers: Number of simulation tasks to run in parallel
         inference_chunk_size: Number of molecules to run inference on per task
@@ -48,24 +42,21 @@ class SingleStepThinker(MoleculeThinker):
                  run_dir: Path,
                  recipes: Sequence[PropertyRecipe],
                  database: list[MoleculeRecord],
-                 scorer: Scorer,
-                 models: list[list[object]],
-                 starter: Starter,
-                 selector: Selector,
-                 num_to_run: int,
+                 solution: SingleFidelityActiveLearning,
                  search_space: list[Path | str],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, scorer, database, inference_chunk_size)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, search_space, solution.scorer, database, inference_chunk_size)
 
         # Store the selection equipment
-        if len(set(map(len, models))) > 1:  # pragma: no-coverage
+        self.solution = solution
+        self.models = self.solution.models.copy()
+        self.selector = self.solution.selector
+        self.starter = self.solution.starter
+        if len(set(map(len, self.models))) > 1:  # pragma: no-coverage
             raise ValueError('You must provide the same number of models for each class')
-        if len(models) != len(recipes):  # pragma: no-coverage
+        if len(self.models) != len(recipes):  # pragma: no-coverage
             raise ValueError('You must provide as many model ensembles as recipes')
-        self.models = models.copy()
-        self.selector = selector
-        self.starter = starter
 
         # Attributes related to simulation
         self.recipes = tuple(recipes)
@@ -74,7 +65,7 @@ class SingleStepThinker(MoleculeThinker):
         self.task_iterator = self._task_iterator()  # Tool for pulling from the task queue
 
         # Track progress
-        self.num_to_run: int = num_to_run
+        self.num_to_run: int = solution.num_to_run
         self.completed: int = 0
         self.molecules_in_progress: dict[str, int] = defaultdict(int)  # Map of InChI Key -> number of ongoing computations
 
