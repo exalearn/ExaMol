@@ -164,7 +164,8 @@ def test_iterator(thinker, caplog):
     assert 'C1C2CN3C1C1C3CN21' in caplog.messages[-1]
 
 
-def test_json_inputs(queues, scorer, search_space, tmp_path, training_set):
+@mark.parametrize('use_json', [True, False])
+def test_search_space(queues, search_space, tmp_path, training_set, use_json):
     """Test using a JSON-format search space"""
 
     # Save the training data to JSON format
@@ -178,9 +179,10 @@ def test_json_inputs(queues, scorer, search_space, tmp_path, training_set):
         queues=queues,
         rec=ResourceCounter(8),
         run_dir=tmp_path / 'run',
-        search_space=[json_search_space],
-        scorer=scorer[0],
+        search_space=[json_search_space] if use_json else [search_space],
         database=training_set
     )
-    assert len(thinker.search_space_smiles) == 1
-    assert len(thinker.search_space_smiles[0]) == 5
+    assert len(list(thinker.iterate_over_search_space())) == 5
+    smiles_only = list(thinker.iterate_over_search_space(only_smiles=True))
+    assert len(smiles_only) == 5
+    assert smiles_only[-1] == record.identifier['smiles']
