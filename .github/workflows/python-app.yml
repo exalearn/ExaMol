@@ -28,7 +28,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         environment-file: ${{ matrix.os == 'ubuntu-latest' && 'envs/environment-cpu.yml' || 'envs/environment-macos.yml' }}
-        mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}
+        #  mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}  # WardLT - 19Oct23 - Removed for now
     - name: Display Environment
       run: conda list
     - name: Install test dependencies
