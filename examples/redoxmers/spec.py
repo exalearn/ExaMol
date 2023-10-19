@@ -39,7 +39,8 @@ scorer = RDKitScorer()
 
 # Define the tools needed to solve the problem
 solution = SingleFidelityActiveLearning(
-    starter=RandomStarter(threshold=num_random),
+    starter=RandomStarter(),
+    minimum_training_size=num_random,
     selector=GreedySelector(num_total, maximize=True),
     scorer=scorer,
     models=[[pipeline]],

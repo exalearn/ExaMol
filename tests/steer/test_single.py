@@ -101,9 +101,10 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
     scorer, model = scorer
     solution = SingleFidelityActiveLearning(
         scorer=scorer,
-        starter=RandomStarter(4),
+        starter=RandomStarter(),
         models=[[model, model]],
         selector=RandomSelector(10),
+        minimum_training_size=4,
         num_to_run=3,
     )
     return SingleStepThinker(

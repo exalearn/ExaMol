@@ -7,7 +7,7 @@ there is enough data available to train a machine learning model.
 Available Methods
 -----------------
 
-ExaMol provides a few different start methods
+ExaMol provides a few different start methods, each with a maximum recommended search space size.
 
 .. list-table::
    :header-rows: 1
@@ -25,16 +25,14 @@ ExaMol provides a few different start methods
 Using a Starter
 ---------------
 
-All :class:`~examol.start.base.Starter` methods require setting
-the dataset size under which it will be run,
-and the maximum number of molecules to consider.
-
-There is an (optional) threshold on the size of molecules to consider as ExaMol is intended to be used
-for enormous search spaces.
-
-Once defined, provide an iterator over the names of molecules to consider:
+Simply provide an iterator over the names of molecules to consider:
 
 .. code-block:: python
 
-    starter = RandomStarter(threshold=4)
+    starter = RandomStarter()
     starting_pool = starter.select(['C', 'O', 'N'], 2)  # Will generate two choices
+
+The starter will provide a list of SMILES strings from those that were provided.
+
+Increase the speed of selection by setting the ``max_to_consider`` option of the Starter,
+which will truncate the list of molecules strings at a specific size before running the selection algorithm.

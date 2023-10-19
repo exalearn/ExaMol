@@ -19,6 +19,8 @@ class SingleFidelityActiveLearning(SolutionSpecification):
     """Defines algorithms used to retrain and run :attr:`models`"""
     models: list[list[object]] = ...
     """List of machine learning models used to predict outcome of :attr:`recipes`"""
+    minimum_training_size: int = 10
+    """Minimum database size before starting training. Thinkers will run selections from :attr:`starter` before them"""
 
     # Options for key operations
     train_options: dict = field(default_factory=dict)

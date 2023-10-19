@@ -175,13 +175,13 @@ class SingleStepThinker(MoleculeThinker):
         train_size = min(len(self._get_training_set(recipe)) for recipe in self.recipes)
 
         # If enough, start by training
-        if train_size > self.starter.threshold:
-            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.starter.threshold}). Starting model training')
+        if train_size > self.solution.minimum_training_size:
+            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.solution.minimum_training_size}). Starting model training')
             self.start_training.set()
             return
 
         # If not, pick some
-        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.starter.threshold})')
+        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.solution.minimum_training_size})')
         subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
@@ -293,8 +293,8 @@ class SingleStepThinker(MoleculeThinker):
             self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')
 
             # If too small, stop
-            if len(train_set) < self.starter.threshold:
-                self.logger.info(f'Too few to entries to train. Waiting for {self.starter.threshold}')
+            if len(train_set) < self.solution.minimum_training_size:
+                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
                 return
 
             # Process to form the inputs and outputs

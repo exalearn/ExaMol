@@ -10,7 +10,7 @@ from examol.start.fast import RandomStarter
 class SolutionSpecification:
     """Define the components of a solution to a problem"""
 
-    starter: Starter = RandomStarter(threshold=10)
+    starter: Starter = RandomStarter()
     """How to initialize the database if too small. Default: Pick a single random molecule"""
     num_to_run: int = ...
     """Number of quantum chemistry computations to perform"""
