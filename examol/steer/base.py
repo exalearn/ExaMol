@@ -73,7 +73,7 @@ class MoleculeThinker(BaseThinker):
         self.task_queue = []  # List of tasks to run, SMILES string and score
         self.task_iterator = self.task_iterator()  # Tool for pulling from the task queue
 
-    def iterate_over_search_space(self, only_smiles: bool = False) -> Iterator[MoleculeRecord]:
+    def iterate_over_search_space(self, only_smiles: bool = False) -> Iterator[MoleculeRecord | str]:
         """Function to produce a stream of molecules from the input files
 
         Args:
@@ -180,14 +180,15 @@ class MoleculeThinker(BaseThinker):
                 # If so, mark that we have finished computing the property
                 self.completed += 1
                 self.logger.info(f'Finished computing all recipes for {mol_key}. Completed {self.completed}/{self.num_to_run} molecules')
+                self.molecules_in_progress.pop(mol_key)  # Remove it from the list
                 if self.completed == self.num_to_run:
                     self.logger.info('Done!')
                     self.done.set()
-                self._simulations_complete()
 
                 # Mark that we've finished with all recipes
                 result.task_info['status'] = 'finished'
                 result.task_info['result'] = [recipe.lookup(record) for recipe in self.recipes]
+                self._simulations_complete()
             else:
                 # If not, see if we need to resubmit to finish the computation
                 self.logger.info(f'Finished {len(self.recipes) - not_done}/{len(self.recipes)} recipes for {mol_key}')
@@ -202,6 +203,11 @@ class MoleculeThinker(BaseThinker):
             with open(self.run_dir / 'simulation-records.json', 'a') as fp:
                 for record in results:
                     print(record.json(), file=fp)
+        else:
+            # Remove molecule from the list of those in progress if no other computations remain
+            if self.molecules_in_progress[mol_key] == 0:
+                self.molecules_in_progress.pop(mol_key)
+                self._simulations_complete()
 
         self._write_result(result, 'simulation')
 
