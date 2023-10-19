@@ -1,6 +1,6 @@
 [project]
 name = "examol"
-version = "0.0.4"
+version = "0.0.5"
 authors = [
     { name = "Logan Ward", email = "lward@anl.gov" },
 ]
