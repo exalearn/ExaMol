@@ -2,18 +2,19 @@
 import gzip
 import json
 import logging
-from dataclasses import asdict
 from pathlib import Path
+from dataclasses import asdict
 from threading import Condition
+from collections import defaultdict
 from typing import Iterator, Sequence
 
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
-from pydantic.utils import defaultdict
 
 from examol.simulate.base import SimResult
+from examol.specify.base import SolutionSpecification
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe, SimulationRequest
 
@@ -26,7 +27,7 @@ class MoleculeThinker(BaseThinker):
         rec: Counter used to track availability of different resources
         run_dir: Directory in which to store results
         recipes: List of recipes to compute
-        num_to_run: Number of new calculations to perform
+        solution: Description of how to solve the problem
         database: List of molecule records
         search_space: Lists of molecules to be evaluated as a list of ".smi" or ".json" files
     """
@@ -44,7 +45,7 @@ class MoleculeThinker(BaseThinker):
                  rec: ResourceCounter,
                  run_dir: Path,
                  recipes: Sequence[PropertyRecipe],
-                 num_to_run: int,
+                 solution: SolutionSpecification,
                  search_space: list[Path | str],
                  database: list[MoleculeRecord]):
         super().__init__(queues, resource_counter=rec)
@@ -61,7 +62,8 @@ class MoleculeThinker(BaseThinker):
             logger.setLevel(logging.INFO)
 
         # Track progress
-        self.num_to_run: int = num_to_run
+        self.solution = solution
+        self.num_to_run: int = solution.num_to_run
         self.completed: int = 0
         self.molecules_in_progress: dict[str, int] = defaultdict(int)  # Map of InChI Key -> number of ongoing computations
 
@@ -181,6 +183,7 @@ class MoleculeThinker(BaseThinker):
                 if self.completed == self.num_to_run:
                     self.logger.info('Done!')
                     self.done.set()
+                self._simulations_complete()
 
                 # Mark that we've finished with all recipes
                 result.task_info['status'] = 'finished'

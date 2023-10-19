@@ -18,6 +18,7 @@ from sklearn.pipeline import Pipeline
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
+from examol.specify import SolutionSpecification
 from examol.specify.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
@@ -175,11 +176,16 @@ def test_search_space(queues, search_space, tmp_path, training_set, use_json):
             record = MoleculeRecord.from_identifier(mol.strip())
             print(record.to_json(), file=fo)
 
+    # Make the solution specification
+    solution = SolutionSpecification(
+        num_to_run=3,
+    )
+
     thinker = MoleculeThinker(
         queues=queues,
         rec=ResourceCounter(8),
         recipes=(),
-        num_to_run=3,
+        solution=solution,
         run_dir=tmp_path / 'run',
         search_space=[json_search_space] if use_json else [search_space],
         database=training_set

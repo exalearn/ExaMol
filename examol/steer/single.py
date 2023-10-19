@@ -56,7 +56,7 @@ class SingleStepThinker(MoleculeThinker):
                  search_space: list[Path | str],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution.num_to_run, search_space, database)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
 
         # Store the selection equipment
         self.solution = solution
