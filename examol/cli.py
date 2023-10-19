@@ -54,7 +54,7 @@ def run_examol(args):
     doer, thinker = spec.assemble()
     logger.info(f'Created a task server with methods: {doer.method_names}')
     logger.info(f'Created a thinker based on {thinker.__class__}')
-    logger.info(f'Will run a total of {spec.num_to_run} molecules')
+    logger.info(f'Will run a total of {spec.solution.num_to_run} molecules')
     logger.info(f'Will save results into {thinker.run_dir}')
 
     # Make a function to clear the proxystore caches

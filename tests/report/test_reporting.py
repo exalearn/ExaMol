@@ -3,6 +3,7 @@ from time import sleep
 from pathlib import Path
 from threading import Event
 
+from colmena.models import Result
 from pytest import fixture, mark
 
 from examol.reporting.database import DatabaseWriter
@@ -20,6 +21,10 @@ class FakeThinker(SingleStepThinker):
 
     def __init__(self):
         pass
+
+    def _write_result(self, result: Result, result_type: str):
+        with (self.run_dir / f'{result_type}-results.json').open('a') as fp:
+            print(result.json(exclude={'value', 'inputs'}), file=fp)
 
 
 @fixture()

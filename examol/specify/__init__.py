@@ -1,7 +1,5 @@
 """Tool for defining then deploying an ExaMol application"""
 from dataclasses import dataclass, field
-from functools import update_wrapper
-from functools import partial
 from typing import Sequence
 from pathlib import Path
 import logging
@@ -13,13 +11,9 @@ from parsl import Config
 from proxystore.store import Store, register_store
 
 from examol.reporting.base import BaseReporter
-from examol.score.base import Scorer
-from examol.select.base import Selector
 from examol.simulate.base import BaseSimulator
-from examol.start.base import Starter
-from examol.start.fast import RandomStarter
+from examol.specify.base import SolutionSpecification
 from examol.steer.base import MoleculeThinker
-from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -46,27 +40,15 @@ class ExaMolSpecification:
     """Definition for how to compute the target properties"""
     search_space: list[Path | str] = ...
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
-    starter: Starter = RandomStarter(threshold=10)
-    """How to initialize the database if too small. Default: Pick a single random molecule"""
-    selector: Selector = ...
-    """How to identify which computation to perform next"""
-    scorer: Scorer = ...  # TODO (wardlt): Support a different type of model for each recipe
-    """Defines algorithms used to retrain and run :attr:`models`"""
-    models: list[list[object]] = ...
-    """List of machine learning models used to predict outcome of :attr:`recipes`"""
     simulator: BaseSimulator = ...
     """Tool used to perform quantum chemistry computations"""
-    num_to_run: int = ...
-    """Number of quantum chemistry computations to perform"""
 
-    # Options for key operations
-    train_options: dict = field(default_factory=dict)
-    """Options passed to the :py:meth:`~examol.score.base.Scorer.retrain` function"""
-    score_options: dict = field(default_factory=dict)
-    """Options passed to the :py:meth:`~examol.score.base.Scorer.score` function"""
+    # Define the solution
+    solution: SolutionSpecification = ...
+    """Define how to solve the design challenge"""
 
     # Define how we create the thinker
-    thinker: type[SingleStepThinker] = ...
+    thinker: type[MoleculeThinker] = ...
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
     """Options passed forward to initializing the thinker"""
@@ -106,21 +88,15 @@ class ExaMolSpecification:
             raise NotImplementedError()
         queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=10000, proxystore_name=proxy_name)
 
-        # Pin options to some functions
-        def _wrap_function(fun, options: dict):
-            wrapped_fun = partial(fun, **options)
-            update_wrapper(wrapped_fun, fun)
-            return wrapped_fun
-
-        train_func = _wrap_function(self.scorer.retrain, self.train_options)
-        score_func = _wrap_function(self.scorer.score, self.score_options)
+        # Make the functions associated with steering
+        learning_functions = self.solution.generate_functions()
 
         # Determine how methods are partitioned to executors
         exec_names = set(x.label for x in self.compute_config.executors)
         if len(exec_names) == 1:  # Case 1: All to on the same executor
-            methods = [score_func, train_func, self.simulator.optimize_structure, self.simulator.compute_energy]
+            methods = learning_functions + [self.simulator.optimize_structure, self.simulator.compute_energy]
         elif exec_names == {'learning', 'simulation'}:  # Case 2: Split ML and simulation
-            methods = [(x, {'executors': ['learning']}) for x in [score_func, train_func]]
+            methods = [(x, {'executors': ['learning']}) for x in learning_functions]
             methods += [(x, {'executors': ['simulation']}) for x in [self.simulator.optimize_structure, self.simulator.compute_energy]]
         else:
             raise NotImplementedError(f'We do not support the executor layout: {",".join(exec_names)}')
@@ -138,12 +114,8 @@ class ExaMolSpecification:
             run_dir=self.run_dir,
             recipes=self.recipes,
             search_space=self.search_space,
-            starter=self.starter,
+            solution=self.solution,
             database=self.load_database(),
-            scorer=self.scorer,
-            models=self.models.copy(),
-            selector=self.selector,
-            num_to_run=self.num_to_run,
             **self.thinker_options
         )
 

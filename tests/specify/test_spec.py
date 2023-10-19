@@ -13,6 +13,7 @@ from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
 from examol.simulate.ase import ASESimulator
 from examol.specify import ExaMolSpecification
+from examol.specify.solution import SingleFidelityActiveLearning
 from examol.steer.single import SingleStepThinker
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
@@ -78,17 +79,20 @@ def config(request, tmp_path) -> Config:
 @fixture()
 def spec(config, database, recipe, scorer, search_space, selector, simulator, tmp_path) -> ExaMolSpecification:
     scorer, pipeline = scorer
+    solution = SingleFidelityActiveLearning(
+        selector=selector,
+        scorer=scorer,
+        models=[[pipeline]],
+        num_to_run=2,
+    )
     return ExaMolSpecification(
         database=database,
         search_space=[search_space],
-        selector=selector,
-        scorer=scorer,
-        models=[pipeline],
+        solution=solution,
         simulator=simulator,
         recipes=[recipe],
         thinker=SingleStepThinker,
         compute_config=config,
-        num_to_run=2,
         run_dir=tmp_path
     )
 

@@ -4,8 +4,27 @@ Steer
 ExaMol scales to use large supercomputers by managing many tasks together.
 The logic for when to launch tasks and how to process completed tasks are defined
 as `Colmena <https://colmena.readthedocs.io/>`_ "Thinker" classes.
-ExaMol will contain several different Thinkers, which each use different strategies
+ExaMol contains several different Thinkers, which each use different strategies
 for deploying tasks on a supercomputer.
+
+Available Methods
+-----------------
+
+Each steering strategy is associated with a specific `Solution strategy <solution.html>`_.
+
+.. list-table::
+    :header-rows: 1
+
+    * - Class
+      - Solution
+      - Description
+    * - :class:`~examol.steer.baseline.BruteForceThinker`
+      - :class:`~examol.specify.base.SolutionSpecification`
+      - Evaluate all molecules in an initial population
+    * - :class:`~examol.steer.single.SingleStepThinker`
+      - :class:`~examol.specify.solution.SingleFidelityActiveLearning`
+      - Run all recipes for each selected molecule
+
 
 Single Objective Thinker as an Example
 --------------------------------------
@@ -14,11 +33,11 @@ The :class:`~examol.steer.single.SingleStepThinker` is a good example for explai
 
 The strategy for this thinker is three parts:
 
-#. Never leave nodes on the super
+#. Never leave nodes on the supercomputer idle
 #. Update the list of selected calculations with new data as quickly as possible
 #. Wait until resources are free until submitting the next calculation.
 
-This strategy is achieved by writing out a series of simple policies, such as:
+This strategy is achieved by a series of simple policies, such as:
 
 - Submit a new quantum chemistry calculation when another completes
 - Begin re-training models as soon as a recipe is complete for any molecule
