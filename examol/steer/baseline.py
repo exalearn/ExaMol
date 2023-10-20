@@ -17,7 +17,6 @@ class BruteForceThinker(MoleculeThinker):
 
     Args:
         queues: Queues used to communicate with the task server
-        rec: Counter used to track availability of different resources
         run_dir: Directory in which to store results
         recipes: List of recipes to compute
         solution: Description of how to solve the problem

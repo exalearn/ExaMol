@@ -14,7 +14,7 @@ There are several implementations of these types of stores, each with different 
 
     * - Store
       - Description
-    * - :class:`~examol.store.memory.InMemoryStore`
+    * - :class:`~examol.store.db.memory.InMemoryStore`
       - Store all data in memory, periodically write to a single file
 
 Using a Data Store
