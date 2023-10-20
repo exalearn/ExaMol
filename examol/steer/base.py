@@ -14,7 +14,8 @@ from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
 
 from examol.simulate.base import SimResult
-from examol.specify.base import SolutionSpecification
+from examol.solution import SolutionSpecification
+from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe, SimulationRequest
 
@@ -32,8 +33,8 @@ class MoleculeThinker(BaseThinker):
         search_space: Lists of molecules to be evaluated as a list of ".smi" or ".json" files
     """
 
-    database: dict[str, MoleculeRecord]
-    """Map of InChI key to molecule record"""
+    database: MoleculeStore
+    """Access to the data available to the thinker"""
 
     task_queue: list[tuple[str, float]]
     """List of tasks to run. Each entry is a SMILES string and score, and they are arranged descending in priority"""
@@ -47,9 +48,9 @@ class MoleculeThinker(BaseThinker):
                  recipes: Sequence[PropertyRecipe],
                  solution: SolutionSpecification,
                  search_space: list[Path | str],
-                 database: list[MoleculeRecord]):
+                 database: MoleculeStore):
         super().__init__(queues, resource_counter=rec)
-        self.database: dict[str, MoleculeRecord] = dict((record.key, record) for record in database)
+        self.database = database
         self.run_dir = run_dir
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.search_space = search_space
@@ -97,7 +98,7 @@ class MoleculeThinker(BaseThinker):
                         elif only_smiles and not is_json:
                             yield line.strip()
                         elif is_json:
-                            yield MoleculeRecord.from_json(line)
+                            yield MoleculeRecord.parse_raw(line)
                         else:
                             yield MoleculeRecord.from_identifier(line.strip())
             else:
@@ -126,7 +127,7 @@ class MoleculeThinker(BaseThinker):
             if record.key in self.database:
                 record = self.database[record.key]
             else:
-                self.database[record.key] = record
+                self.database.update_record(record)
 
             # Determine which computations to run next
             try:
@@ -175,7 +176,7 @@ class MoleculeThinker(BaseThinker):
                 raise NotImplementedError()
 
             # If we can compute then property than we are done
-            not_done = sum(recipe.lookup(record, recompute=True) is None for recipe in self.recipes)
+            not_done = sum(recipe.lookup(record, recompute=True) is None for recipe in self.recipes)  # TODO (wardlt): Keep track of recipe being computed
             if not_done == 0:
                 # If so, mark that we have finished computing the property
                 self.completed += 1
@@ -198,6 +199,9 @@ class MoleculeThinker(BaseThinker):
                     with self.task_queue_lock:
                         self.task_queue.insert(0, (record.identifier.smiles, np.inf))
                         self.task_queue_lock.notify_all()
+
+            # Update the record in the store
+            self.database.update_record(record)
 
             # Save the relaxation steps to disk
             with open(self.run_dir / 'simulation-records.json', 'a') as fp:

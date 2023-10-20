@@ -7,11 +7,10 @@ from parsl import Config, HighThroughputExecutor
 from proxystore.store import Store
 from proxystore.connectors.file import FileConnector
 
-from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
-from examol.specify.solution import SingleFidelityActiveLearning
+from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
@@ -49,7 +48,6 @@ solution = SingleFidelityActiveLearning(
 
 # Mark how we report outcomes
 reporter = MarkdownReporter()
-writer = DatabaseWriter()
 
 # Make the parsl (compute) and proxystore (optional data fabric) configuration
 is_mac = sys.platform == 'darwin'
@@ -60,7 +58,7 @@ config = Config(
 store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)
 
 spec = ExaMolSpecification(
-    database=(my_path / 'training-data.json'),
+    database=(run_dir / 'database.json'),
     recipes=[recipe],
     search_space=[(my_path / 'search_space.smi')],
     solution=solution,
@@ -68,6 +66,6 @@ spec = ExaMolSpecification(
     thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,
-    reporters=[reporter, writer],
+    reporters=[reporter],
     run_dir=run_dir,
 )

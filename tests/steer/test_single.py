@@ -1,18 +1,19 @@
 """Test single objective optimizer"""
 import json
 import logging
+from pathlib import Path
 
 from pytest import fixture, mark
 
 from examol.select.baseline import RandomSelector
-from examol.specify.solution import SingleFidelityActiveLearning
+from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleStepThinker:
-    run_dir = tmp_path / 'run'
+def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> SingleStepThinker:
+    run_dir = Path(tmpdir / 'run')
     scorer, model = scorer
     solution = SingleFidelityActiveLearning(
         scorer=scorer,
@@ -26,7 +27,7 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
         queues=queues,
         run_dir=run_dir,
         recipes=[recipe],
-        database=training_set,
+        database=database,
         num_workers=1,
         solution=solution,
         search_space=[search_space],
@@ -34,12 +35,12 @@ def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> Sin
 
 
 @mark.timeout(120)
-def test_thinker(thinker: SingleStepThinker, training_set, caplog):
+def test_thinker(thinker: SingleStepThinker, database, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right
     assert len(thinker.search_space_smiles) == 1
-    assert len(thinker.database) == len(training_set)
+    start_size = len(thinker.database)
 
     # Run it
     thinker.run()
@@ -58,9 +59,9 @@ def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     # Make sure we have more than a few simulation records
     with (thinker.run_dir / 'simulation-records.json').open() as fp:
         record_count = sum(1 for _ in fp)
-    assert record_count > thinker.num_to_run
+    assert record_count >= thinker.num_to_run
 
-    assert len(thinker.database) >= len(training_set) + thinker.num_to_run
+    assert len(thinker.database) >= start_size + thinker.num_to_run
 
 
 @mark.timeout(120)

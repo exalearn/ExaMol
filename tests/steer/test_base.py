@@ -5,12 +5,12 @@ from pytest import mark
 from colmena.thinker.resources import ResourceCounter
 
 from examol.store.models import MoleculeRecord
-from examol.specify.solution import SolutionSpecification
+from examol.specify import SolutionSpecification
 from examol.steer.base import MoleculeThinker
 
 
 @mark.parametrize('use_json', [True, False])
-def test_search_space(queues, search_space, tmp_path, training_set, use_json):
+def test_search_space(queues, search_space, tmp_path, database, use_json):
     """Test using a JSON-format search space"""
 
     # Save the training data to JSON format
@@ -18,7 +18,7 @@ def test_search_space(queues, search_space, tmp_path, training_set, use_json):
     with search_space.open() as fi, gzip.open(json_search_space, 'wt') as fo:
         for mol in fi:
             record = MoleculeRecord.from_identifier(mol.strip())
-            print(record.to_json(), file=fo)
+            print(record.json(), file=fo)
 
     # Make the solution specification
     solution = SolutionSpecification(
@@ -32,9 +32,9 @@ def test_search_space(queues, search_space, tmp_path, training_set, use_json):
         solution=solution,
         run_dir=tmp_path / 'run',
         search_space=[json_search_space] if use_json else [search_space],
-        database=training_set
+        database=database
     )
     assert len(list(thinker.iterate_over_search_space())) == 5
     smiles_only = list(thinker.iterate_over_search_space(only_smiles=True))
     assert len(smiles_only) == 5
-    assert smiles_only[-1] == record.identifier['smiles']
+    assert smiles_only[-1] == record.identifier.smiles

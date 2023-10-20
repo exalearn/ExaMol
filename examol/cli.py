@@ -51,55 +51,55 @@ def run_examol(args):
     logger.info(f'Loaded specification from {spec_path}, where it was named {spec_name}')
 
     # Create the thinker and doer, then print out key statistics
-    doer, thinker = spec.assemble()
-    logger.info(f'Created a task server with methods: {doer.method_names}')
-    logger.info(f'Created a thinker based on {thinker.__class__}')
-    logger.info(f'Will run a total of {spec.solution.num_to_run} molecules')
-    logger.info(f'Will save results into {thinker.run_dir}')
+    with spec.assemble() as (doer, thinker, store):
+        logger.info(f'Created a task server with methods: {doer.method_names}')
+        logger.info(f'Created a thinker based on {thinker.__class__}')
+        logger.info(f'Will run a total of {spec.solution.num_to_run} molecules')
+        logger.info(f'Will save results into {thinker.run_dir}')
 
-    # Make a function to clear the proxystore caches
-    def _clear_stores():
-        names = set(thinker.queues.proxystore_name.values())
-        logger.info(f'There are {len(names)} proxystore caches to clear.')
-        for name in names:
-            if name is not None:
-                logger.info(f'Closing proxystore: {name}')
-                store = get_store(name)
-                store.close()
+        # Make a function to clear the proxystore caches
+        def _clear_stores():
+            names = set(thinker.queues.proxystore_name.values())
+            logger.info(f'There are {len(names)} proxystore caches to clear.')
+            for name in names:
+                if name is not None:
+                    logger.info(f'Closing proxystore: {name}')
+                    store = get_store(name)
+                    store.close()
 
-    # Stop if we are in a dry run
-    if args.dry_run:
-        _clear_stores()
-        logger.info('Finished with dry run. Exiting')
-        return
+        # Stop if we are in a dry run
+        if args.dry_run:
+            _clear_stores()
+            logger.info('Finished with dry run. Exiting')
+            return
 
-    # Launch them
-    doer.start()  # Run the doer as a subprocess
-    reporter_threads = []
-    try:
-        thinker.start()  # Start the thinker
-        logger.info('Launched the thinker. Waiting a second before launching the reporters')
+        # Launch them
+        doer.start()  # Run the doer as a subprocess
+        reporter_threads = []
+        try:
+            thinker.start()  # Start the thinker
+            logger.info('Launched the thinker. Waiting a second before launching the reporters')
 
-        # Start the monitors
-        sleep(1.)
-        for reporter in spec.reporters:
-            reporter_threads.append(reporter.monitor(thinker, args.report_freq))
-        logger.info('Launched the reporting threads')
+            # Start the monitors
+            sleep(1.)
+            for reporter in spec.reporters:
+                reporter_threads.append(reporter.monitor(thinker, args.report_freq))
+            logger.info('Launched the reporting threads')
 
-        # Make sure the doer is alive
-        if not doer.is_alive():  # no-coverage:
+            # Make sure the doer is alive
+            if not doer.is_alive():  # no-coverage:
+                doer.join()
+                raise ValueError(f'Doer process exited with status code {doer.exitcode}')
+            thinker.join(timeout=args.timeout)  # Wait until it completes
+        except TimeoutError:
+            logger.info('Hit timeout. Sending stop signal to Thinker then blocking until all ongoing tasks complete')
+            thinker.done.set()  # If it hits the timeout
+            thinker.join()
+        finally:
+            logger.info('Thinker complete, sending a signal to shut down the doer')
+            thinker.done.set()  # Make sure it is set
+            thinker.queues.send_kill_signal()
             doer.join()
-            raise ValueError(f'Doer process exited with status code {doer.exitcode}')
-        thinker.join(timeout=args.timeout)  # Wait until it completes
-    except TimeoutError:
-        logger.info('Hit timeout. Sending stop signal to Thinker then blocking until all ongoing tasks complete')
-        thinker.done.set()  # If it hits the timeout
-        thinker.join()
-    finally:
-        logger.info('Thinker complete, sending a signal to shut down the doer')
-        thinker.done.set()  # Make sure it is set
-        thinker.queues.send_kill_signal()
-        doer.join()
     logger.info('All processes have completed.')
 
     # Once complete, run the reporting one last time

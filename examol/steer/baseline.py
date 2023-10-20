@@ -8,7 +8,7 @@ from colmena.thinker import agent, ResourceCounter
 
 from examol.specify import SolutionSpecification
 from examol.steer.base import MoleculeThinker
-from examol.store.models import MoleculeRecord
+from examol.store.db.base import MoleculeStore
 from examol.store.recipes import PropertyRecipe
 
 
@@ -35,8 +35,8 @@ class BruteForceThinker(MoleculeThinker):
                  recipes: Sequence[PropertyRecipe],
                  solution: SolutionSpecification,
                  search_space: list[Path | str],
-                 database: list[MoleculeRecord],
-                 num_workers: int,
+                 database: MoleculeStore,
+                 num_workers: int = 1,
                  overselection: float = 0):
         super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
         self.overselection = overselection
