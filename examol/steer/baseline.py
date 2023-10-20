@@ -36,7 +36,7 @@ class BruteForceThinker(MoleculeThinker):
                  solution: SolutionSpecification,
                  search_space: list[Path | str],
                  database: MoleculeStore,
-                 num_workers: int,
+                 num_workers: int = 1,
                  overselection: float = 0):
         super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
         self.overselection = overselection
