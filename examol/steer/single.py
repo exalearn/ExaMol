@@ -23,7 +23,8 @@ from proxystore.store.utils import get_key
 
 from .base import MoleculeThinker
 from ..score.base import Scorer
-from ..specify.solution import SingleFidelityActiveLearning
+from examol.solution import SingleFidelityActiveLearning
+from ..store.db.base import MoleculeStore
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe
 
@@ -35,7 +36,7 @@ class SingleStepThinker(MoleculeThinker):
         queues: Queues used to communicate with the task server
         run_dir: Directory in which to store logs, etc.
         recipes: Recipes used to compute the target properties
-        database: List of molecules which are already known
+        database: Connection to the store of molecular data
         solution: Settings related to tools used to solve the problem (e.g., active learning strategy)
         search_space: Search space of molecules. Provided as a list of paths to ".smi" files
         num_workers: Number of simulation tasks to run in parallel
@@ -51,7 +52,7 @@ class SingleStepThinker(MoleculeThinker):
                  queues: ColmenaQueues,
                  run_dir: Path,
                  recipes: Sequence[PropertyRecipe],
-                 database: list[MoleculeRecord],
+                 database: MoleculeStore,
                  solution: SingleFidelityActiveLearning,
                  search_space: list[Path | str],
                  num_workers: int = 2,
@@ -343,7 +344,7 @@ class SingleStepThinker(MoleculeThinker):
         Returns:
             List of molecules for which that property is defined
         """
-        return [x for x in list(self.database.values()) if recipe.lookup(x) is not None]
+        return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
 
 
 def _generate_inputs(record: MoleculeRecord, scorer: Scorer) -> tuple[str, object] | None:

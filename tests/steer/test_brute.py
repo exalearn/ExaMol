@@ -9,7 +9,7 @@ from examol.steer.baseline import BruteForceThinker
 
 
 @fixture()
-def thinker(queues, recipe, search_space, training_set, tmp_path) -> BruteForceThinker:
+def thinker(queues, recipe, search_space, database, tmp_path) -> BruteForceThinker:
     run_dir = tmp_path / 'run'
     solution = SolutionSpecification(
         starter=RandomStarter(),
@@ -19,14 +19,14 @@ def thinker(queues, recipe, search_space, training_set, tmp_path) -> BruteForceT
         queues=queues,
         run_dir=run_dir,
         recipes=[recipe],
-        database=training_set,
+        database=database,
         num_workers=1,
         solution=solution,
         search_space=[search_space],
     )
 
 
-def test_thinker(thinker, caplog, training_set):
+def test_thinker(thinker, caplog, database):
     caplog.set_level(logging.ERROR)
 
     # Run it
@@ -34,4 +34,4 @@ def test_thinker(thinker, caplog, training_set):
     assert len(caplog.records) == 0, caplog.records[0]
 
     # Make sure it ran the target number of molecules
-    assert len(thinker.database) >= len(training_set) + thinker.num_to_run
+    assert len(thinker.database) >= len(database) + thinker.num_to_run

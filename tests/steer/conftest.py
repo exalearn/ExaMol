@@ -11,6 +11,8 @@ from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.simulate.ase import ASESimulator
+from examol.store.db.base import MoleculeStore
+from examol.store.db.memory import InMemoryStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
@@ -21,14 +23,14 @@ def recipe() -> RedoxEnergy:
 
 
 @fixture()
-def training_set(recipe) -> list[MoleculeRecord]:
+def database(recipe, tmpdir) -> MoleculeStore:
     """Make a starting training set"""
-    output = []
-    for i, smiles in enumerate(['CCCC', 'CCO']):
-        record = MoleculeRecord.from_identifier(smiles)
-        record.properties[recipe.name] = {recipe.level: i}
-        output.append(record)
-    return output
+    store = InMemoryStore(tmpdir / 'store.json')
+    with store:
+        for i, smiles in enumerate(['CCCC', 'CCO']):
+            record = MoleculeRecord.from_identifier(smiles)
+            record.properties[recipe.name] = {recipe.level: i}
+        yield store
 
 
 @fixture()

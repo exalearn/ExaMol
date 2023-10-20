@@ -10,7 +10,7 @@ from proxystore.connectors.file import FileConnector
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
-from examol.specify.solution import SingleFidelityActiveLearning
+from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
@@ -58,7 +58,7 @@ config = Config(
 store = Store(name='file', connector=FileConnector(store_dir=str(my_path / 'proxystore')), metrics=True)
 
 spec = ExaMolSpecification(
-    database=(my_path / 'training-data.json'),
+    database=(run_dir / 'database.json'),
     recipes=[recipe],
     search_space=[(my_path / 'search_space.smi')],
     solution=solution,

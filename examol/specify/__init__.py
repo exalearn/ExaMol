@@ -1,4 +1,5 @@
 """Tool for defining then deploying an ExaMol application"""
+import contextlib
 from dataclasses import dataclass, field
 from typing import Sequence
 from pathlib import Path
@@ -12,9 +13,10 @@ from proxystore.store import Store, register_store
 
 from examol.reporting.base import BaseReporter
 from examol.simulate.base import BaseSimulator
-from examol.specify.base import SolutionSpecification
+from examol.solution import SolutionSpecification
 from examol.steer.base import MoleculeThinker
-from examol.store.models import MoleculeRecord
+from examol.store.db.base import MoleculeStore
+from examol.store.db.memory import InMemoryStore
 from examol.store.recipes import PropertyRecipe
 
 logger = logging.getLogger(__name__)
@@ -34,8 +36,8 @@ class ExaMolSpecification:
     """
 
     # Define the problem
-    database: Path | str = ...
-    """Path to the initial dataset"""
+    database: Path | str | MoleculeStore = ...
+    """Path to the data as a line-delimited JSON file or an already-activated store"""
     recipes: Sequence[PropertyRecipe] = ...
     """Definition for how to compute the target properties"""
     search_space: list[Path | str] = ...
@@ -68,8 +70,15 @@ class ExaMolSpecification:
     run_dir: Path | str = ...
     """Path in which to write output files"""
 
-    def assemble(self) -> tuple[BaseTaskServer, MoleculeThinker]:
-        """Assemble the Colmena application"""
+    @contextlib.contextmanager
+    def assemble(self) -> tuple[BaseTaskServer, MoleculeThinker, MoleculeStore]:
+        """Assemble the Colmena application
+
+        Returns:
+            - Task server used to perform computations
+            - Thinker used to steer computations
+            - Store used to collect results
+        """
 
         # Use pipe queues for simplicity
         if self.proxystore is None:
@@ -109,30 +118,27 @@ class ExaMolSpecification:
         )
 
         # Create the thinker
-        thinker = self.thinker(
-            queues=queues,
-            run_dir=self.run_dir,
-            recipes=self.recipes,
-            search_space=self.search_space,
-            solution=self.solution,
-            database=self.load_database(),
-            **self.thinker_options
-        )
+        store = self.load_database()
+        with store:
+            thinker = self.thinker(
+                queues=queues,
+                run_dir=self.run_dir,
+                recipes=self.recipes,
+                search_space=self.search_space,
+                solution=self.solution,
+                database=store,
+                **self.thinker_options
+            )
+            yield doer, thinker, store
 
-        return doer, thinker
-
-    def load_database(self) -> list[MoleculeRecord]:
+    def load_database(self) -> MoleculeStore:
         """Load the starting database
 
         Returns:
-            List of molecules defined
+            Pointer to the database object
         """
 
-        output = []
-        logger.info(f'Loading records from {self.database}')
-        if self.database.exists():
-            with open(self.database) as fp:
-                for line in fp:
-                    output.append(MoleculeRecord.from_json(line))
-            logger.info(f'Loaded {len(output)} molecule property records')
-        return output
+        if isinstance(self.database, MoleculeStore):
+            return self.database
+        else:
+            return InMemoryStore(self.database)
