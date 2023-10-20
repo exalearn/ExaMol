@@ -28,7 +28,7 @@ dependencies = [
     "networkx>=2.8",
     "parsl>=2022.12",
     "more_itertools==9.*",
-    "mongoengine>=0.27",
+    "pydantic<2",
     "tabulate>=0.9",
     "modAL-python==0.4.*",
     "tqdm"
