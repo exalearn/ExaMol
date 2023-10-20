@@ -27,6 +27,9 @@ class MoleculeStore(AbstractContextManager, ABC):
     def __len__(self):
         raise NotImplementedError()
 
+    def __contains__(self, item: str | MoleculeRecord):
+        raise NotImplementedError()
+
     def iterate_over_records(self) -> Iterable[MoleculeRecord]:
         """Iterate over all records in data
 

@@ -21,6 +21,8 @@ def test_store(tmpdir, records):
         for record in records:
             store.update_record(record)
         assert len(store) == 3
+        assert MoleculeRecord.from_identifier('C') in store
+        assert MoleculeRecord.from_identifier('Br') not in store
 
     # Load database back in
     with InMemoryStore(db_path) as store:

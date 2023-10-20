@@ -72,6 +72,10 @@ class InMemoryStore(MoleculeStore):
     def __len__(self):
         return len(self.db)
 
+    def __contains__(self, item: str | MoleculeRecord):
+        mol_key = item.key if isinstance(item, MoleculeRecord) else item
+        return mol_key in self.db
+
     def _writer(self):
         next_write = 0
         while not (self._closing.is_set() or self._updates_available.is_set()):  # Loop until closing and no updates are available
