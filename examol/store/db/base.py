@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Iterable
 from contextlib import AbstractContextManager
 
-
 from examol.store.models import MoleculeRecord
 
 
@@ -44,10 +43,6 @@ class MoleculeStore(AbstractContextManager, ABC):
         Args:
             record: Record to be updated
         """
-        raise NotImplementedError()
-
-    def close(self):
-        """Block until all changes to the database have been written to disk"""
         raise NotImplementedError()
 
     def export_records(self, path: Path):

@@ -7,6 +7,7 @@ API Documentation
     examol.score
     examol.select
     examol.simulate
+    examol.solution
     examol.specify
     examol.start
     examol.steer

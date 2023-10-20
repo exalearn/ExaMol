@@ -120,8 +120,11 @@ See how to create one in the `Simulate documentation <components/simulate.html#t
 Starting Data
 ~~~~~~~~~~~~~
 
-The starting data for a project is a line-delimited JSON file describing what molecular properties are already known.
+The starting data for this project is a line-delimited JSON file describing what molecular properties are already known.
 Each line is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
+
+ExaMol supports a few different kinds of stores for molecule data.
+Learn more in the `Store documentation <components/store.html>`_.
 
 Search Space
 ~~~~~~~~~~~~
