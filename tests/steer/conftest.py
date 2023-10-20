@@ -30,6 +30,7 @@ def database(recipe, tmpdir) -> MoleculeStore:
         for i, smiles in enumerate(['CCCC', 'CCO']):
             record = MoleculeRecord.from_identifier(smiles)
             record.properties[recipe.name] = {recipe.level: i}
+            store.update_record(record)
         yield store
 
 

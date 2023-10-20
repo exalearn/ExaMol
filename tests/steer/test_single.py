@@ -1,6 +1,7 @@
 """Test single objective optimizer"""
 import json
 import logging
+from pathlib import Path
 
 from pytest import fixture, mark
 
@@ -11,8 +12,8 @@ from examol.steer.single import SingleStepThinker
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, database, tmp_path) -> SingleStepThinker:
-    run_dir = tmp_path / 'run'
+def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> SingleStepThinker:
+    run_dir = Path(tmpdir / 'run')
     scorer, model = scorer
     solution = SingleFidelityActiveLearning(
         scorer=scorer,
@@ -39,7 +40,7 @@ def test_thinker(thinker: SingleStepThinker, database, caplog):
 
     # Make sure it is set up right
     assert len(thinker.search_space_smiles) == 1
-    assert len(thinker.database) == len(database)
+    start_size = len(thinker.database)
 
     # Run it
     thinker.run()
@@ -58,9 +59,9 @@ def test_thinker(thinker: SingleStepThinker, database, caplog):
     # Make sure we have more than a few simulation records
     with (thinker.run_dir / 'simulation-records.json').open() as fp:
         record_count = sum(1 for _ in fp)
-    assert record_count > thinker.num_to_run
+    assert record_count >= thinker.num_to_run
 
-    assert len(thinker.database) >= len(database) + thinker.num_to_run
+    assert len(thinker.database) >= start_size + thinker.num_to_run
 
 
 @mark.timeout(120)

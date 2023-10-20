@@ -30,8 +30,9 @@ def test_thinker(thinker, caplog, database):
     caplog.set_level(logging.ERROR)
 
     # Run it
+    start_size = len(database)
     thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
 
     # Make sure it ran the target number of molecules
-    assert len(thinker.database) >= len(database) + thinker.num_to_run
+    assert len(thinker.database) >= start_size + thinker.num_to_run
