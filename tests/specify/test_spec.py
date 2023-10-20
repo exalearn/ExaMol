@@ -26,7 +26,7 @@ def database(recipe, tmp_path) -> Path:
         for mol in ['CC', 'O', 'N']:
             record = MoleculeRecord.from_identifier(mol)
             record.properties[recipe.name] = {recipe.level: random()}
-            print(record.to_json(), file=fp)
+            print(record.json(), file=fp)
     return path
 
 

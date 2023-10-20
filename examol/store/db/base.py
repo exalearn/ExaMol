@@ -54,4 +54,4 @@ class MoleculeStore(AbstractContextManager, ABC):
 
         with (gzip.open(path, 'wt') if path.name.endswith('.gz') else open(path, 'w')) as fp:
             for record in self.iterate_over_records():
-                print(record.to_json(), file=fp)
+                print(record.json(), file=fp)

@@ -74,12 +74,6 @@ For example, ExaMol provides a utility operation for finding the lowest-energy c
     assert isclose(energy, -1)
     assert conf.xyz.startswith('5\nmethane\n0.0000')
 
-Technical Details
-+++++++++++++++++
-
-The data models are implemented as MongoEngine :class:`~mongoengine.Document` objects
-so that they are easy to store in MongoDB, convert to JSON objects, etc.
-
 Recipes
 -------
 

@@ -98,7 +98,7 @@ class MoleculeThinker(BaseThinker):
                         elif only_smiles and not is_json:
                             yield line.strip()
                         elif is_json:
-                            yield MoleculeRecord.from_json(line)
+                            yield MoleculeRecord.parse_raw(line)
                         else:
                             yield MoleculeRecord.from_identifier(line.strip())
             else:

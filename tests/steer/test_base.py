@@ -18,7 +18,7 @@ def test_search_space(queues, search_space, tmp_path, database, use_json):
     with search_space.open() as fi, gzip.open(json_search_space, 'wt') as fo:
         for mol in fi:
             record = MoleculeRecord.from_identifier(mol.strip())
-            print(record.to_json(), file=fo)
+            print(record.json(), file=fo)
 
     # Make the solution specification
     solution = SolutionSpecification(
@@ -37,4 +37,4 @@ def test_search_space(queues, search_space, tmp_path, database, use_json):
     assert len(list(thinker.iterate_over_search_space())) == 5
     smiles_only = list(thinker.iterate_over_search_space(only_smiles=True))
     assert len(smiles_only) == 5
-    assert smiles_only[-1] == record.identifier['smiles']
+    assert smiles_only[-1] == record.identifier.smiles

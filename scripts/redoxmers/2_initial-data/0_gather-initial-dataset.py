@@ -175,7 +175,7 @@ class BruteForceThinker(BaseThinker):
         temp_path = self.database_path.parent / f'{self.database_path.name}.new'
         with gzip.open(temp_path, 'wt') as fp:
             for record in dataset.values():
-                print(record.to_json(), file=fp)
+                print(record.json(), file=fp)
         move(temp_path, self.database_path)
 
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         my_logger.info(f'Loading initial data from {dataset_path}')
         with gzip.open(dataset_path, 'rt') as fp:
             for line in fp:
-                record = MoleculeRecord.from_json(line)
+                record = MoleculeRecord.parse_raw(line)
                 dataset[record.key] = record
 
         assert len(dataset) == len(molecules), f'There was a corrupted save. Dataset has {len(dataset)} records, expected {len(molecules)}'
@@ -228,7 +228,7 @@ if __name__ == "__main__":
                 record = MoleculeRecord.from_identifier(smiles)
                 if record.key not in dataset:
                     dataset[record.key] = record
-                print(record.to_json(), file=fp)
+                print(record.json(), file=fp)
     my_logger.info(f'Starting from a dataset of {len(dataset)} records')
 
     # Get the right computational environment
@@ -283,7 +283,7 @@ if __name__ == "__main__":
     temp_path = dataset_path.parent / f'{dataset_path.name}.new'
     with gzip.open(temp_path, 'wt') as fp:
         for record in dataset.values():
-            print(record.to_json(), file=fp)
+            print(record.json(), file=fp)
     move(temp_path, dataset_path)
     my_logger.info(f'Wrote database to {dataset_path}')
 

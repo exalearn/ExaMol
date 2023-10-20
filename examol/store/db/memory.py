@@ -1,9 +1,10 @@
 """Stores that keep the entire dataset in memory"""
 import gzip
 import logging
+from concurrent.futures import ThreadPoolExecutor, Future
 from pathlib import Path
 from time import monotonic
-from threading import Thread, Event
+from threading import Event
 from typing import Iterable
 
 from examol.store.db.base import MoleculeStore
@@ -28,7 +29,8 @@ class InMemoryStore(MoleculeStore):
         self.db: dict[str, MoleculeRecord] = {}
 
         # Start thread which writes until
-        self._write_thread = None
+        self._thread_pool = ThreadPoolExecutor(max_workers=1)
+        self._write_thread: Future | None = None
         self._updates_available: Event = Event()
         self._closing = Event()
 
@@ -37,16 +39,14 @@ class InMemoryStore(MoleculeStore):
 
     def __enter__(self):
         logger.info('Start the writing thread')
-        self._write_thread = Thread(target=self._writer)
-        self._write_thread.start()
+        self._write_thread = self._thread_pool.submit(self._writer)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Trigger a last write
         logger.info('Triggering a last write to the database')
         self._closing.set()
-        if self._write_thread is not None:
-            self._write_thread.join()
+        self._write_thread.result()
 
         # Mark that we're closed
         self._write_thread = None
@@ -59,7 +59,7 @@ class InMemoryStore(MoleculeStore):
         logger.info(f'Loading data from {self.path}')
         with (gzip.open(self.path, 'rt') if self.path.name.endswith('.gz') else self.path.open()) as fp:
             for line in fp:
-                record = MoleculeRecord.from_json(line)
+                record = MoleculeRecord.parse_raw(line)
                 self.db[record.key] = record
         logger.info(f'Loaded {len(self.db)} molecule records')
 
