@@ -35,6 +35,23 @@ class InMemoryStore(MoleculeStore):
         # Start by loading the molecules
         self._load_molecules()
 
+    def __enter__(self):
+        logger.info('Start the writing thread')
+        self._write_thread = Thread(target=self._writer)
+        self._write_thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Trigger a last write
+        logger.info('Triggering a last write to the database')
+        self._closing.set()
+        if self._write_thread is not None:
+            self._write_thread.join()
+
+        # Mark that we're closed
+        self._write_thread = None
+        self._closing.clear()
+
     def _load_molecules(self):
         """Load molecules from disk"""
         if not self.path.is_file():
@@ -44,6 +61,7 @@ class InMemoryStore(MoleculeStore):
             for line in fp:
                 record = MoleculeRecord.from_json(line)
                 self.db[record.key] = record
+        logger.info(f'Loaded {len(self.db)} molecule records')
 
     def iterate_over_records(self) -> Iterable[MoleculeRecord]:
         yield from list(self.db.values())  # Use `list` to copy the current state of the db and avoid errors due to concurrent writes
@@ -56,7 +74,7 @@ class InMemoryStore(MoleculeStore):
 
     def _writer(self):
         next_write = 0
-        while not self._closing.is_set():
+        while not (self._closing.is_set() or self._updates_available.is_set()):  # Loop until closing and no updates are available
             # Wait until updates are available and the standoff is not met, or if we're closing
             while (monotonic() < next_write or not self._updates_available.is_set()) and not self._closing.is_set():
                 self._updates_available.wait(timeout=1)
@@ -70,20 +88,4 @@ class InMemoryStore(MoleculeStore):
 
     def update_record(self, record: MoleculeRecord):
         self.db[record.key] = record
-
-        # Start the write thread, if needed, and trigger it
-        if self._write_thread is None:
-            logger.info('Start the writing thread')
-            self._write_thread = Thread(target=self._writer)
-            self._write_thread.start()
         self._updates_available.set()
-
-    def close(self):
-        # Trigger a last write
-        self._closing.set()
-        if self._write_thread is not None:
-            self._write_thread.join()
-
-        # Mark that we're closed
-        self._write_thread = None
-        self._closing.clear()

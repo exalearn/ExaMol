@@ -1,20 +1,23 @@
 """Base classes for storage utilities"""
 import gzip
-from typing import Iterable
+from abc import ABC
 from pathlib import Path
+from typing import Iterable
+from contextlib import AbstractContextManager
+
 
 from examol.store.models import MoleculeRecord
 
 
-class MoleculeStore:
+class MoleculeStore(AbstractContextManager, ABC):
     """Base class defining how to interface with a dataset of molecule records.
 
     Data stores provide the ability to persist the data collected by ExaMol to disk during a run.
-    The :meth:`update_record` call need not imemdaitely
+    The :meth:`update_record` call need not immediately persist the data but should ensure that the data
+    is stored on disk eventually.
+    In fact, it is actually better for the update operation to not block until the resulting write has completed.
 
     Stores do not need support concurrent access from multiple client, which is why this documentation avoids the word "database."
-
-
     """
 
     def __getitem__(self, mol_key: str) -> MoleculeRecord:

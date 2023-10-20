@@ -14,8 +14,7 @@ def records() -> list[MoleculeRecord]:
 def test_store(tmpdir, records):
     # Open the database
     db_path = tmpdir / 'db.json.gz'
-    store = InMemoryStore(db_path)
-    try:
+    with InMemoryStore(db_path) as store:
         assert len(store) == 0
 
         # Add the records
@@ -23,12 +22,6 @@ def test_store(tmpdir, records):
             store.update_record(record)
         assert len(store) == 3
 
-    finally:
-        store.close()
-
     # Load database back in
-    store = InMemoryStore(db_path)
-    try:
+    with InMemoryStore(db_path) as store:
         assert len(store) == 3
-    finally:
-        store.close()
