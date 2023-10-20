@@ -6,10 +6,8 @@ from threading import Event
 from colmena.models import Result
 from pytest import fixture, mark
 
-from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.steer.single import SingleStepThinker
-from examol.store.models import MoleculeRecord
 from examol.store.recipes import RedoxEnergy
 
 example_dir = Path(__file__).parent / 'example'
@@ -42,14 +40,6 @@ def test_markdown(thinker):
     reporter.report(thinker)
     assert (thinker.run_dir / 'report.md').is_file()
     assert (thinker.run_dir / 'simulation-outputs_recipe-0.png').is_file()
-
-
-def test_database(thinker):
-    record = MoleculeRecord.from_identifier('C')
-    thinker.database = {record.key: record}
-    reporter = DatabaseWriter()
-    reporter.report(thinker)
-    assert (thinker.run_dir / 'database.json').is_file()
 
 
 @mark.timeout(25)

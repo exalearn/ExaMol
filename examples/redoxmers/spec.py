@@ -7,7 +7,6 @@ from parsl import Config, HighThroughputExecutor
 from proxystore.store import Store
 from proxystore.connectors.file import FileConnector
 
-from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import make_knn_model, RDKitScorer
 from examol.simulate.ase import ASESimulator
@@ -49,7 +48,6 @@ solution = SingleFidelityActiveLearning(
 
 # Mark how we report outcomes
 reporter = MarkdownReporter()
-writer = DatabaseWriter()
 
 # Make the parsl (compute) and proxystore (optional data fabric) configuration
 is_mac = sys.platform == 'darwin'
@@ -68,6 +66,6 @@ spec = ExaMolSpecification(
     thinker=SingleStepThinker,
     compute_config=config,
     proxystore=store,
-    reporters=[reporter, writer],
+    reporters=[reporter],
     run_dir=run_dir,
 )
