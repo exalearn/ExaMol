@@ -8,15 +8,11 @@ class Starter:
     """Template for classes which select an initial set of calculations to run.
 
     Args:
-        threshold: Run the starter if the database is smaller than this number.
-            Implementations may use this number when selecting the top records,
-            such as using a set of ``threshold`` computations with maximal diversity.
         max_to_consider: Only select from the up to the first ``max_to_consider`` molecules
             in the search space, if set.
     """
 
-    def __init__(self, threshold: int, max_to_consider: int | None = None):
-        self.threshold = threshold
+    def __init__(self, max_to_consider: int | None = None):
         self.max_to_consider = max_to_consider
 
     def select(self, to_select: Collection[str], count: int) -> list[str]:

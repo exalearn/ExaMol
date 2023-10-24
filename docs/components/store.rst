@@ -3,6 +3,39 @@ Store
 
 The Store module handles capturing data about molecules and using collected data to compute derived properties.
 
+Data Stores
+-----------
+
+ExaMol provides access to the data via a :class:`~examol.store.db.base.MoleculeStore` interface.
+There are several implementations of these types of stores, each with different use cases.
+
+.. list-table::
+    :header-rows: 1
+
+    * - Store
+      - Description
+    * - :class:`~examol.store.db.memory.InMemoryStore`
+      - Store all data in memory, periodically write to a single file
+
+Using a Data Store
+++++++++++++++++++
+
+All ``MoleculeStore`` classes are used the same way.
+The most important note is that all operations for a store should be performed inside a context,
+which ensures that the operations on the dataset will be persisted to disk after the context closes.
+
+.. code-block:: python
+
+    with InMemoryStore('db.json') as store:
+        for record in records:
+            store.update_record(record)
+        print(f'The store contains {len(store)} records')
+
+It is also important to know that the store is thread safe but the
+store may not be accessed from separate processes.
+Specifically, any data written to a store with the :meth:`~examol.store.db.base.MoleculeStore.update_record`
+method will be available to all threads before the call exits.
+
 Data Models
 -----------
 
@@ -18,7 +51,7 @@ Each of the Conformer objects are different geometries\ [2]_ and we store the en
 
 Create a record and populate information about it by
 creating a blank Record from a molecule identifier (i.e., SMILES)
-then providing a simulation result to its `add_energies` method.
+then providing a simulation result to its ``add_energies`` method.
 
 .. code-block:: python
 
@@ -40,12 +73,6 @@ For example, ExaMol provides a utility operation for finding the lowest-energy c
     conf, energy = record.find_lowest_conformer(config_name='test', charge=0, solvent=None)
     assert isclose(energy, -1)
     assert conf.xyz.startswith('5\nmethane\n0.0000')
-
-Technical Details
-~~~~~~~~~~~~~~~~~
-
-The data models are implemented as MongoEngine :class:`~mongoengine.Document` objects
-so that they are easy to store in MongoDB, convert to JSON objects, etc.
 
 Recipes
 -------

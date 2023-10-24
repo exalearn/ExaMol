@@ -80,6 +80,7 @@ def test_cp2k_configs(tmpdir, strc):
 
 @mark.skipif(is_ci, reason='Too slow for CI')
 @mark.skipif(not has_cpk2, reason='CP2K is not installed')
+@mark.slow
 @mark.parametrize(
     'config,charge,solvent',
     [(xc, c, None) for xc, c in itertools.product(cp2k_configs_to_test, [0, 1])]  # Closed and open shell
@@ -123,14 +124,14 @@ def test_optimization(config_name: str, strc, tmpdir):
         # Make sure it doesn't write new stuff
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) <= len(traj_res)
+            assert len(db) <= len(traj_res) + 2  # Some have same geometry, different cell -> different record
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it can deal with a bad restart file
         (run_dir / 'opt.traj').write_text('bad')  # Kill the restart file
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) <= len(traj_res)
+            assert len(db) <= len(traj_res) + 2
             assert next(db.select())['total_charge'] == 1
 
         # Make sure it cleans up after itself
@@ -138,7 +139,7 @@ def test_optimization(config_name: str, strc, tmpdir):
         shutil.rmtree(run_dir)
         sim.optimize_structure('name', strc, config_name, charge=1)
         with connect(db_path) as db:
-            assert len(db) <= len(traj_res)
+            assert len(db) <= len(traj_res) + 2
             assert next(db.select())['total_charge'] == 1
         assert not run_dir.is_dir()
 

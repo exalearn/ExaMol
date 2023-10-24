@@ -50,5 +50,5 @@ def test_no_relaxed_charged(smiles: str, charge: int, simulator: ASESimulator):
             recipe.update_record(record)
         except ValueError:
             with open('failed.json', 'w') as fp:
-                print(record.to_json(indent=2), file=fp)
+                print(record.json(indent=2), file=fp)
             raise

@@ -6,8 +6,7 @@ from typing import Collection
 
 import ase
 import numpy as np
-from mongoengine import Document, DynamicEmbeddedDocument, EmbeddedDocument, IntField, EmbeddedDocumentField, DateTimeField, FloatField, DictField
-from mongoengine.fields import StringField, ListField
+from pydantic import BaseModel, Field
 from rdkit import Chem
 
 from examol.simulate.base import SimResult
@@ -29,29 +28,29 @@ class MissingData(ValueError):
         return f'No data for config={self.config_name} charge={self.charge} solvent={self.solvent}'
 
 
-class Identifiers(DynamicEmbeddedDocument):
+class Identifiers(BaseModel):
     """IDs known for a molecule"""
 
-    smiles = StringField(required=True)
+    smiles: str
     """A SMILES string"""
-    inchi = StringField(required=True)
+    inchi: str
     """The InChI string"""
-    pubchem_id = IntField()
+    pubchem_id: int | None = None
     """PubChem ID, if known"""
 
 
-class EnergyEvaluation(EmbeddedDocument):
+class EnergyEvaluation(BaseModel):
     """Energy of a conformer under a certain condition"""
 
-    energy = FloatField(required=True)
+    energy: float
     """Energy of the conformer (eV)"""
-    config_name = StringField(required=True)
+    config_name: str
     """Configuration used to compute the energy"""
-    charge = IntField(required=True)
+    charge: int
     """Charge used when computing the energy"""
-    solvent = StringField()
+    solvent: str | None
     """Solvent used, if any"""
-    completed: DateTimeField(required=False, default=datetime.utcnow)
+    completed: datetime = Field(default_factory=lambda: datetime.utcnow())
     """When this energy computation was added"""
 
     def __eq__(self, other):
@@ -62,27 +61,27 @@ class EnergyEvaluation(EmbeddedDocument):
             and self.solvent == other.solvent
 
 
-class Conformer(EmbeddedDocument):
+class Conformer(BaseModel):
     """Describes a single conformer of a molecule"""
 
     # Define the structure
-    xyz = StringField(required=True)
+    xyz: str
     """XYZ-format description of the atomic coordinates"""
-    xyz_hash = StringField(required=True)
+    xyz_hash: str
     """MDF hash of the XYZ coordinates"""
 
     # Provenance of the structure
-    date_created = DateTimeField(required=True)
+    date_created: datetime
     """Date this conformer was inserted"""
-    source = StringField(required=True, choices=['relaxation', 'other'])
+    source: str | None = None
     """Method used to generate this structure (e.g., via relaxation)"""
-    config_name = StringField()
+    config_name: str
     """Configuration used to relax the structure, if applicable"""
-    charge = IntField()
+    charge: int
     """Charge used when relaxing the structure"""
 
     # Energies of the structure
-    energies: list[EnergyEvaluation] = ListField(EmbeddedDocumentField(EnergyEvaluation))
+    energies: list[EnergyEvaluation] = Field(default_factory=list)
     """List of energies for this structure"""
 
     @property
@@ -97,25 +96,32 @@ class Conformer(EmbeddedDocument):
             sim_result: Simulation result
             source: How this conformer was determined
         Returns:
-            An initialized conformer record
+            An initialized conformer record which includes energies
         """
+        new_record = cls.from_xyz(sim_result.xyz, source=source, config_name=sim_result.config_name, charge=sim_result.charge)
+        new_record.add_energy(sim_result)
+        return new_record
 
+    @classmethod
+    def from_xyz(cls, xyz: str, **kwargs):
+        """Create a new object from a XYZ-format object
+
+        Args:
+            xyz: XYZ-format description of the molecule
+        Returns:
+            An initialized conformer object
+        """
         # Make sure the simulation results is center
-        atoms = read_from_string(sim_result.xyz, 'xyz')
+        atoms = read_from_string(xyz, 'xyz')
         atoms.center()
         xyz = write_to_string(atoms, 'xyz')
 
-        # Convert the sim result to a database record
-        new_record = cls(
+        return cls(
             xyz=xyz,
             xyz_hash=md5(xyz.encode()).hexdigest(),
             date_created=datetime.now(),
-            source=source,
-            config_name=sim_result.config_name,
-            charge=sim_result.charge,
+            **kwargs
         )
-        new_record.add_energy(sim_result)
-        return new_record
 
     def add_energy(self, sim_result: SimResult) -> bool:
         """Add the energy from a simulation result
@@ -172,25 +178,25 @@ class Conformer(EmbeddedDocument):
         return self.energies[ind].energy
 
 
-class MoleculeRecord(Document):
+class MoleculeRecord(BaseModel):
     """Defines whatever we know about a molecule"""
 
     # Identifiers
-    key = StringField(min_length=27, max_length=27, required=True, primary_key=True)
+    key: str = Field(min_length=27, max_length=27)
     """InChI key"""
-    identifier: Identifiers = EmbeddedDocumentField(Identifiers, help_text='')
+    identifier: Identifiers
     """Collection of identifiers which define the molecule"""
-    names = ListField(StringField())
+    names: list[str] = Field(default_factory=list)
     """Names this molecule is known by"""
-    subsets = ListField(StringField())
+    subsets: list[str] = Field(default_factory=list)
     """List of subsets this molecule is part of"""
 
     # Data about the molecule
-    conformers: list[Conformer] = ListField(EmbeddedDocumentField(Conformer))
+    conformers: list[Conformer] = Field(default_factory=list)
     """All known conformers for this molecule"""
 
     # Characteristics
-    properties: dict[str, dict[str, float]] = DictField()
+    properties: dict[str, dict[str, float]] = Field(default_factory=dict)
     """Properties available for the molecule"""
 
     @classmethod

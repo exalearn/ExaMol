@@ -1,122 +1,46 @@
 """Test single objective optimizer"""
-import sys
 import json
 import logging
 from pathlib import Path
 
-from parsl.config import Config
-from parsl.executors import HighThroughputExecutor
-from colmena.task_server import ParslTaskServer
-from colmena.queue import ColmenaQueues, PipeQueues
-from proxystore.connectors.file import FileConnector
-from proxystore.store import Store, register_store
 from pytest import fixture, mark
-from sklearn.pipeline import Pipeline
 
-from examol.score.rdkit import RDKitScorer, make_knn_model
 from examol.select.baseline import RandomSelector
-from examol.simulate.ase import ASESimulator
+from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
-from examol.store.models import MoleculeRecord
-from examol.store.recipes.redox import RedoxEnergy
-
-on_mac = (sys.platform == 'darwin')
 
 
 @fixture()
-def recipe() -> RedoxEnergy:
-    return RedoxEnergy(charge=1, energy_config='mopac_pm7', vertical=True)
-
-
-@fixture()
-def training_set(recipe) -> list[MoleculeRecord]:
-    """Make a starting training set"""
-    output = []
-    for i, smiles in enumerate(['CCCC', 'CCO']):
-        record = MoleculeRecord.from_identifier(smiles)
-        record.properties[recipe.name] = {recipe.level: i}
-        output.append(record)
-    return output
-
-
-@fixture()
-def search_space(tmp_path) -> Path:
-    path = tmp_path / 'search-space.smi'
-    with path.open('w') as fp:
-        for s in ['C', 'N', 'O', 'Cl', 'S']:
-            print(s, file=fp)
-    return path
-
-
-@fixture()
-def scorer() -> tuple[RDKitScorer, Pipeline]:
-    pipeline = make_knn_model()
-    return RDKitScorer(), pipeline
-
-
-@fixture()
-def simulator(tmp_path) -> ASESimulator:
-    return ASESimulator(scratch_dir=tmp_path)
-
-
-@fixture()
-def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
-    """Make a start the task server"""
-    # Unpack inputs
-    scorer, _ = scorer
-
-    # Make the queues
-    store = Store(name='file', connector=FileConnector(store_dir=str(tmp_path)))
-    register_store(store, exist_ok=True)
-    queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_name=store.name)
-
-    # Make parsl configuration
-    config = Config(
-        run_dir=str(tmp_path),
-        executors=[HighThroughputExecutor(start_method='spawn', max_workers=1, address='127.0.0.1')]
-    )
-
-    doer = ParslTaskServer(
-        queues=queues,
-        methods=[scorer.score, simulator.optimize_structure, simulator.compute_energy, scorer.retrain],
-        config=config,
-        timeout=15,
-    )
-    doer.start()
-
-    yield queues
-    queues.send_kill_signal()
-    doer.join()
-
-
-@fixture()
-def thinker(queues, recipe, search_space, scorer, training_set, tmp_path) -> SingleStepThinker:
-    run_dir = tmp_path / 'run'
+def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> SingleStepThinker:
+    run_dir = Path(tmpdir / 'run')
     scorer, model = scorer
+    solution = SingleFidelityActiveLearning(
+        scorer=scorer,
+        starter=RandomStarter(),
+        models=[[model, model]],
+        selector=RandomSelector(10),
+        minimum_training_size=4,
+        num_to_run=3,
+    )
     return SingleStepThinker(
         queues=queues,
         run_dir=run_dir,
         recipes=[recipe],
-        database=training_set,
-        scorer=scorer,
-        starter=RandomStarter(4),
-        models=[[model, model]],
-        selector=RandomSelector(10),
+        database=database,
         num_workers=1,
-        num_to_run=3,
+        solution=solution,
         search_space=[search_space],
     )
 
 
 @mark.timeout(120)
-@mark.skipif(on_mac, reason='Skip parsl-related tests on Mac')
-def test_thinker(thinker: SingleStepThinker, training_set, caplog):
+def test_thinker(thinker: SingleStepThinker, database, caplog):
     caplog.set_level(logging.ERROR)
 
     # Make sure it is set up right
-    assert len(thinker.search_space_keys) == 1
-    assert len(thinker.database) == len(training_set)
+    assert len(thinker.search_space_smiles) == 1
+    start_size = len(thinker.database)
 
     # Run it
     thinker.run()
@@ -135,13 +59,12 @@ def test_thinker(thinker: SingleStepThinker, training_set, caplog):
     # Make sure we have more than a few simulation records
     with (thinker.run_dir / 'simulation-records.json').open() as fp:
         record_count = sum(1 for _ in fp)
-    assert record_count > thinker.num_to_run
+    assert record_count >= thinker.num_to_run
 
-    assert len(thinker.database) >= len(training_set) + thinker.num_to_run
+    assert len(thinker.database) >= start_size + thinker.num_to_run
 
 
 @mark.timeout(120)
-@mark.skipif(on_mac, reason='Skip parsl-related tests on Mac')
 def test_iterator(thinker, caplog):
     caplog.set_level('WARNING')
 

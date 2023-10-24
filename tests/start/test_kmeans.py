@@ -6,7 +6,7 @@ import pytest
 
 
 def test_basic_func():
-    starter = KMeansStarter(1, 2)
+    starter = KMeansStarter(2)
     smiles_list = ["C(=O)O", "CC(=O)O", "CCO", "C#N", "CC#N"]
     selected = starter.select(smiles_list, 2)
     assert len(selected) == 2
@@ -14,14 +14,14 @@ def test_basic_func():
 
 
 def test_count_greater_than_molecules():
-    starter = KMeansStarter(1, 2)
+    starter = KMeansStarter(2)
     smiles_list = ["C(=O)O", "CC(=O)O", "CCO"]
     with pytest.raises(ValueError):
         starter.select(smiles_list, 4)
 
 
 def test_count_equals_one():
-    starter = KMeansStarter(1, 1)
+    starter = KMeansStarter(1)
     smiles_list = ["C(=O)O", "CC(=O)O", "CCO"]
     selected = starter.select(smiles_list, 1)
     assert len(selected) == 1

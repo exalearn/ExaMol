@@ -24,11 +24,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up environment
-      uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         environment-file: ${{ matrix.os == 'ubuntu-latest' && 'envs/environment-cpu.yml' || 'envs/environment-macos.yml' }}
-        mamba-version: ${{ matrix.os == 'ubuntu-latest' && '*' || null }}
+        activate-environment: test
+        auto-activate-base: true
+        auto-update-conda: false
+        remove-profiles: true
+        architecture: x64
+        clean-patched-environment-file: true
+        run-post: true
+        use-mamba: true
+        miniforge-version: latest
     - name: Display Environment
       run: conda list
     - name: Install test dependencies

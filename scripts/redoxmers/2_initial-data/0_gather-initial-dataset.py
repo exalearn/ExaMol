@@ -92,8 +92,8 @@ class BruteForceThinker(BaseThinker):
             my_record = self.database[key]
 
             # See if there is any new work to do
-            try:
-                for recipe in self.recipes:
+            for recipe in self.recipes:
+                try:
                     next_calculations = recipe.suggest_computations(my_record)
                     if len(next_calculations) > 0:
                         self.logger.debug(f'Submitting tasks for {my_record.key} recipe {recipe.name}@{recipe.level}')
@@ -114,10 +114,10 @@ class BruteForceThinker(BaseThinker):
 
                     # Compute the property
                     recipe.update_record(my_record)
-            except ValueError as e:
-                self.logger.warning(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error: {e}')
-                if self.args.halt_on_error:
-                    raise ValueError(f'Failed to submit new tasks for {my_record.key}')
+                except ValueError as e:
+                    self.logger.warning(f'{my_record.key} failed for {recipe.name}@{recipe.level}. Error: {e}')
+                    if self.args.halt_on_error:
+                        raise ValueError(f'Failed to submit new tasks for {my_record.key}')
 
         # If there are neither molecules no ongoing tasks, then we are done
         if len(self.ongoing_tasks) == 0:
@@ -175,7 +175,7 @@ class BruteForceThinker(BaseThinker):
         temp_path = self.database_path.parent / f'{self.database_path.name}.new'
         with gzip.open(temp_path, 'wt') as fp:
             for record in dataset.values():
-                print(record.to_json(), file=fp)
+                print(record.json(), file=fp)
         move(temp_path, self.database_path)
 
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         my_logger.info(f'Loading initial data from {dataset_path}')
         with gzip.open(dataset_path, 'rt') as fp:
             for line in fp:
-                record = MoleculeRecord.from_json(line)
+                record = MoleculeRecord.parse_raw(line)
                 dataset[record.key] = record
 
         assert len(dataset) == len(molecules), f'There was a corrupted save. Dataset has {len(dataset)} records, expected {len(molecules)}'
@@ -228,7 +228,7 @@ if __name__ == "__main__":
                 record = MoleculeRecord.from_identifier(smiles)
                 if record.key not in dataset:
                     dataset[record.key] = record
-                print(record.to_json(), file=fp)
+                print(record.json(), file=fp)
     my_logger.info(f'Starting from a dataset of {len(dataset)} records')
 
     # Get the right computational environment
@@ -283,7 +283,7 @@ if __name__ == "__main__":
     temp_path = dataset_path.parent / f'{dataset_path.name}.new'
     with gzip.open(temp_path, 'wt') as fp:
         for record in dataset.values():
-            print(record.to_json(), file=fp)
+            print(record.json(), file=fp)
     move(temp_path, dataset_path)
     my_logger.info(f'Wrote database to {dataset_path}')
 
