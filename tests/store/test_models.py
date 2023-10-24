@@ -36,7 +36,7 @@ def test_make_conformer(sim_result):
 def test_identifiers():
     # Test SMILES and InChI
     record_1 = MoleculeRecord.from_identifier('C')
-    record_2 = MoleculeRecord.from_identifier(record_1.identifier['inchi'])
+    record_2 = MoleculeRecord.from_identifier(record_1.identifier.inchi)
     assert record_1.key == record_2.key
 
     # Make sure a parse can fail

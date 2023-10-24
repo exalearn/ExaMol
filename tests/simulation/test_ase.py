@@ -74,6 +74,7 @@ def test_cp2k_configs(tmpdir, strc):
 
 @mark.skipif(is_ci, reason='Too slow for CI')
 @mark.skipif(not has_cpk2, reason='CP2K is not installed')
+@mark.slow
 @mark.parametrize(
     'config,charge,solvent',
     [(xc, c, None) for xc, c in itertools.product(cp2k_configs_to_test, [0, 1])]  # Closed and open shell

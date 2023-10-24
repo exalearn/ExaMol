@@ -6,7 +6,7 @@ Let us consider the
 as a way to learn how to use ExaMol.
 
 .. note::
-    This example assumes you installed xTB and other optional dependencies.
+    This example assumes you installed MOPAC and other optional dependencies.
     We recommend you install the `CPU version of ExaMol via Anaconda <installation#recommended-anaconda>`_.
 
 Running ExaMol
@@ -22,7 +22,7 @@ within that file which is the specification object.
     examol run examples/redoxmers/spec.py:spec
 
 ExaMol will start writing logging messages to the screen to tell you what it is doing,
-which is first to execute the specification file and load in the file you want
+which starts with loading the specification
 
 .. code-block::
 
@@ -72,15 +72,20 @@ A simple example looks something like:
 .. code-block:: python
 
     recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
-    spec = ExaMolSpecification(
-        database='training-data.json',
-        recipes=[recipe],  # ExaMol supports multi-objective optimization
-        search_space=['search_space.smi'],
-        selector=GreedySelector(n_to_select=8, maximize=True),
-        simulator=ASESimulator(scratch_dir='/tmp'),
+    solution = SingleFidelityActiveLearning(  # How we are going to optimize it
+        starter=RandomStarter(),
+        minimum_training_size=4,
         scorer=RDKitScorer(),
         models=[[KNeighborsRegressor()]],  # Ensemble of models for each recipe
+        selector=GreedySelector(10, maximize=True),
         num_to_run=8,
+    )
+    spec = ExaMolSpecification(  # How to set up ExaMol
+        database=(my_path / 'training-data.json'),
+        recipes=[recipe],
+        search_space=[(my_path / 'search_space.smi')],
+        solution=solution,
+        simulator=ASESimulator(scratch_dir='./tmp'),
         thinker=SingleStepThinker,
         thinker_options=dict(num_workers=2),
         compute_config=config,
@@ -95,12 +100,12 @@ Quantum Chemistry
 
 The ``recipes`` and ``simulator`` options define which molecule property to compute
 and an interface for ExaMol to compute it, respectively.
-
 Both recipes and simulator are designed to ensure all calculations in a set are performed with consistent settings.
-ExaMol defines a set of pre-defined levels of accuracies, which are enumerated in
+
+ExaMol defines a set quantum chemistry methods, which are accessible via the Simulator and enumerated in
 `the Simulate documentation <components/simulate.html#levels>`_.
 
-Recipes are based on the :class:`~examol.store.recipes.PropertyRecipe` class,
+Recipes are based on the :class:`~examol.store.recipes.PropertyRecipe` class
 and implement methods to compute a certain property and determine which computations are needed.
 Your specification will contain the details of what you wish to compute (e.g., which solvent for a solvation energy)
 and the level of accuracy to compute it (e.g., which XC functional)?
@@ -115,24 +120,48 @@ See how to create one in the `Simulate documentation <components/simulate.html#t
 Starting Data
 ~~~~~~~~~~~~~
 
-The starting data for a project is a line-delimited JSON describing what molecular properties are already known.
-Each line of the file is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
+The starting data for this project is a line-delimited JSON file describing what molecular properties are already known.
+Each line is a different molecule, with data following the :class:`~examol.store.models.MoleculeRecord` format.
 
-Use a `starter <components/start.html>`_ method if your dataset is too small to train machine learning models.
+ExaMol supports a few different kinds of stores for molecule data.
+Learn more in the `Store documentation <components/store.html>`_.
+
+Search Space
+~~~~~~~~~~~~
+
+The ``search_space`` parameter defines a list of molecules from which to search.
+It expects a list of files that are either ``*.smi`` files containing a list of smiles strings
+or a ``*.json`` file containing a list of ``MoleculeRecord``.
+Either type of file can be compressed using GZIP.
+
+Solution Strategy
+~~~~~~~~~~~~~~~~~
+
+There are many ways to solve an optimization problem, and ExaMol provides :class:`~examol.specify.base.SolutionSpecification`
+classes to describe different routes.
+Solution classes themselves use common components and
+:class:`~examol.specify.solution.SingleFidelityActiveLearning` uses all of the major cones.
+
+Starting
+++++++++
+
+`Starter <components/start.html>`_ methods are used when a dataset is too small to train machine learning models.
+The solution specification includes a :class:`~examol.start.base.Starter` class and
+a ``minimum_training_size`` to define when to start using machine learning.
 The default for ExaMol is to train so long as there are 10 molecules available for training,
-and select computations randomly by default.
+and select computations randomly for smaller datasets.
 
 .. tip::
 
     We recommend creating the initial database by running a seed set of molecules with a purpose-built scripts.
-    See our `validation scripts from the redoxmer example <https://github.com/exalearn/ExaMol/tree/main/scripts/redoxmers/check-chemistry-settings>`_
+    See `scripts from the redoxmer example <https://github.com/exalearn/ExaMol/tree/main/scripts/redoxmers/2_initial-data>`_
     to see how to run simulations outside of the ``examol`` CLI then compile them into a database.
 
 Machine Learning
 ~~~~~~~~~~~~~~~~
 
 ExaMol uses machine learning (ML) to estimate the output of computations.
-The specification requires you to define an interface to run machine learning models (``scorer``) and
+The solution specification requires you to define an interface to run machine learning models (``scorer``) and
 then a set of models (``models``) to be trained using that interface.
 
 The Scorer, like the `Simulator used in quantum chemistry <#quantum-chemistry>`_, defines an interface
@@ -145,16 +174,14 @@ Each model for each recipe will be trained using a different subset of the train
 and the predictions of all models will be combined to produce predictions with uncertainties for each molecule.
 
 Search Algorithm
-~~~~~~~~~~~~~~~~
+++++++++++++++++
 
-The design process is defined by the space of molecules (``search_space``),
-how to search through them (``selector``),
-and how many quantum chemistry computations will be run (``num_to_run``).
+A search algorithm is defined by how to search (``selector``),
+and how many quantum chemistry computations to run (``num_to_run``).
 
-The ``search_space`` option requires the path to a list of SMILES strings as a list of files.
-
-The selector defines an adaptive experimental design algorithm -- an algorithm which uses the predictions
+The ``selector`` defines an adaptive experimental design algorithm -- an algorithm which uses the predictions
 from machine learning models to identify the best computations.
+
 ExaMol includes `several selection routines <components/select.html#available-selectors>`_.
 
 Steering Strategy
@@ -163,8 +190,8 @@ Steering Strategy
 The ``thinker`` provides the core capability behind ExaMol scaling to large supercomputers:
 the ability to schedule many different different tasks at once.
 A Thinker strategy defines when to submit new tasks and what to do once they complete.
-There is only one strategy available in ExaMol right now, :class:`~examol.steer.single.SingleStepThinker`,
-but more will become available as we build the library.
+For example, the :class:`~examol.steer.single.SingleStepThinker` runs all calculations for all recipes
+for each molecule when it is selected by the ``selector``.
 
 Learn more in the `component documentation <components/steer.html>`_.
 

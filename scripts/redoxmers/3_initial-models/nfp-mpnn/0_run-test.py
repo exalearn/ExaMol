@@ -39,9 +39,9 @@ if __name__ == "__main__":
     data_path = Path(f'../datasets/mdf-mos/{prop}-{args.level}')
     data_hash = (data_path / 'dataset.md5').read_text()
     with gzip.open(data_path / 'train.json.gz', 'rt') as fp:
-        train_records = [MoleculeRecord.from_json(line) for line in fp]
+        train_records = [MoleculeRecord.parse_raw(line) for line in fp]
     with gzip.open(data_path / 'test.json.gz', 'rt') as fp:
-        test_records = [MoleculeRecord.from_json(line) for line in fp]
+        test_records = [MoleculeRecord.parse_raw(line) for line in fp]
     print(f'Found {len(train_records)} train, {len(test_records)} test records. Data hash: {data_hash}')
 
     #  Make a run directory

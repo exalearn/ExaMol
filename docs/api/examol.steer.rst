@@ -13,6 +13,14 @@ examol.steer.base
    :undoc-members:
    :show-inheritance:
 
+examol.steer.baseline
+---------------------
+
+.. automodule:: examol.steer.baseline
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 examol.steer.single
 -------------------
 

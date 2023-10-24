@@ -50,9 +50,9 @@ if __name__ == "__main__":
     data_path = Path(f'../datasets/mdf-mos/{prop}-{args.level}')
     data_hash = (data_path / 'dataset.md5').read_text()
     with gzip.open(data_path / 'train.json.gz', 'rt') as fp:
-        train_records = [MoleculeRecord.from_json(line) for line in tqdm(fp, desc='loading training...')]
+        train_records = [MoleculeRecord.parse_raw(line) for line in tqdm(fp, desc='loading training...')]
     with gzip.open(data_path / 'test.json.gz', 'rt') as fp:
-        test_records = [MoleculeRecord.from_json(line) for line in tqdm(fp, desc='loading test...')]
+        test_records = [MoleculeRecord.parse_raw(line) for line in tqdm(fp, desc='loading test...')]
     print(f'Found {len(train_records)} train, {len(test_records)} test records. Data hash: {data_hash}')
 
     # Drop calculations from the training set to emulate a pipeline dataset
