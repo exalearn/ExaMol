@@ -6,10 +6,10 @@ from parsl.addresses import address_by_interface
 from parsl.launchers import SrunLauncher
 from parsl.providers import SlurmProvider
 
-from examol.reporting.database import DatabaseWriter
 from examol.reporting.markdown import MarkdownReporter
 from examol.score.rdkit import RDKitScorer, make_gpr_model
 from examol.simulate.ase import ASESimulator
+from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
 from examol.store.recipes import RedoxEnergy
@@ -32,7 +32,6 @@ scorer = RDKitScorer()
 
 # Mark how we report outcomes
 reporter = MarkdownReporter()
-writer = DatabaseWriter()
 
 # Define how to run Gaussian
 sim = ASESimulator(
@@ -73,15 +72,18 @@ spec = ExaMolSpecification(
     database=run_dir / 'database.json',
     recipes=[recipe],
     search_space=[(my_path / 'search-space.smi')],
-    selector=ExpectedImprovement(25, maximize=True, epsilon=0.1),
-    starter=RandomStarter(threshold=10),
+    solution=SingleFidelityActiveLearning(
+        scorer=scorer,
+        models=[[pipeline] * 8],
+        selector=ExpectedImprovement(25, maximize=True, epsilon=0.1),
+        starter=RandomStarter(),
+        minimum_training_size=10,
+        num_to_run=200,
+    ),
     simulator=sim,
-    scorer=scorer,
-    models=[[pipeline] * 8],
-    num_to_run=200,
     thinker=SingleStepThinker,
     thinker_options=dict(num_workers=nodes_per_block * max_blocks),
     compute_config=config,
-    reporters=[reporter, writer],
+    reporters=[reporter],
     run_dir=run_dir,
 )
