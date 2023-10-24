@@ -24,22 +24,26 @@ class SimResult:
 
     # Outputs
     xyz: str = field(repr=False)
-    """XYZ-format structure, adjusted such that the center of mass is at the origin"""
+    """XYZ-format structure. Adjusted such that the center of mass is at the origin if there are no PBCs"""
     energy: float | None = None
     """Energy of the molecule (units: eV)"""
     forces: np.ndarray | None = None
     """Forces acting on each atom  (units: eV/Ang)"""
 
     def __post_init__(self):
-        # Ensure the XYZ is centered about zero
-        atoms = read_from_string(self.xyz, 'xyz')
-        atoms.center()
-        self.xyz = write_to_string(atoms, 'xyz')
+        # Ensure the XYZ is centered about zero if we are not using PBCs
+        atoms = read_from_string(self.xyz, 'extxyz')
+        if not any(atoms.pbc):
+            atoms.center()
+            self.xyz = write_to_string(atoms, 'xyz')
+        else:
+            atoms.calc = None
+            self.xyz = write_to_string(atoms, 'extxyz')
 
     @property
     def atoms(self) -> ase.Atoms:
         """ASE Atoms object representation of the structure"""
-        return read_from_string(self.xyz, 'xyz')
+        return read_from_string(self.xyz, 'extxyz')
 
     def json(self, **kwargs) -> str:
         """Write the record to JSON format"""

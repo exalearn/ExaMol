@@ -303,7 +303,7 @@ METHOD ANDREUSSI
         calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Parse the XYZ file into atoms
-        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'extxyz')
 
         # Make the run directory based on a hash of the input configuration
         run_path = self._make_run_directory('opt', mol_key, xyz, charge, config_name, solvent)
@@ -321,7 +321,7 @@ METHOD ANDREUSSI
                         # Overwrite our atoms with th last in the trajectory
                         with Trajectory(traj_path, mode='r') as traj:
                             atoms = traj[-1]
-                    except InvalidULMFileError:
+                    except (InvalidULMFileError, IndexError):
                         traj_path.unlink()
                         pass
 
@@ -381,11 +381,11 @@ METHOD ANDREUSSI
 
             # Convert to the output format
             out_traj = []
-            out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+            out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz')
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
             for atoms in traj_lst:
-                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'extxyz')
                 traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                      xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
                 out_traj.append(traj_res)
@@ -416,7 +416,7 @@ METHOD ANDREUSSI
             charge: Charge on the system
             config: Configuration detail
         """
-        if 'cp2k' in config['name']:
+        if 'cp2k' in config['name'] and not any(atoms.pbc):
             add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
         elif 'xtb' in config['name'] or 'mopac' in config['name']:
             utils.initialize_charges(atoms, charge)
@@ -433,7 +433,7 @@ METHOD ANDREUSSI
         run_path = self._make_run_directory('single', mol_key, xyz, charge, config_name, solvent)
 
         # Parse the XYZ file into atoms
-        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'extxyz')
 
         # Run inside a temporary directory
         old_path = Path.cwd()
@@ -454,7 +454,7 @@ METHOD ANDREUSSI
                 # Report the results
                 if self.ase_db_path is not None:
                     self.update_database([atoms], config_name, charge, solvent)
-                out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz')
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
                 succeeded = True  # So tht we know whether to delete output directory

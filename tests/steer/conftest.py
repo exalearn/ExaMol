@@ -14,7 +14,7 @@ from examol.simulate.ase import ASESimulator
 from examol.store.db.base import MoleculeStore
 from examol.store.db.memory import InMemoryStore
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 
 @fixture()
