@@ -81,6 +81,9 @@ _cp2k_pbc_inp = """
     &END SMEAR
     &MIXING
       METHOD BROYDEN_MIXING
+      ALPHA 0.2
+      BETA 1.5
+      NMIXING 8
     &END MIXING
   &END SCF
   &XC
@@ -282,7 +285,7 @@ METHOD ANDREUSSI
                     uks=charge != 0,
                     inp=inp,
                     cutoff=cutoff * units.Ry,
-                    max_scf=32,
+                    max_scf=256 if xc_name == 'PBE' else 32,  # More steps for PBE calculations, which lack an OT outer loops
                     basis_set_file=str(basis_set_file),
                     basis_set=basis_set_name,
                     pseudo_potential=potential,
@@ -381,11 +384,11 @@ METHOD ANDREUSSI
 
             # Convert to the output format
             out_traj = []
-            out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz')
+            out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
             for atoms in traj_lst:
-                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'extxyz')
+                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
                 traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                      xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
                 out_traj.append(traj_res)
@@ -416,8 +419,11 @@ METHOD ANDREUSSI
             charge: Charge on the system
             config: Configuration detail
         """
-        if 'cp2k' in config['name'] and not any(atoms.pbc):
-            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
+        if 'cp2k' in config['name']:
+            if any(atoms.pbc):
+                atoms.pbc = True  # All or none, never partial PBC
+            else:
+                add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
         elif 'xtb' in config['name'] or 'mopac' in config['name']:
             utils.initialize_charges(atoms, charge)
 
@@ -454,7 +460,7 @@ METHOD ANDREUSSI
                 # Report the results
                 if self.ase_db_path is not None:
                     self.update_database([atoms], config_name, charge, solvent)
-                out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz')
+                out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
                 succeeded = True  # So tht we know whether to delete output directory
