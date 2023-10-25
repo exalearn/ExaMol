@@ -16,8 +16,8 @@ from examol.score.nfp import NFPScorer, custom_objects
 from examol.select.bayes import ExpectedImprovement
 from examol.simulate.ase import ASESimulator
 from examol.steer.single import SingleStepThinker
-from examol.store.recipes import RedoxEnergy
-from examol.specify.spec import ExaMolSpecification
+from examol.store.recipes.redox import RedoxEnergy
+from examol.specify import ExaMolSpecification
 
 logger = logging.getLogger('spec')
 

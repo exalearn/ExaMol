@@ -140,3 +140,32 @@ def test_match_opt_only(record, sim_result):
     # Getting the conformer w/o filtering should be the original energy, filtering should yield the new higher energy
     assert record.find_lowest_conformer(sim_result.config_name, 1, None, optimized_only=False)[1] == original_energy
     assert record.find_lowest_conformer(sim_result.config_name, 1, None, optimized_only=True)[1] == sim_result.energy
+
+
+def test_best_xyz(record, sim_result):
+    # Test generating an XYZ
+    record.conformers.clear()  # Start with nothing
+    conf, new_xyz = record.find_closest_xyz('test', 0)
+    assert conf is None
+
+    # Add some conformers
+    record.conformers = [
+        Conformer.from_xyz(new_xyz, config_name='test', charge=0),
+        Conformer.from_xyz(new_xyz, config_name='test', charge=1),
+        Conformer.from_xyz(new_xyz, config_name='not_test', charge=-1),
+        Conformer.from_xyz(new_xyz, config_name='not_test', charge=0)
+    ]
+
+    # We should match to the config_name over charge, and get the closest charge
+    matched, _ = record.find_closest_xyz(config_name='test', charge=-1)
+    assert matched.config_name == 'test'
+    assert matched.charge == 0
+
+    matched, _ = record.find_closest_xyz(config_name='test', charge=2)
+    assert matched.config_name == 'test'
+    assert matched.charge == 1
+
+    # We should match to the newest if several have the same difference in charge and none match config_name
+    matched, _ = record.find_closest_xyz(config_name='another', charge=0)
+    assert matched.config_name == 'not_test'
+    assert matched.charge == 0

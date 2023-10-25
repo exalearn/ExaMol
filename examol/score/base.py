@@ -5,7 +5,7 @@ from typing import Sequence
 import numpy as np
 
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 
 def collect_outputs(records: list[MoleculeRecord], recipes: list[PropertyRecipe]) -> np.ndarray:

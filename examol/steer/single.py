@@ -26,7 +26,7 @@ from ..score.base import Scorer
 from examol.solution import SingleFidelityActiveLearning
 from ..store.db.base import MoleculeStore
 from ..store.models import MoleculeRecord
-from ..store.recipes import PropertyRecipe
+from ..store.recipes.base import PropertyRecipe
 
 
 class SingleStepThinker(MoleculeThinker):

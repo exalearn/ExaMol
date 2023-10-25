@@ -141,7 +141,11 @@ which python""",
     )
     sim = ASESimulator(
         scratch_dir='cp2k-files',
+<<<<<<< HEAD
+        optimization_steps=100,
+=======
         optimization_steps=150,
+>>>>>>> main
         cp2k_command=f'mpiexec -n {nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                      f'--hostfile /tmp/hostfiles/local_hostfile.`printf %02d $PARSL_WORKER_RANK` '
                      '/lus/grand/projects/CSC249ADCD08/cp2k/set_affinity_gpu_polaris.sh '

@@ -18,7 +18,7 @@ from examol.steer.baseline import BruteForceThinker
 from examol.steer.single import SingleStepThinker
 from examol.store.db.memory import InMemoryStore
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 
 @fixture()

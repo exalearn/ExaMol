@@ -105,7 +105,7 @@ Both recipes and simulator are designed to ensure all calculations in a set are 
 ExaMol defines a set quantum chemistry methods, which are accessible via the Simulator and enumerated in
 `the Simulate documentation <components/simulate.html#levels>`_.
 
-Recipes are based on the :class:`~examol.store.recipes.PropertyRecipe` class
+Recipes are based on the :class:`~examol.store.recipes.base.PropertyRecipe` class,
 and implement methods to compute a certain property and determine which computations are needed.
 Your specification will contain the details of what you wish to compute (e.g., which solvent for a solvation energy)
 and the level of accuracy to compute it (e.g., which XC functional)?

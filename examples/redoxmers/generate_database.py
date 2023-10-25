@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from examol.simulate.ase import ASESimulator
 from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 from rdkit import RDLogger
 from foundry import Foundry
 from pathlib import Path

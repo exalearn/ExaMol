@@ -6,7 +6,7 @@ from pytest import fixture, mark
 
 from examol.simulate.ase import ASESimulator
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 is_mac = platform.startswith("darwin")
 

@@ -9,7 +9,7 @@ from colmena.thinker import agent, ResourceCounter
 from examol.specify import SolutionSpecification
 from examol.steer.base import MoleculeThinker
 from examol.store.db.base import MoleculeStore
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 
 class BruteForceThinker(MoleculeThinker):

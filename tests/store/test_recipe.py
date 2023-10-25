@@ -6,7 +6,8 @@ from pytest import raises, mark
 from ase import units
 
 from examol.store.models import MissingData
-from examol.store.recipes import SolvationEnergy, RedoxEnergy
+from examol.store.recipes.basic import SolvationEnergy
+from examol.store.recipes.redox import RedoxEnergy
 
 
 def test_solvation(record, sim_result):

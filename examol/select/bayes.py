@@ -6,7 +6,7 @@ from modAL.acquisition import EI
 
 from examol.select.base import RankingSelector, _extract_observations
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 
 class ExpectedImprovement(RankingSelector):

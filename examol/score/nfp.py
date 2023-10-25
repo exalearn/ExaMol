@@ -12,7 +12,7 @@ import nfp
 
 from examol.store.models import MoleculeRecord
 from examol.utils.conversions import convert_string_to_nx
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 from .base import Scorer, collect_outputs
 from .utils.tf import LRLogger, TimeLimitCallback, EpochTimeLogger
 

@@ -17,7 +17,7 @@ from examol.solution import SolutionSpecification
 from examol.steer.base import MoleculeThinker
 from examol.store.db.base import MoleculeStore
 from examol.store.db.memory import InMemoryStore
-from examol.store.recipes import PropertyRecipe
+from examol.store.recipes.base import PropertyRecipe
 
 logger = logging.getLogger(__name__)
 

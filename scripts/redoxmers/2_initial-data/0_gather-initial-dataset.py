@@ -21,7 +21,7 @@ from colmena.queue import PipeQueues
 from colmena.models import Result
 
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import RedoxEnergy, SolvationEnergy
+from examol.store.recipes.redox import RedoxEnergy, SolvationEnergy
 
 import configs
 

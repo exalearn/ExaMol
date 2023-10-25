@@ -28,6 +28,7 @@ _cp2k_basis_set_dir = (Path(__file__).parent / 'cp2k-basis').resolve()
 #  See methods in: https://github.com/exalearn/quantum-chemistry-on-polaris/blob/main/cp2k/
 #  We increase the cutoff slightly to be on the safe side
 _cutoff_lookup: dict[tuple[str, str], float] = {
+    ('PBE', 'DZVP-MOLOPT-SR-GTH'): 700.,
     ('BLYP', 'SZV-MOLOPT-GTH'): 700.,
     ('BLYP', 'DZVP-MOLOPT-GTH'): 700.,
     ('B3LYP', 'def2-SVP'): 500.,
@@ -36,7 +37,7 @@ _cutoff_lookup: dict[tuple[str, str], float] = {
 }
 
 # Base input file
-_cp2k_inp = """&FORCE_EVAL
+_cp2k_nopbc_inp = """&FORCE_EVAL
 &DFT
   &XC
      &XC_FUNCTIONAL $XC$
@@ -69,6 +70,36 @@ _cp2k_inp = """&FORCE_EVAL
   &END
 &END FORCE_EVAL
 """
+_cp2k_pbc_inp = """
+&FORCE_EVAL
+&DFT
+  &SCF
+    ADDED_MOS -1  ! Add as many as possible
+    &SMEAR ON
+      METHOD FERMI_DIRAC
+      ELECTRONIC_TEMPERATURE [K] 300
+    &END SMEAR
+    &MIXING
+      METHOD BROYDEN_MIXING
+      ALPHA 0.2
+      BETA 1.5
+      NMIXING 8
+    &END MIXING
+  &END SCF
+  &XC
+     &XC_FUNCTIONAL $XC$
+     &END XC_FUNCTIONAL
+  &END XC
+  &MGRID
+    NGRIDS 5
+    REL_CUTOFF 60
+  &END MGRID
+  &POISSON
+     PERIODIC XYZ
+     PSOLVER PERIODIC
+  &END POISSON
+&END DFT
+&END FORCE_EVAL"""
 
 # Solvent data (solvent name -> (gamma, e0) for CP2K, solvent name - xTB/G name for xTB/G)
 _solv_data = {
@@ -178,6 +209,8 @@ class ASESimulator(BaseSimulator):
             xc_name = xc_name.upper()
 
             # Determine the proper basis set, pseudopotential, and method
+            input_template = _cp2k_nopbc_inp
+            stresses = True
             if xc_name in ['B3LYP', 'WB97X-D3']:
                 xc_name = xc_name.replace("-", "_")  # Underscores used in LibXC
                 xc_section = f'\n&HYB_GGA_XC_{xc_name}\n&END HYB_GGA_XC_{xc_name}'
@@ -199,11 +232,25 @@ class ASESimulator(BaseSimulator):
                 pp_file_name = None  # Use the default
 
                 method = 'GPW'
+            elif xc_name == 'PBE':
+                # Used only for fully-periodic computations
+                input_template = _cp2k_pbc_inp
+
+                basis_set_name = f'{basis_set_id}-MOLOPT-SR-GTH'.upper()
+                basis_set_file = 'BASIS_MOLOPT'
+
+                xc_section = xc_name
+
+                potential = 'GTH-PBE'
+                pp_file_name = None
+
+                method = 'GPW'
+                stresses = True
             else:  # pragma: no-coverage
                 raise ValueError(f'XC functional "{xc_name}" not yet supported')
 
             # Inject the proper XC functional
-            inp = _cp2k_inp
+            inp = input_template
             inp = inp.replace('$XC$', xc_section)
             inp = inp.replace('$METHOD$', method)
 
@@ -238,13 +285,13 @@ METHOD ANDREUSSI
                     uks=charge != 0,
                     inp=inp,
                     cutoff=cutoff * units.Ry,
-                    max_scf=32,
+                    max_scf=256 if xc_name == 'PBE' else 32,  # More steps for PBE calculations, which lack an OT outer loops
                     basis_set_file=str(basis_set_file),
                     basis_set=basis_set_name,
                     pseudo_potential=potential,
                     potential_file=pp_file_name,
                     poisson_solver=None,
-                    stress_tensor=False,
+                    stress_tensor=stresses,
                     command=self.cp2k_command)
             }
         else:  # pragma: no-cover
@@ -259,7 +306,7 @@ METHOD ANDREUSSI
         calc_cfg = self.create_configuration(config_name, xyz, charge, solvent)
 
         # Parse the XYZ file into atoms
-        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'extxyz')
 
         # Make the run directory based on a hash of the input configuration
         run_path = self._make_run_directory('opt', mol_key, xyz, charge, config_name, solvent)
@@ -277,7 +324,7 @@ METHOD ANDREUSSI
                         # Overwrite our atoms with th last in the trajectory
                         with Trajectory(traj_path, mode='r') as traj:
                             atoms = traj[-1]
-                    except InvalidULMFileError:
+                    except (InvalidULMFileError, IndexError):
                         traj_path.unlink()
                         pass
 
@@ -337,11 +384,11 @@ METHOD ANDREUSSI
 
             # Convert to the output format
             out_traj = []
-            out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+            out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
             out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                    xyz=out_strc, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
             for atoms in traj_lst:
-                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                traj_xyz = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
                 traj_res = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                      xyz=traj_xyz, energy=atoms.get_potential_energy(), forces=atoms.get_forces())
                 out_traj.append(traj_res)
@@ -373,7 +420,10 @@ METHOD ANDREUSSI
             config: Configuration detail
         """
         if 'cp2k' in config['name']:
-            add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
+            if any(atoms.pbc):
+                atoms.pbc = True  # All or none, never partial PBC
+            else:
+                add_vacuum_buffer(atoms, buffer_size=config['buffer_size'], cubic=re.match(r'PSOLVER\s+MT', config['kwargs']['inp'].upper()) is None)
         elif 'xtb' in config['name'] or 'mopac' in config['name']:
             utils.initialize_charges(atoms, charge)
 
@@ -389,7 +439,7 @@ METHOD ANDREUSSI
         run_path = self._make_run_directory('single', mol_key, xyz, charge, config_name, solvent)
 
         # Parse the XYZ file into atoms
-        atoms = examol.utils.conversions.read_from_string(xyz, 'xyz')
+        atoms = examol.utils.conversions.read_from_string(xyz, 'extxyz')
 
         # Run inside a temporary directory
         old_path = Path.cwd()
@@ -410,7 +460,7 @@ METHOD ANDREUSSI
                 # Report the results
                 if self.ase_db_path is not None:
                     self.update_database([atoms], config_name, charge, solvent)
-                out_strc = examol.utils.conversions.write_to_string(atoms, 'xyz')
+                out_strc = examol.utils.conversions.write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
                 out_result = SimResult(config_name=config_name, charge=charge, solvent=solvent,
                                        xyz=out_strc, energy=energy, forces=forces)
                 succeeded = True  # So tht we know whether to delete output directory

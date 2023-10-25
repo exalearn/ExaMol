@@ -6,11 +6,11 @@ from unittest.mock import patch
 
 import numpy as np
 from ase import units
-from ase.calculators.gaussian import Gaussian
 from ase.db import connect
-from pytest import mark, fixture, raises, param
-from ase.build import molecule
+from ase.build import molecule, bulk
 from ase.calculators.lj import LennardJones
+from ase.calculators.gaussian import Gaussian
+from pytest import mark, fixture, raises, param
 
 from examol.simulate.ase import ASESimulator
 from examol.simulate.ase.utils import make_ephemeral_calculator
@@ -19,6 +19,7 @@ from examol.utils.conversions import write_to_string
 
 try:
     import xtb  # noqa: F401
+
     has_xtb = True
 except ImportError:
     has_xtb = False
@@ -67,6 +68,12 @@ def test_cp2k_configs(tmpdir, strc):
     assert 'GAPW' in config['kwargs']['inp']
     assert Path(config['kwargs']['basis_set_file']).is_file()
 
+    # With PBE
+    config = sim.create_configuration('cp2k_pbe_dzvp', strc, charge=0, solvent=None)
+    assert config['kwargs']['cutoff'] == 700 * units.Ry
+    assert 'PBE' in config['kwargs']['inp']
+    assert 'PERIODIC XYZ' in config['kwargs']['inp']
+
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
@@ -81,7 +88,8 @@ def test_cp2k_configs(tmpdir, strc):
     + [(xc, 0, 'acn') for xc in cp2k_configs_to_test]  # With a solvent
     + [(cp2k_configs_to_test[0], -1, 'acn')]  # Open shell and a solvent
 )
-def test_ase_singlepoint(tmpdir, strc, config, charge, solvent):
+def test_cp2k_0d_singlepoint(tmpdir, strc, config, charge, solvent):
+    """Test the computations w/o periodic boundary conditions."""
     sim = ASESimulator(scratch_dir=tmpdir)
     sim.compute_energy('test', strc, config_name=config, charge=charge, solvent=solvent)
 
@@ -246,3 +254,18 @@ def test_opt_failure(tmpdir):
     opt, steps, _ = sim.optimize_structure('test', strc, 'mopac_pm7', charge=0, solvent=None)
     assert np.max(opt.forces) <= 0.02, 'Optimization did not finish successfully'
     assert len(steps) < 100
+
+
+@mark.skipif(not has_cpk2, reason='Requires CP2K')
+def test_3d_structures(tmpdir):
+    """Test relaxing a 3D structure"""
+
+    # Make a primitive cell of Aluminum and convert it to extxyz
+    atoms = bulk('Al')
+    xyz = write_to_string(atoms, 'extxyz')
+
+    # Run a relaxation
+    sim = ASESimulator(scratch_dir='./3d-test')
+    result, _, _ = sim.optimize_structure('Al', xyz, config_name='cp2k_pbe_dzvp', charge=0, solvent=None)
+    assert np.max(result.forces) < 0.01
+    assert all(result.atoms.pbc)

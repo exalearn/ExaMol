@@ -17,7 +17,7 @@ from examol.simulate.base import SimResult
 from examol.solution import SolutionSpecification
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
-from examol.store.recipes import PropertyRecipe, SimulationRequest
+from examol.store.recipes.base import PropertyRecipe, SimulationRequest
 
 
 class MoleculeThinker(BaseThinker):
