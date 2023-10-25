@@ -43,7 +43,7 @@ class SurfaceSite:
 
 @dataclass()
 class SurfaceRecord:
-    """Describe the surface on which molecule are Adsorbed"""
+    """Describe the surface on which molecule are adsorbed"""
 
     # Definition of the cell
     name: str = ...
@@ -65,8 +65,9 @@ class AdsorptionEnergy(PropertyRecipe):
     Each file contains the relaxed geometry of the slab, and information about how to place adsorbates on it.
     """
 
-    # TODO (wardlt): Be able to support >1 surface for different catalysis
+    # TODO (wardlt): Be able to support >1 surfaces for different catalysis
     # TODO (wardlt): Consider how to prioritize the different required calculations across surfaces
+    # TODO (wardlt): Determine how to select molecule orientation
     def __init__(self, surface_name: str, config_name: str):
         super().__init__("adsorption_energy", f"{surface_name}-config_name")
         self.surface_name = surface_name

@@ -38,7 +38,7 @@ class SimResult:
             self.xyz = write_to_string(atoms, 'xyz')
         else:
             atoms.calc = None
-            self.xyz = write_to_string(atoms, 'extxyz')
+            self.xyz = write_to_string(atoms, 'extxyz', columns=['symbols', 'positions', 'move_mask'])
 
     @property
     def atoms(self) -> ase.Atoms:
