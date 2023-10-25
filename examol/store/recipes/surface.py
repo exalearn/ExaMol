@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 
 import ase
+from pydantic import BaseModel, Field
 
 from examol.store.recipes.base import PropertyRecipe, SimulationRequest
 
@@ -24,8 +25,7 @@ class SurfaceSimulationRequest(SimulationRequest):
     """Rotation angles of the molecule around the center of mass starting from the original orientation"""
 
 
-@dataclass()
-class SurfaceSite:
+class SurfaceSite(BaseModel):
     """Adsorption site for a certain molecule
 
     These inputs serve as inputs to :meth:`ase.build.add_adsorbate`.
@@ -33,28 +33,27 @@ class SurfaceSite:
 
     name: str | None = None
     """Optional name of the surface site (e.g., bridge)"""
-    height: float = ...
-    """Starting height of the adsorbate above the slab"""
+    height: float = 2
+    """Starting height of the adsorbate above the slab in Angstrom"""
     coordinate: tuple[float, float, float] = ...
     """Position of the adsorbate within the unit cell"""
     vector: tuple[float, float, float] = ...
     """Vector normal to the surface for this site"""
 
 
-@dataclass()
-class SurfaceRecord:
+class SurfaceRecord(BaseModel):
     """Describe the surface on which molecule are adsorbed"""
 
     # Definition of the cell
     name: str = ...
     """Name of the surface (e.g., Cl-terminated 111 NaCl)"""
-    slab: ase.Atoms = ...
-    """3D geometry of the surface"""
-    surface_sites: list[SurfaceSite] = field(default_factory=list)
+    slab: str = Field(repr=False)
+    """3D geometry of the surface in extXYZ format"""
+    surface_sites: list[SurfaceSite] = Field(default_factory=list)
     """Possible starting positions for the adsorbate"""
 
     # Properties
-    energy: float = ...
+    energy: float = Field(repr=False)
     """Energy of the cell (units: eV)"""
 
 
