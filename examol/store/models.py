@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from rdkit import Chem
 
 from examol.simulate.base import SimResult
+from examol.simulate.initialize import generate_inchi_and_xyz
 from examol.utils.chemistry import parse_from_molecule_string
 from examol.utils.conversions import read_from_string, write_to_string
 
@@ -267,7 +268,7 @@ class MoleculeRecord(BaseModel):
             - Lowest-energy conformer
             - Energy of the structure (eV)
         Raises:
-            NoSuchConformer: If we lack a conformer with these settings
+            MissingData: If we lack a conformer with these settings
         """
 
         # Output results
@@ -287,3 +288,30 @@ class MoleculeRecord(BaseModel):
             raise MissingData(config_name, charge, solvent)
 
         return stable_conformer, lowest_energy
+
+    def find_closest_xyz(self, config_name: str, charge: int) -> tuple[Conformer | None, str]:
+        """Find the most similar conformer to a certain request
+
+        Prioritizes first by whether a conformer was optimized with the same configuration,
+        then those with the closest charge,
+        and then by those created most recently.
+
+        Args:
+            config_name: Desired computation level
+            charge: Desired charge
+        Returns:
+            - Conformer, if one was matched
+            - The XYZ closest to the target calculation. Will be generated if no conformers available
+        """
+        # Raise error if there are no conformers
+        if len(self.conformers) == 0:
+            return None, generate_inchi_and_xyz(self.identifier.smiles)[1]
+
+        best_conf = None
+        best_score = (True, float('inf'), float('inf'))
+        for conf in self.conformers:
+            my_score = (conf.config_name != config_name, abs(conf.charge - charge), -conf.date_created.timestamp())
+            if my_score < best_score:
+                best_score = my_score
+                best_conf = conf
+        return best_conf, best_conf.xyz

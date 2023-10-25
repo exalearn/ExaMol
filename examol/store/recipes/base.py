@@ -155,23 +155,7 @@ class PropertyRecipe:
             if len(matching_conformers) > 0:
                 _, conformer = min(matching_conformers)
             else:
-                # If there are no conformers, make an XYZ to start with
-                if len(record.conformers) == 0:
-                    _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
-                    output.append(
-                        SimulationRequest(xyz=xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
-                    )
-                    continue
-
-                # Preference conformers created using the same method followed by same charge, followed by creation date
-                best_score = (True, float('inf'), float('inf'))
-                best_xyz = None
-                for conf in record.conformers:
-                    my_score = (conf.config_name != geometry.config_name, abs(conf.charge - geometry.charge), -conf.date_created.timestamp())
-                    if my_score < best_score:
-                        best_score = my_score
-                        best_xyz = conf.xyz
-
+                _, best_xyz = record.find_closest_xyz(geometry.config_name, geometry.charge)
                 output.append(
                     SimulationRequest(xyz=best_xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
                 )
