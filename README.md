@@ -39,16 +39,22 @@ An example which performs a greedy search using xTB would look something like
 
 ```python
 recipe = RedoxEnergy(charge=1, compute_config='xtb')  # What we're trying to optimize
-spec = ExaMolSpecification(
-    database='training-data.json',
-    recipe=[recipe],
-    search_space='search_space.smi',
-    selector=GreedySelector(n_to_select=8, maximize=True),
-    simulator=ASESimulator(scratch_dir='/tmp'),
-    scorer=RDKitScorer(recipe),
+solution = SingleFidelityActiveLearning(  # How we are going to optimize it
+    starter=RandomStarter(),
+    minimum_training_size=4,
+    scorer=RDKitScorer(),
     models=[[KNeighborsRegressor()]],
+    selector=GreedySelector(10, maximize=True),
     num_to_run=8,
+)
+spec = ExaMolSpecification(  # How to set up ExaMol
+    database=(my_path / 'training-data.json'),
+    recipes=[recipe],
+    search_space=[(my_path / 'search_space.smi')],
+    solution=solution,
+    simulator=ASESimulator(scratch_dir='./tmp'),
     thinker=SingleStepThinker,
+    thinker_options=dict(num_workers=2),
     compute_config=config,
     run_dir='run'
 )
