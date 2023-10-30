@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from ase import units
 import numpy as np
 
-from examol.simulate.initialize import generate_inchi_and_xyz
+from examol.simulate.initialize import add_initial_conformer
 from examol.store.models import MoleculeRecord
 
 
@@ -158,11 +158,12 @@ class PropertyRecipe:
             if len(matching_conformers) > 0:
                 _, conformer = min(matching_conformers)
             else:
-                # If there are no conformers, make an XYZ to start with
+                # If there are no conformers, use the most stable one from MMFF94
                 if len(record.conformers) == 0:
-                    _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
+                    add_initial_conformer(record)
+                    conf, _ = record.find_lowest_conformer(config_name='mmff', charge=0, solvent=None, optimized_only=False)
                     output.append(
-                        SimulationRequest(xyz=xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
+                        SimulationRequest(xyz=conf.xyz, config_name=geometry.config_name, charge=geometry.charge, optimize=True, solvent=None)
                     )
                     continue
 

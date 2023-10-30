@@ -95,7 +95,7 @@ def test_redox_vacuum(record, sim_result):
     adia_sim_result.xyz = sim_result.xyz.replace('0.000', '0.010')
     adia_sim_result.energy -= 0.5
     assert record.add_energies(adia_sim_result)
-    assert len(record.conformers) == 2
+    assert len(record.conformers) == 3  # Initial, Neutral, Charged
     assert isclose(recipe.compute_property(record), 0.5)
 
     requests = recipe.suggest_computations(record)

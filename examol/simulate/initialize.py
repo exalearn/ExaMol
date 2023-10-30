@@ -4,11 +4,12 @@ from io import StringIO
 import logging
 
 from ase.io.xyz import simple_read_xyz, write_xyz
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit import Chem
 import networkx as nx
 import numpy as np
 
+from examol.store.models import MoleculeRecord, Conformer, EnergyEvaluation
 from examol.utils.chemistry import parse_from_molecule_string
 from examol.utils.conversions import convert_string_to_nx
 
@@ -140,3 +141,49 @@ def fix_cyclopropenyl(xyz: str, mol_string: str) -> str:
         out = StringIO()
         write_xyz(out, [atoms])
         return out.getvalue()
+
+
+def add_initial_conformer(record: MoleculeRecord) -> MoleculeRecord:
+    """Add an initial conformation to the record
+
+    Generates an XYZ using RDKit if none are available then adds the MMF94 to all neutral conformers.
+
+    Generated conformer is stored with a config name of ``mmff``, a charge of 0, and a source of ``optimize``.
+    MMFF energies are stored using the configuration name ``mmff``.
+
+    Args:
+        record: Record to be processed
+    Returns:
+        Input record
+    """
+
+    # Generate XYZ if needed
+    if not any(x.source == 'initial' for x in record.conformers):
+        _, xyz = generate_inchi_and_xyz(record.identifier.smiles)
+        if xyz is None:
+            logger.warning(f'XYZ generation failed for "{record.key}"')
+        else:
+            record.conformers.append(
+                Conformer.from_xyz(xyz, charge=0, config_name='mmff', source='initial')
+            )
+
+    # Compute MMFF94 for all neutral conformers
+    for conf in record.conformers:
+        # Skip if already done too
+        if conf.charge != 0 or any(x.config_name == 'mmff' for x in conf.energies):
+            continue
+
+        # Load molecule from RDKit then detect bonds
+        mol = Chem.MolFromXYZBlock(conf.xyz)
+        rdDetermineBonds.DetermineConnectivity(mol)
+        rdDetermineBonds.DetermineBonds(mol)
+
+        # Compute the MMFF94 energy then store it
+        props = AllChem.MMFFGetMoleculeProperties(mol)
+        if props is not None:
+            energy = AllChem.MMFFGetMoleculeForceField(mol, props).CalcEnergy()
+            conf.energies.append(
+                EnergyEvaluation(energy=energy, config_name='mmff', charge=0, solvent=None)
+            )
+
+    return record
