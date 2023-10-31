@@ -174,9 +174,12 @@ def add_initial_conformer(record: MoleculeRecord) -> MoleculeRecord:
             continue
 
         # Load molecule from RDKit then detect bonds
-        mol = Chem.MolFromXYZBlock(conf.xyz)
-        rdDetermineBonds.DetermineConnectivity(mol)
-        rdDetermineBonds.DetermineBonds(mol)
+        try:
+            mol = Chem.MolFromXYZBlock(conf.xyz)
+            rdDetermineBonds.DetermineConnectivity(mol)
+            rdDetermineBonds.DetermineBonds(mol)
+        except ValueError:
+            continue  # Skip molecules that fail
 
         # Compute the MMFF94 energy then store it
         props = AllChem.MMFFGetMoleculeProperties(mol)
