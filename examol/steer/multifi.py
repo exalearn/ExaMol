@@ -9,14 +9,14 @@ from colmena.queue import ColmenaQueues
 from colmena.thinker import ResourceCounter
 
 from examol.solution import MultiFidelityActiveLearning
-from examol.steer.base import ScorerThinker
+from examol.steer.single import SingleStepThinker
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
-class PipelineThinker(ScorerThinker):
+class PipelineThinker(SingleStepThinker):
     """Thinker which runs each level of fidelity in incremental steps
 
     See :class:`~examol.solution.MultiFidelityActiveLearning` for a description
