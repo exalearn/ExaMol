@@ -1,7 +1,12 @@
 """Base class that defines core routines used across many steering policies"""
+import os
 import gzip
 import json
+import shutil
 import logging
+import pickle as pkl
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from pathlib import Path
 from dataclasses import asdict
 from threading import Condition
@@ -12,12 +17,35 @@ import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
+from more_itertools import batched
+from proxystore.store import Store, get_store
 
+from examol.score.base import Scorer
 from examol.simulate.base import SimResult
 from examol.solution import SolutionSpecification
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe, SimulationRequest
+
+
+def _generate_inputs(record: MoleculeRecord, scorer: Scorer) -> tuple[str, object] | None:
+    """Parse a molecule then generate a form ready for inference
+
+    Args:
+        record: Molecule record to be parsed
+        scorer: Tool used for inference
+    Returns:
+        - Key for the molecule record
+        - Inference-ready format
+        Or None if the transformation fails
+    """
+
+    try:
+        # Compute the features
+        readied = scorer.transform_inputs([record])[0]
+    except (ValueError, RuntimeError):
+        return None
+    return record.identifier.smiles, readied
 
 
 class MoleculeThinker(BaseThinker):
@@ -239,3 +267,124 @@ class MoleculeThinker(BaseThinker):
                 topic='simulation',
                 task_info={'key': record.key, **asdict(suggestion)}
             )
+
+
+class ScorerThinker(MoleculeThinker):
+    """
+
+    Args:
+        queues: Queues used to communicate with the task server
+        rec: Tool used to control the number of tasks being deployed on each resource
+        run_dir: Directory in which to store logs, etc.
+        recipes: Recipes used to compute the target properties
+        database: Connection to the store of molecular data
+        solution: Settings related to tools used to solve the problem (e.g., active learning strategy)
+        search_space: Search space of molecules. Provided as a list of paths to ".smi" files
+        inference_chunk_size: Number of molecules to run inference on per task
+    """
+
+    search_space_dir: Path
+    """Cache directory for search space"""
+    search_space_smiles: list[list[str]]
+    """SMILES strings of molecules in the search space"""
+    search_space_inputs: list[list[object]]
+    """Inputs (or proxies of inputs) to the machine learning models for each molecule in the search space"""
+
+    scorer: Scorer
+    """Class used to communicate data and models to distributed workers"""
+
+    def __init__(self,
+                 queues: ColmenaQueues,
+                 rec: ResourceCounter,
+                 run_dir: Path,
+                 recipes: Sequence[PropertyRecipe],
+                 scorer: Scorer,
+                 solution: SolutionSpecification,
+                 search_space: list[Path | str],
+                 database: MoleculeStore,
+                 inference_chunk_size: int = 10000):
+        super().__init__(queues, rec, run_dir, recipes, solution, search_space, database)
+        self.search_space_dir = self.run_dir / 'search-space'
+        self.scorer = scorer
+        self._cache_search_space(inference_chunk_size, search_space)
+
+        # Partition the search space into smaller chunks
+        self.search_space_smiles: list[list[str]]
+        self.search_space_inputs: list[list[object]]
+        self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, self.search_space))
+
+    def _cache_search_space(self, inference_chunk_size: int, search_space: list[str | Path]):
+        """Cache the search space into a directory within the run"""
+
+        # Check if we must rebuild the cache
+        rebuild = True
+        config_path = self.search_space_dir / 'settings.json'
+        my_config = {
+            'inference_chunk_size': inference_chunk_size,
+            'scorer': str(self.scorer),
+            'paths': [str(Path(p).resolve()) for p in search_space]
+        }
+        if config_path.exists():
+            config = json.loads(config_path.read_text())
+            rebuild = config != my_config
+            if rebuild:
+                self.logger.info('Settings have changed. Rebuilding the cache')
+                shutil.rmtree(self.search_space_dir)
+        elif self.search_space_dir.exists():
+            shutil.rmtree(self.search_space_dir)
+        self.search_space_dir.mkdir(exist_ok=True, parents=True)
+
+        # Get the paths to inputs and keys, either by rebuilding or reading from disk
+        search_space_keys = {}
+        if rebuild:
+            # Build search space and save to disk
+
+            # Process the inputs and store them to disk
+            search_size = 0
+            input_func = partial(_generate_inputs, scorer=self.scorer)
+            with ProcessPoolExecutor(min(4, os.cpu_count())) as pool:
+                mol_iter = pool.map(input_func, self.iterate_over_search_space(), chunksize=1000)
+                mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
+                for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
+                    keys, objects = zip(*chunk)
+                    search_size += len(keys)
+                    chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
+                    with gzip.open(chunk_path, 'wb') as fp:
+                        pkl.dump(objects, fp)
+
+                    search_space_keys[chunk_path.name] = keys
+            self.logger.info(f'Saved {search_size} search entries into {len(search_space_keys)} batches')
+
+            # Save the keys and the configuration
+            with open(self.search_space_dir / 'keys.json', 'w') as fp:
+                json.dump(search_space_keys, fp)
+            with config_path.open('w') as fp:
+                json.dump(my_config, fp)
+        else:
+            # Load in keys
+            self.logger.info(f'Loading search space from {self.search_space_dir}')
+            with open(self.search_space_dir / 'keys.json') as fp:
+                search_space_keys = json.load(fp)
+
+        # Load in the molecules, storing them as proxies in the "inference" store if there is a store defined
+        self.logger.info(f'Loading in molecules from {len(search_space_keys)} files')
+        output = []
+
+        proxy_store = self.inference_store
+        if proxy_store is not None:
+            self.logger.info(f'Will store inference objects to {proxy_store}')
+
+        for name, keys in search_space_keys.items():
+            with gzip.open(self.search_space_dir / name, 'rb') as fp:  # Load from disk
+                objects = pkl.load(fp)
+
+            if proxy_store is not None:  # If the store exists, make a proxy
+                objects = proxy_store.proxy(objects)
+            output.append((keys, objects))
+        return output
+
+    @property
+    def inference_store(self) -> Store | None:
+        """Proxystore used for inference tasks"""
+        if (store_name := self.queues.proxystore_name.get('inference')) is not None:
+            return get_store(store_name)
