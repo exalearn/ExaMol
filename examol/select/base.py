@@ -6,13 +6,13 @@ from typing import Iterator, Sequence
 
 import numpy as np
 
-from examol.store.models import MoleculeRecord
+from examol.store.db.base import MoleculeStore
 from examol.store.recipes import PropertyRecipe
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_observations(database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]) -> np.ndarray:
+def _extract_observations(database: MoleculeStore, recipes: Sequence[PropertyRecipe]) -> np.ndarray:
     """Get an array of observations from the training set
 
     Args:
@@ -23,7 +23,7 @@ def _extract_observations(database: dict[str, MoleculeRecord], recipes: Sequence
     """
 
     output = []
-    for record in database.values():
+    for record in database.iterate_over_records():
         if not all(recipe.lookup(record) is not None for recipe in recipes):
             continue
         output.append([recipe.lookup(record) for recipe in recipes])
@@ -102,7 +102,7 @@ class Selector:
     def _add_possibilities(self, keys: list, samples: np.ndarray, **kwargs):
         raise NotImplementedError()
 
-    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
+    def update(self, database: MoleculeStore, recipes: Sequence[PropertyRecipe]):
         """Update the selector given the current database
 
         Args:

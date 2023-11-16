@@ -5,7 +5,7 @@ import numpy as np
 from modAL.acquisition import EI
 
 from examol.select.base import RankingSelector, _extract_observations
-from examol.store.models import MoleculeRecord
+from examol.store.db.base import MoleculeStore
 from examol.store.recipes import PropertyRecipe
 
 
@@ -23,7 +23,7 @@ class ExpectedImprovement(RankingSelector):
         self.epsilon = epsilon
         self.best_so_far = 0
 
-    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
+    def update(self, database: MoleculeStore, recipes: Sequence[PropertyRecipe]):
         values = _extract_observations(database, recipes)
         self.best_so_far = max(values) if self.maximize else -min(values)
 
