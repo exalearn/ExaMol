@@ -12,7 +12,7 @@ from pathlib import Path
 from dataclasses import asdict
 from threading import Condition, Event
 from collections import defaultdict
-from typing import Iterator, Sequence
+from typing import Iterator, Sequence, Iterable
 
 import numpy as np
 from colmena.models import Result
@@ -139,36 +139,38 @@ class MoleculeThinker(BaseThinker):
         with (self.run_dir / f'{result_type}-results.json').open('a') as fp:
             print(result.json(exclude={'value', 'inputs'}), file=fp)
 
+    def _get_next_tasks(self) -> tuple[MoleculeRecord, float, Iterable[PropertyRecipe]]:
+        """Get the next task from the task queue
+
+        Assumes that the task queue is locked and there are tasks in the queue
+        """
+        # Return the next one off the list
+        smiles, score = self.task_queue.pop(0)  # Get the next task
+        return self.database.get_or_make_record(smiles), score, self.recipes
+
     def task_iterator(self) -> Iterator[tuple[MoleculeRecord, SimulationRequest]]:
         """Iterate over the next tasks in the task queue"""
 
         while True:
-            # Get the next molecule to run
+            # Get the next task to run
             with self.task_queue_lock:
                 if len(self.task_queue) == 0:
                     self.logger.info('No tasks available to run. Waiting')
                     while not self.task_queue_lock.wait(timeout=2):
                         if self.done.is_set():
                             yield None, None
-                smiles, score = self.task_queue.pop(0)  # Get the next task
-                self.logger.info(f'Selected {smiles} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
-
-            # Get the molecule record
-            record = MoleculeRecord.from_identifier(smiles)
-            if record.key in self.database:
-                record = self.database[record.key]
-            else:
-                self.database.update_record(record)
+            record, score, recipes = self._get_next_tasks()
+            self.logger.info(f'Selected {record.key} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
 
             # Determine which computations to run next
             try:
                 suggestions = set()
-                for recipe in self.recipes:
+                for recipe in recipes:
                     suggestions = set(recipe.suggest_computations(record))
             except ValueError as exc:
-                self.logger.warning(f'Generating computations for {smiles} failed. Skipping. Reason: {exc}')
+                self.logger.warning(f'Generating computations for {record.key} failed. Skipping. Reason: {exc}')
                 continue
-            self.logger.info(f'Found {len(suggestions)} more computations to do for {smiles}')
+            self.logger.info(f'Found {len(suggestions)} more computations to do for {record.key}')
             self.molecules_in_progress[record.key] += len(suggestions)  # Update the number of computations in progress for this molecule
 
             for suggestion in suggestions:

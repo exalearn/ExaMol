@@ -1,7 +1,7 @@
 """Specifications for different solution methods"""
 from functools import partial, update_wrapper
 from dataclasses import field, dataclass
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Collection
 
 from examol.score.base import Scorer
 from examol.select.base import Selector
@@ -80,7 +80,7 @@ class MultiFidelityActiveLearning(SingleFidelityActiveLearning):
     10 times more often then the next stage.
     """
 
-    steps: Sequence[tuple[PropertyRecipe, ...]] = ()
+    steps: Sequence[Collection[PropertyRecipe]] = ()
     """Incremental steps to perform along the way to a maximum level of fidelity"""
 
     pipeline_target: float = 0.1
