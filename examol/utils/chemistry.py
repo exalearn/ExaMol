@@ -1,4 +1,5 @@
 """Utility operations to perform common chemistry tasks"""
+from functools import lru_cache
 
 from rdkit import Chem
 
@@ -25,6 +26,19 @@ def parse_from_molecule_string(mol_string: str) -> Chem.Mol:
     )
 
     return mol
+
+
+@lru_cache()
+def get_inchi_key_from_molecule_string(mol_string: str) -> str:
+    """Get an InChI key from either SMILES or InChI
+
+    Args:
+        mol_string: String representing a molecule
+    Returns:
+        InChI key
+    """
+    mol = parse_from_molecule_string(mol_string)
+    return Chem.MolToInchiKey(mol)
 
 
 def get_baseline_charge(mol_string: str) -> int:
