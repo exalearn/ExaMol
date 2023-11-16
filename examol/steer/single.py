@@ -5,8 +5,7 @@ from typing import Sequence
 
 import numpy as np
 from colmena.queue import ColmenaQueues
-from colmena.thinker import event_responder, ResourceCounter, agent
-from more_itertools import interleave_longest
+from colmena.thinker import event_responder, ResourceCounter
 from proxystore.store.utils import get_key
 
 from .base import ScorerThinker
@@ -43,37 +42,9 @@ class SingleStepThinker(ScorerThinker):
         # Store the selection equipment
         self.solution = solution
         self.selector = self.solution.selector
-        self.starter = self.solution.starter
-
-    @property
-    def num_models(self) -> int:
-        """Number of models being trained by this class"""
-        return sum(map(len, self.models))
 
     def _simulations_complete(self):
         self.start_training.set()
-
-    @agent(startup=True)
-    def startup(self):
-        """Pre-populate the database, if needed."""
-
-        # Determine how many training points are available
-        train_size = min(len(self._get_training_set(recipe)) for recipe in self.recipes)
-
-        # If enough, start by training
-        if train_size > self.solution.minimum_training_size:
-            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.solution.minimum_training_size}). Starting model training')
-            self.start_training.set()
-            return
-
-        # If not, pick some
-        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.solution.minimum_training_size})')
-        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
-        self.logger.info(f'Selected {len(subset)} molecules to run')
-        with self.task_queue_lock:
-            for key in subset:
-                self.task_queue.append((key, np.nan))  # All get the same score
-            self.task_queue_lock.notify_all()
 
     @event_responder(event_name='start_inference')
     def submit_inference(self):

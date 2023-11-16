@@ -17,8 +17,8 @@ from typing import Iterator, Sequence
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
-from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter, event_responder
-from more_itertools import batched
+from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter, event_responder, agent
+from more_itertools import batched, interleave_longest
 from proxystore.proxy import Proxy, extract
 from proxystore.store import Store, get_store
 from proxystore.store.base import ConnectorKeyT
@@ -296,6 +296,8 @@ class ScorerThinker(MoleculeThinker):
     scorer: Scorer
     """Class used to communicate data and models to distributed workers"""
 
+    solution: SingleFidelityActiveLearning
+
     def __init__(self,
                  queues: ColmenaQueues,
                  rec: ResourceCounter,
@@ -316,6 +318,9 @@ class ScorerThinker(MoleculeThinker):
         self.search_space_inputs: list[list[object]]
         self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, self.search_space))
 
+        # Startup-related information
+        self.starter = self.solution.starter
+
         # Model tracking information
         self.models = solution.models.copy()
         if len(set(map(len, self.models))) > 1:  # pragma: no-coverage
@@ -328,6 +333,11 @@ class ScorerThinker(MoleculeThinker):
         # Coordination tools
         self.start_inference: Event = Event()
         self.start_training: Event = Event()
+
+    @property
+    def num_models(self) -> int:
+        """Number of models being trained by this class"""
+        return sum(map(len, self.models))
 
     def _cache_search_space(self, inference_chunk_size: int, search_space: list[str | Path]):
         """Cache the search space into a directory within the run"""
@@ -414,6 +424,28 @@ class ScorerThinker(MoleculeThinker):
             List of molecules for which that property is defined
         """
         return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
+
+    @agent(startup=True)
+    def startup(self):
+        """Pre-populate the database, if needed."""
+
+        # Determine how many training points are available
+        train_size = min(len(self._get_training_set(recipe)) for recipe in self.recipes)
+
+        # If enough, start by training
+        if train_size > self.solution.minimum_training_size:
+            self.logger.info(f'Training set is larger than the threshold size ({train_size}>{self.solution.minimum_training_size}). Starting model training')
+            self.start_training.set()
+            return
+
+        # If not, pick some
+        self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.solution.minimum_training_size})')
+        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
+        self.logger.info(f'Selected {len(subset)} molecules to run')
+        with self.task_queue_lock:
+            for key in subset:
+                self.task_queue.append((key, np.nan))  # All get the same score
+            self.task_queue_lock.notify_all()
 
     @event_responder(event_name='start_training')
     def retrain(self):

@@ -39,7 +39,7 @@ class SingleFidelityActiveLearning(SolutionSpecification):
     """Defines algorithms used to retrain and run :attr:`models`"""
     models: list[list[object]] = ...
     """List of machine learning models used to predict outcome of :attr:`recipes`.
-    
+
     ``models[i][j] is model ``j`` for property ``i``"""
     minimum_training_size: int = 10
     """Minimum database size before starting training. Thinkers will run selections from :attr:`starter` before them"""
