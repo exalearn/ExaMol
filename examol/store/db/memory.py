@@ -19,12 +19,13 @@ class InMemoryStore(MoleculeStore):
     The class will start checkpointing as soon as any record is updated.
 
     Args:
-        path: Path from which to read data. Must be a JSON file, can be compressed with GZIP
+        path: Path from which to read data. Must be a JSON file, can be compressed with GZIP.
+            Set to ``None`` if you do not want data to be stored
         write_freq: Minimum time between writing checkpoints
     """
 
-    def __init__(self, path: Path, write_freq: float = 10.):
-        self.path = Path(path)
+    def __init__(self, path: Path | None, write_freq: float = 10.):
+        self.path = Path(path) if path is not None else path
         self.write_freq = write_freq
         self.db: dict[str, MoleculeRecord] = {}
 
@@ -38,23 +39,25 @@ class InMemoryStore(MoleculeStore):
         self._load_molecules()
 
     def __enter__(self):
-        logger.info('Start the writing thread')
-        self._write_thread = self._thread_pool.submit(self._writer)
+        if self.path is not None:
+            logger.info('Start the writing thread')
+            self._write_thread = self._thread_pool.submit(self._writer)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Trigger a last write
-        logger.info('Triggering a last write to the database')
-        self._closing.set()
-        self._write_thread.result()
+        if self.path is not None:
+            # Trigger a last write
+            logger.info('Triggering a last write to the database')
+            self._closing.set()
+            self._write_thread.result()
 
-        # Mark that we're closed
-        self._write_thread = None
-        self._closing.clear()
+            # Mark that we're closed
+            self._write_thread = None
+            self._closing.clear()
 
     def _load_molecules(self):
         """Load molecules from disk"""
-        if not self.path.is_file():
+        if self.path is None or not self.path.is_file():
             return
         logger.info(f'Loading data from {self.path}')
         with (gzip.open(self.path, 'rt') if self.path.name.endswith('.gz') else self.path.open()) as fp:

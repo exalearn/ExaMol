@@ -52,7 +52,7 @@ def test_evhi(multi_test_data, multi_recipes):
     # Test minimizing both
     selector.maximize = False
     sample_y *= -1  # Update the samples
-    for record in train_mols.values():
+    for record in train_mols.iterate_over_records():
         record.properties['a']['test'] *= -1
         record.properties['b']['test'] *= -1
 
@@ -67,7 +67,7 @@ def test_evhi(multi_test_data, multi_recipes):
     # Test maximizing one objective and minimizing the other
     sample_y[0, :, :] *= -1
     selector.maximize = [True, False]
-    for record in train_mols.values():
+    for record in train_mols.iterate_over_records():
         record.properties['a']['test'] *= -1
 
     selector.update(train_mols, multi_recipes)
