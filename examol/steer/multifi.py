@@ -6,7 +6,6 @@ from typing import Sequence, Iterable
 
 import numpy as np
 from colmena.queue import ColmenaQueues
-from colmena.thinker import ResourceCounter
 
 from examol.solution import MultiFidelityActiveLearning
 from examol.steer.single import SingleStepThinker
@@ -37,7 +36,7 @@ class PipelineThinker(SingleStepThinker):
                  search_space: list[Path | str],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution.scorer, solution, search_space, database, inference_chunk_size)
+        super().__init__(queues, run_dir, recipes, solution, search_space, database, inference_chunk_size)
 
         # Initialize the list of relevant database records
         self.already_in_db = self.get_relevant_database_records()
