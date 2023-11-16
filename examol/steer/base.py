@@ -176,8 +176,12 @@ class MoleculeThinker(BaseThinker):
             for suggestion in suggestions:
                 yield record, suggestion
 
-    def _simulations_complete(self):
-        """This function is called when all ongoing computations for a molecule have finished"""
+    def _simulations_complete(self, record: MoleculeRecord):
+        """This function is called when all ongoing computations for a molecule have finished
+
+        Args:
+            record: Record for the molecule which had completed
+        """
         pass
 
     @result_processor(topic='simulation')
@@ -222,7 +226,7 @@ class MoleculeThinker(BaseThinker):
                 # Mark that we've finished with all recipes
                 result.task_info['status'] = 'finished'
                 result.task_info['result'] = [recipe.lookup(record) for recipe in self.recipes]
-                self._simulations_complete()
+                self._simulations_complete(record)
             else:
                 # If not, see if we need to resubmit to finish the computation
                 self.logger.info(f'Finished {len(self.recipes) - not_done}/{len(self.recipes)} recipes for {mol_key}')

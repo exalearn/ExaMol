@@ -38,6 +38,12 @@ def test_initialize(thinker):
     assert thinker.num_levels == 2
     assert thinker.steps[0][0].level == 'xtb-vertical'
     assert thinker.steps[1][0].level == 'mopac_pm7-vertical'
+    assert len(thinker.already_in_db) == 0
+
+
+def test_detect_relevant(thinker):
+    thinker.database.get_or_make_record('C')
+    assert thinker.get_relevant_database_records() == {'VNWKTOKETHGBQD-UHFFFAOYSA-N'}
 
 
 def test_detect_level(thinker, recipe):

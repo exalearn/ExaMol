@@ -55,7 +55,7 @@ class BruteForceThinker(MoleculeThinker):
                 self.task_queue.append((key, np.nan))  # All get the same score
             self.task_queue_lock.notify_all()
 
-    def _simulations_complete(self):
+    def _simulations_complete(self, record):
         if len(self.task_queue) == 0:
             self.logger.info('Run out of molecules to run. Exiting')
             self.done.set()

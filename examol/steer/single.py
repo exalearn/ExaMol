@@ -11,6 +11,7 @@ from proxystore.store.utils import get_key
 from .base import ScorerThinker
 from examol.solution import SingleFidelityActiveLearning
 from ..store.db.base import MoleculeStore
+from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe
 
 
@@ -43,7 +44,7 @@ class SingleStepThinker(ScorerThinker):
         self.solution = solution
         self.selector = self.solution.selector
 
-    def _simulations_complete(self):
+    def _simulations_complete(self, record: MoleculeRecord):
         self.start_training.set()
 
     @event_responder(event_name='start_inference')

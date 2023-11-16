@@ -1,5 +1,6 @@
 """Scheduling strategies for multi-fidelity design campaigns"""
 from pathlib import Path
+from multiprocessing import Pool
 from functools import cached_property
 from typing import Sequence, Iterable
 
@@ -12,6 +13,7 @@ from examol.steer.base import ScorerThinker
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
+from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
 class PipelineThinker(ScorerThinker):
@@ -23,6 +25,9 @@ class PipelineThinker(ScorerThinker):
 
     solution: MultiFidelityActiveLearning
 
+    already_in_db: set[str]
+    """InChI keys of molecules from the search space which are already in the database"""
+
     def __init__(self,
                  queues: ColmenaQueues,
                  run_dir: Path,
@@ -33,6 +38,9 @@ class PipelineThinker(ScorerThinker):
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
         super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution.scorer, solution, search_space, database, inference_chunk_size)
+
+        # Initialize the list of relevant database records
+        self.already_in_db = self.get_relevant_database_records()
 
     @cached_property
     def steps(self) -> Sequence[Sequence[PropertyRecipe]]:
@@ -55,6 +63,7 @@ class PipelineThinker(ScorerThinker):
 
         # See which recipes have been completed
         record = self.database.get_or_make_record(smiles)
+        self.already_in_db.add(record.key)  # A record gets created above
         for i, recipes in enumerate(self.steps):
             for recipe in recipes:
                 if recipe.level not in record.properties.get(recipe.name, {}):
@@ -89,3 +98,30 @@ class PipelineThinker(ScorerThinker):
             chosen_level = self.get_level(smiles)
         self.logger.info(f'Pulled molecule at position {chosen_ind} to run at level #{chosen_level}')
         return self.database.get_or_make_record(smiles), score, self.steps[chosen_level]
+
+    def _simulations_complete(self, record: MoleculeRecord):
+        super()._simulations_complete(record)
+        self.already_in_db.add(record.key)  # Make sure it is there
+
+    def get_relevant_database_records(self) -> set[str]:
+        """Get only the entries from the database which are in the search space
+
+        Returns:
+            InChI keys from the database which are in the search space
+        """
+
+        # Get the database of all keys
+        matched = set()
+        all_keys = set(r.key for r in self.database.iterate_over_records())
+        if len(all_keys) == 0:
+            return matched
+
+        # Evaluate against molecules from the search spaces in batches
+        self.logger.info(f'Searching for {len(all_keys)} molecules from the database in our search space')
+        with Pool(4) as pool:
+            for search_key in pool.imap_unordered(get_inchi_key_from_molecule_string, self.iterate_over_search_space(only_smiles=True), chunksize=10000):
+                if search_key in all_keys:
+                    matched.add(search_key)
+                    all_keys.remove(search_key)
+
+        return matched
