@@ -5,24 +5,27 @@ import json
 import shutil
 import logging
 import pickle as pkl
+from queue import Queue
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
 from dataclasses import asdict
-from threading import Condition
+from threading import Condition, Event
 from collections import defaultdict
 from typing import Iterator, Sequence
 
 import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
-from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
+from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter, event_responder
 from more_itertools import batched
+from proxystore.proxy import Proxy, extract
 from proxystore.store import Store, get_store
+from proxystore.store.base import ConnectorKeyT
 
 from examol.score.base import Scorer
 from examol.simulate.base import SimResult
-from examol.solution import SolutionSpecification
+from examol.solution import SolutionSpecification, SingleFidelityActiveLearning
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe, SimulationRequest
@@ -299,7 +302,7 @@ class ScorerThinker(MoleculeThinker):
                  run_dir: Path,
                  recipes: Sequence[PropertyRecipe],
                  scorer: Scorer,
-                 solution: SolutionSpecification,
+                 solution: SingleFidelityActiveLearning,
                  search_space: list[Path | str],
                  database: MoleculeStore,
                  inference_chunk_size: int = 10000):
@@ -312,6 +315,19 @@ class ScorerThinker(MoleculeThinker):
         self.search_space_smiles: list[list[str]]
         self.search_space_inputs: list[list[object]]
         self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, self.search_space))
+
+        # Model tracking information
+        self.models = solution.models.copy()
+        if len(set(map(len, self.models))) > 1:  # pragma: no-coverage
+            raise ValueError('You must provide the same number of models for each class')
+        if len(self.models) != len(recipes):  # pragma: no-coverage
+            raise ValueError('You must provide as many model ensembles as recipes')
+        self._model_proxy_keys: list[list[ConnectorKeyT | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model(s)
+        self._ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
+
+        # Coordination tools
+        self.start_inference: Event = Event()
+        self.start_training: Event = Event()
 
     def _cache_search_space(self, inference_chunk_size: int, search_space: list[str | Path]):
         """Cache the search space into a directory within the run"""
@@ -388,3 +404,70 @@ class ScorerThinker(MoleculeThinker):
         """Proxystore used for inference tasks"""
         if (store_name := self.queues.proxystore_name.get('inference')) is not None:
             return get_store(store_name)
+
+    def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
+        """Gather molecules for which the target property is available
+
+        Args:
+            recipe: Recipe to evaluate
+        Returns:
+            List of molecules for which that property is defined
+        """
+        return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
+
+    @event_responder(event_name='start_training')
+    def retrain(self):
+        """Retrain all models"""
+
+        # Check if training is still ongoing
+        if self.start_inference.is_set():
+            self.logger.info('Inference is still ongoing. Will not retrain yet')
+            return
+
+        for recipe_id, recipe in enumerate(self.recipes):
+            # Get the training set
+            train_set = self._get_training_set(recipe)
+            self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')
+
+            # If too small, stop
+            if len(train_set) < self.solution.minimum_training_size:
+                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
+                return
+
+            # Process to form the inputs and outputs
+            train_inputs = self.scorer.transform_inputs(train_set)
+            train_outputs = self.scorer.transform_outputs(train_set, recipe)
+            self.logger.info('Pre-processed the training entries')
+
+            # Submit all models
+            for model_id, model in enumerate(self.models[recipe_id]):
+                model_msg = self.scorer.prepare_message(model, training=True)
+                self.queues.send_inputs(
+                    model_msg, train_inputs, train_outputs,
+                    method='retrain',
+                    topic='train',
+                    task_info={'recipe_id': recipe_id, 'model_id': model_id}
+                )
+            self.logger.info(f'Submitted all models for recipe={recipe_id}')
+
+        # Retrieve the results
+        for i in range(self.num_models):
+            result = self.queues.get_result(topic='train')
+            self._write_result(result, 'train')
+            assert result.success, f'Training failed: {result.failure_info}'
+
+            # Update the appropriate model
+            model_id = result.task_info['model_id']
+            recipe_id = result.task_info['recipe_id']
+            model_msg = result.value
+            if isinstance(model_msg, Proxy):
+                # Forces resolution. Needed to avoid `submit_inference` from making a proxy of `model_msg`, which can happen if it is not resolved
+                #  by `scorer.update` and is a problem because the proxy for `model_msg` can be evicted while other processes need it
+                model_msg = extract(model_msg)
+            self.models[recipe_id][model_id] = self.scorer.update(self.models[recipe_id][model_id], model_msg)
+            self.logger.info(f'Updated model {i + 1}/{self.num_models}. Recipe id={recipe_id}. Model id={model_id}')
+
+            # Signal to begin inference
+            self.start_inference.set()
+            self._ready_models.put((recipe_id, model_id))
+        self.logger.info('Finished training all models')

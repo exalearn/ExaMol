@@ -1,7 +1,5 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
 from pathlib import Path
-from queue import Queue
-from threading import Event
 from time import perf_counter
 from typing import Sequence
 
@@ -9,14 +7,11 @@ import numpy as np
 from colmena.queue import ColmenaQueues
 from colmena.thinker import event_responder, ResourceCounter, agent
 from more_itertools import interleave_longest
-from proxystore.proxy import Proxy, extract
-from proxystore.store.base import ConnectorKeyT
 from proxystore.store.utils import get_key
 
 from .base import ScorerThinker
 from examol.solution import SingleFidelityActiveLearning
 from ..store.db.base import MoleculeStore
-from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe
 
 
@@ -47,21 +42,8 @@ class SingleStepThinker(ScorerThinker):
 
         # Store the selection equipment
         self.solution = solution
-        self.models = self.solution.models.copy()
         self.selector = self.solution.selector
         self.starter = self.solution.starter
-        if len(set(map(len, self.models))) > 1:  # pragma: no-coverage
-            raise ValueError('You must provide the same number of models for each class')
-        if len(self.models) != len(recipes):  # pragma: no-coverage
-            raise ValueError('You must provide as many model ensembles as recipes')
-
-        # Model tracking information
-        self._model_proxy_keys: list[list[ConnectorKeyT | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model
-        self._ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
-
-        # Coordination tools
-        self.start_inference: Event = Event()
-        self.start_training: Event = Event()
 
     @property
     def num_models(self) -> int:
@@ -181,70 +163,3 @@ class SingleStepThinker(ScorerThinker):
             # Notify anyone waiting on more tasks
             self.task_queue_lock.notify_all()
         self.logger.info('Updated task queue. All done.')
-
-    @event_responder(event_name='start_training')
-    def retrain(self):
-        """Retrain all models"""
-
-        # Check if training is still ongoing
-        if self.start_inference.is_set():
-            self.logger.info('Inference is still ongoing. Will not retrain yet')
-            return
-
-        for recipe_id, recipe in enumerate(self.recipes):
-            # Get the training set
-            train_set = self._get_training_set(recipe)
-            self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')
-
-            # If too small, stop
-            if len(train_set) < self.solution.minimum_training_size:
-                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
-                return
-
-            # Process to form the inputs and outputs
-            train_inputs = self.scorer.transform_inputs(train_set)
-            train_outputs = self.scorer.transform_outputs(train_set, recipe)
-            self.logger.info('Pre-processed the training entries')
-
-            # Submit all models
-            for model_id, model in enumerate(self.models[recipe_id]):
-                model_msg = self.scorer.prepare_message(model, training=True)
-                self.queues.send_inputs(
-                    model_msg, train_inputs, train_outputs,
-                    method='retrain',
-                    topic='train',
-                    task_info={'recipe_id': recipe_id, 'model_id': model_id}
-                )
-            self.logger.info(f'Submitted all models for recipe={recipe_id}')
-
-        # Retrieve the results
-        for i in range(self.num_models):
-            result = self.queues.get_result(topic='train')
-            self._write_result(result, 'train')
-            assert result.success, f'Training failed: {result.failure_info}'
-
-            # Update the appropriate model
-            model_id = result.task_info['model_id']
-            recipe_id = result.task_info['recipe_id']
-            model_msg = result.value
-            if isinstance(model_msg, Proxy):
-                # Forces resolution. Needed to avoid `submit_inference` from making a proxy of `model_msg`, which can happen if it is not resolved
-                #  by `scorer.update` and is a problem because the proxy for `model_msg` can be evicted while other processes need it
-                model_msg = extract(model_msg)
-            self.models[recipe_id][model_id] = self.scorer.update(self.models[recipe_id][model_id], model_msg)
-            self.logger.info(f'Updated model {i + 1}/{self.num_models}. Recipe id={recipe_id}. Model id={model_id}')
-
-            # Signal to begin inference
-            self.start_inference.set()
-            self._ready_models.put((recipe_id, model_id))
-        self.logger.info('Finished training all models')
-
-    def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
-        """Gather molecules for which the target property is available
-
-        Args:
-            recipe: Recipe to evaluate
-        Returns:
-            List of molecules for which that property is defined
-        """
-        return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
