@@ -25,7 +25,7 @@ class InMemoryStore(MoleculeStore):
     """
 
     def __init__(self, path: Path | None, write_freq: float = 10.):
-        self.path = Path(path)
+        self.path = Path(path) if path is not None else path
         self.write_freq = write_freq
         self.db: dict[str, MoleculeRecord] = {}
 
@@ -57,7 +57,7 @@ class InMemoryStore(MoleculeStore):
 
     def _load_molecules(self):
         """Load molecules from disk"""
-        if not self.path.is_file():
+        if self.path is None or not self.path.is_file():
             return
         logger.info(f'Loading data from {self.path}')
         with (gzip.open(self.path, 'rt') if self.path.name.endswith('.gz') else self.path.open()) as fp:
