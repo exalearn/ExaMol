@@ -6,6 +6,7 @@ from typing import Iterable
 from contextlib import AbstractContextManager
 
 from examol.store.models import MoleculeRecord
+from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
 class MoleculeStore(AbstractContextManager, ABC):
@@ -28,6 +29,22 @@ class MoleculeStore(AbstractContextManager, ABC):
 
     def __contains__(self, item: str | MoleculeRecord):
         raise NotImplementedError()
+
+    def get_or_make_record(self, mol_string: str) -> MoleculeRecord:
+        """Either the existing record for a molecule or make a new one
+
+        Args:
+            mol_string: String describing a molecule (e.g., SMILES string)
+        Returns:
+            Record
+        """
+        key = get_inchi_key_from_molecule_string(mol_string)
+        if key not in self:
+            record = MoleculeRecord.from_identifier(mol_string)
+            self.update_record(record)
+            return record
+        else:
+            return self[key]
 
     def iterate_over_records(self) -> Iterable[MoleculeRecord]:
         """Iterate over all records in data

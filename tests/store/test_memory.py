@@ -4,6 +4,7 @@ from pytest import fixture
 
 from examol.store.db.memory import InMemoryStore
 from examol.store.models import MoleculeRecord
+from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
 @fixture()
@@ -26,3 +27,9 @@ def test_store(tmpdir, records):
     # Load database back in
     with InMemoryStore(db_path) as store:
         assert len(store) == 3
+
+        # Test the make or retrieve
+        actual = store[get_inchi_key_from_molecule_string('C')]
+        assert store.get_or_make_record('C') is actual  # Gets the same value
+        store.get_or_make_record('Br')
+        assert len(store) == 4
