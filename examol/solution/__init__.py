@@ -1,12 +1,13 @@
 """Specifications for different solution methods"""
 from functools import partial, update_wrapper
 from dataclasses import field, dataclass
-from typing import Callable
+from typing import Callable, Sequence
 
 from examol.score.base import Scorer
 from examol.select.base import Selector
 from examol.start.base import Starter
 from examol.start.fast import RandomStarter
+from examol.store.recipes import PropertyRecipe
 
 
 @dataclass
@@ -37,7 +38,9 @@ class SingleFidelityActiveLearning(SolutionSpecification):
     scorer: Scorer = ...  # TODO (wardlt): Support a different type of model for each recipe
     """Defines algorithms used to retrain and run :attr:`models`"""
     models: list[list[object]] = ...
-    """List of machine learning models used to predict outcome of :attr:`recipes`"""
+    """List of machine learning models used to predict outcome of :attr:`recipes`.
+    
+    ``models[i][j] is model ``j`` for property ``i``"""
     minimum_training_size: int = 10
     """Minimum database size before starting training. Thinkers will run selections from :attr:`starter` before them"""
 
@@ -57,3 +60,28 @@ class SingleFidelityActiveLearning(SolutionSpecification):
             _wrap_function(self.scorer.retrain, self.train_options),
             _wrap_function(self.scorer.score, self.score_options)
         ]
+
+
+@dataclass
+class MultiFidelityActiveLearning(SingleFidelityActiveLearning):
+    """Tools needed for solving a multi-fidelity active learning problem
+
+    Users must define a series of recipes to be run at each step in the workflow,
+    :attr:`steps`.
+    The next step is run each time a molecule is selected for execution.
+    For example, a Thinker would run all recipes in the first step for a molecule for which no data is available
+    and then the second step of recipes after all from the first have completed.
+
+    The user also specifies a set fraction of entries to progress through each stage,
+    which sets the probability of selecting a certain step in the calculation.
+    For example a :attr:`pipeline_target` of 0.1 means that 10% of entries will
+    pass through each stage of the pipeline.
+    We can achieve this target by selecting to run the first stage of the pipeline
+    10 times more often then the next stage.
+    """
+
+    steps: Sequence[tuple[PropertyRecipe, ...]] = ()
+    """Incremental steps to perform along the way to a maximum level of fidelity"""
+
+    pipeline_target: float = 0.1
+    """Fraction of entries to progress through each stage of the pipeline"""
