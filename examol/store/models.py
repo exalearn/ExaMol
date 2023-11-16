@@ -75,7 +75,7 @@ class Conformer(BaseModel):
     """Date this conformer was inserted"""
     source: str | None = None
     """Method used to generate this structure (e.g., via relaxation)"""
-    config_name: str
+    config_name: str | None = None
     """Configuration used to relax the structure, if applicable"""
     charge: int
     """Charge used when relaxing the structure"""

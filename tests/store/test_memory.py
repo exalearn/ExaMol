@@ -18,8 +18,7 @@ def test_store(tmpdir, records):
         assert len(store) == 0
 
         # Add the records
-        for record in records:
-            store.update_record(record)
+        store.update_records(records)
         assert len(store) == 3
         assert MoleculeRecord.from_identifier('C') in store
         assert MoleculeRecord.from_identifier('Br') not in store

@@ -8,7 +8,7 @@ from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 
-def collect_outputs(records: list[MoleculeRecord], recipes: list[PropertyRecipe]) -> np.ndarray:
+def collect_outputs(records: list[MoleculeRecord], recipes: Sequence[PropertyRecipe]) -> np.ndarray:
     """Collect the outputs for several recipe for each molecule
 
     Args:

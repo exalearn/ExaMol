@@ -1,6 +1,8 @@
 from pytest import fixture
 import numpy as np
 
+from examol.store.db.base import MoleculeStore
+from examol.store.db.memory import InMemoryStore
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
@@ -25,7 +27,9 @@ def test_data():
     record = MoleculeRecord.from_identifier('C')
     record.properties['test'] = {'test': 0.25}
     record_2 = MoleculeRecord.from_identifier('O')
-    return x, y, {record.key: record, record_2.key: record_2}
+    db = InMemoryStore(None)
+    db.update_records([record, record_2])
+    return x, y, db
 
 
 @fixture()
@@ -34,7 +38,7 @@ def multi_recipes() -> list[PropertyRecipe]:
 
 
 @fixture()
-def multi_test_data() -> tuple[np.ndarray, np.ndarray, dict[str, MoleculeRecord]]:
+def multi_test_data() -> tuple[np.ndarray, np.ndarray, MoleculeStore]:
     # Make training records have properties of o1 = 1 - o2
     objective_1 = np.linspace(0, 1, 8)
     objective_2 = 1 - objective_1
@@ -43,10 +47,12 @@ def multi_test_data() -> tuple[np.ndarray, np.ndarray, dict[str, MoleculeRecord]
         record = MoleculeRecord.from_identifier('C' * (i + 1))
         record.properties = {'a': {'test': y1}, 'b': {'test': y2}}
         train_mols[record.key] = record
+    db = InMemoryStore(None)
+    db.update_records(train_mols.values())
 
     # Make the test points lie along o1^2 + o2^2 = 0.9 (lies outside only for the minimi
     theta = np.linspace(0, np.pi / 2, 16)
     true_y = np.array([0.8 * np.cos(theta), 0.8 * np.sin(theta)])
     sample_y = np.repeat(true_y[:, :, None], repeats=8, axis=-1)
     sample_y += 0.001 * np.random.random(sample_y.shape)
-    return theta, sample_y, train_mols
+    return theta, sample_y, db

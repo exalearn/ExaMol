@@ -18,8 +18,8 @@ import numpy as np
 import torch
 
 from examol.select.base import RankingSelector, _extract_observations
-from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
+from examol.store.db.base import MoleculeStore
 
 
 class _EnsembleCovarianceModel(Model):
@@ -112,7 +112,7 @@ class BOTorchSequentialSelector(RankingSelector):
         self.acq_options_updater = acq_options_updater
         super().__init__(to_select, maximize)
 
-    def update(self, database: dict[str, MoleculeRecord], recipes: Sequence[PropertyRecipe]):
+    def update(self, database: MoleculeStore, recipes: Sequence[PropertyRecipe]):
         if self.acq_options_updater is not None:
             # Run the update function on the properties observed so far
             outputs = _extract_observations(database, recipes)
