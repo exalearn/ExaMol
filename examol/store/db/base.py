@@ -45,6 +45,15 @@ class MoleculeStore(AbstractContextManager, ABC):
         """
         raise NotImplementedError()
 
+    def update_records(self, records: Iterable[MoleculeRecord]):
+        """Update many records at once
+
+        Args:
+            records: Iterator over records to be stored
+        """
+        for record in records:
+            self.update_record(record)
+
     def export_records(self, path: Path):
         """Save a current copy of the database to disk as line-delimited JSON
 
