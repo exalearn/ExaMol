@@ -77,4 +77,4 @@ def test_iterator(thinker, caplog):
     assert record.identifier.smiles == 'C'  # It should not
 
     # Make sure we are warned about it
-    assert 'C1C2CN3C1C1C3CN21' in caplog.messages[-1]
+    assert 'HKRAFRNOHKOEOU-UHFFFAOYSA-N' in caplog.messages[-1]  # That's the InChI key for C1C2...
