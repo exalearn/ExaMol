@@ -74,14 +74,20 @@ Some Scorer classes support using properties computed at lower levels of accurac
 to improve performance.
 The strategies employed by each Scorer may be different, but all have the same interface.
 
-Use the multi-fidelity capability of a Scorer by providing multiple recipes when preprocessing
-for *both* inputs and outputs for training or inference.
-The recipes must be ordered from lowest- to highest-fidelity.
+Use the multi-fidelity capability of a Scorer by providing
+values from lower levels of fidelity when training or running inference.
 
 .. code-block:: python
 
-    outputs = model.transform_outputs(records, [recipe_low, recipe_high])
-    inputs = model.transform_inputs(records, [recipe_low, recipe_high])
+    from examol.score.utils.multifi import collect_outputs
+    fidelities = [RedoxEnergy(1, 'low'), RedoxEnergy(1, 'medium'), RedoxEnergy(1, 'high')]
 
-The outputs will, by default, contain the recipe computed at each level of fidelity
-with ``np.nan`` values for missing data.
+    # Get the inputs and outputs, as normal
+    inputs = scorer.transform_inputs(records)
+    outputs = scorer.transform_outputs(records, fidelities[-1])  # Train using the highest level
+
+    # Pass the low-fidelity results to scoring and inference
+    lower_fidelities = collect_outputs(records, fidelities[:-1])
+    scorer.train(model_msg, inputs, outputs, lower_fidelties=lower_fidelities)
+    ...
+    scorer.score(model_msg, inputs, lower_fidelties=lower_fidelities)
