@@ -1,6 +1,5 @@
 """Base classes for scoring functions"""
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 
@@ -44,57 +43,28 @@ class Scorer:
         update_msg = scorer.retrain(model_msg, inputs, outputs)  # Run remotely
         model = scorer.update(model, update_msg)
 
-    **Multi-fidelity scoring**
-
-    Multi-fidelity learning methods employ lower-fidelity estimates of a target value to improve the prediction of that value.
-    ExaMol supports multi-fidelity through the ability to provide more than one recipe as inputs to
-    :meth:`transform_inputs` and :meth:`transform_outputs`.
-
-    Implementations of Scorers must be designed to support multi-fidelity learning.
     """
 
-    _supports_multi_fidelity: bool = False
-    """Whether the class supports multi-fidelity optimization"""
-
-    def transform_inputs(self, record_batch: list[MoleculeRecord], recipes: Sequence[PropertyRecipe] | None = None) -> list:
+    def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
         """Form inputs for the model based on the data in a molecule record
 
         Args:
             record_batch: List of records to pre-process
-            recipes: List of recipes ordered from lowest to highest fidelity.
-                Only used in multi-fidelity scoring algorithms
         Returns:
             List of inputs ready for :meth:`score` or :meth:`retrain`
         """
         raise NotImplementedError()
 
-    # TODO (wardlt): I'm not super-happy with multi-fidelity being inferred from input types. What if we want multi-objective learning
-    def transform_outputs(self, records: list[MoleculeRecord], recipe: PropertyRecipe | Sequence[PropertyRecipe]) -> np.ndarray:
+    def transform_outputs(self, records: list[MoleculeRecord], recipe: PropertyRecipe) -> np.ndarray:
         """Gather the target outputs of the model
 
         Args:
             records: List of records from which to extract outputs
             recipe: Target recipe for the scorer for single-fidelity learning
-                or a list of recipes ordered from lowest to highest fidelity
-                for multi-objective learning.
         Returns:
             Outputs ready for model training
         """
-        # Determine if we are doing single or multi-fidelity learning
-        is_single = False
-        if isinstance(recipe, PropertyRecipe):
-            is_single = True
-            recipes = [recipe]
-        else:
-            if not self._supports_multi_fidelity:  # pragma: no-coverage
-                raise ValueError(f'{self.__class__.__name__} does not support multi-fidelity training')
-            recipes = recipe
-
-        # Gather the outputs
-        output = collect_outputs(records, recipes)
-        if is_single:
-            return output[:, 0]
-        return output
+        return collect_outputs(records, [recipe])[:, -1]
 
     def prepare_message(self, model: object, training: bool = False) -> object:
         """Get the model state as a serializable object
@@ -139,4 +109,20 @@ class Scorer:
         Returns:
             Updated model
         """
+        raise NotImplementedError()
+
+
+class MultiFidelityScorer(Scorer):
+    """Base class for scorers which support multi-fidelity learning
+
+    All subclasses support a "lower_fidelities" keyword argument to the
+    :meth:`score` and :meth:`retrain` functions that takes any lower-fidelity information available.
+    Subclasses should train a multi-fidelity model if provided lower-fidelity data during
+    training and use the lower-fidelity data to enhance prediction accuracy during scoring.
+    """
+
+    def score(self, model_msg: object, inputs: list, lower_fidelities: np.ndarray | None = None, **kwargs) -> np.ndarray:
+        raise NotImplementedError()
+
+    def retrain(self, model_msg: object, inputs: list, outputs: list, lower_fidelities: np.ndarray | None = None, **kwargs) -> object:
         raise NotImplementedError()
