@@ -150,14 +150,11 @@ def test_message(model):
 
 def test_multifi_loader(training_set, scorer, multifi_recipes):
     # Convert the input data
-    inputs = scorer.transform_inputs(training_set, multifi_recipes)
-    outputs = scorer.transform_outputs(training_set, multifi_recipes)
-    assert np.isclose(inputs[0][1], [1., 2., 3.]).all()
-    assert np.isclose(outputs[0], inputs[0][1]).all()
+    inputs = scorer.transform_inputs(training_set)
 
     # Test the loader
-    input_dicts, _ = zip(*inputs)  # Get just the input dictionaries
-    loader = make_data_loader(input_dicts, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((len(multifi_recipes),), dtype=tf.float32))
+    outputs = collect_outputs(training_set, multifi_recipes)
+    loader = make_data_loader(inputs, outputs.tolist(), batch_size=1, value_spec=tf.TensorSpec((len(multifi_recipes),), dtype=tf.float32))
     batch_x, batch_y = next(iter(loader))
     assert np.isclose(batch_y, [1., 2., 3.]).all()  # All three levels
 
@@ -165,30 +162,20 @@ def test_multifi_loader(training_set, scorer, multifi_recipes):
 @mark.parametrize('atomwise', [True, False])
 def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     # Make the network
-    model = make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16], outputs=3)
-    assert model.output_shape == (None, 3)
-    true_outputs = collect_outputs(training_set, multifi_recipes)[:, -1]
+    model = make_simple_network(atom_features=8, message_steps=4, output_layers=[32, 16], outputs=len(multifi_recipes))
+    assert model.output_shape == (None, len(multifi_recipes))
+    lower_fidelities = collect_outputs(training_set, multifi_recipes[:-1])
 
     # Train it
-    parsed_inputs = scorer.transform_inputs(training_set, multifi_recipes)
-    parsed_outputs = scorer.transform_outputs(training_set, multifi_recipes)
+    parsed_inputs = scorer.transform_inputs(training_set)
+    parsed_outputs = scorer.transform_outputs(training_set, multifi_recipes[-1])
     model_msg = scorer.prepare_message(model, training=True)
 
-    update_msg = scorer.retrain(model_msg, parsed_inputs, parsed_outputs, timeout=1, batch_size=1)
+    update_msg = scorer.retrain(model_msg, parsed_inputs, parsed_outputs, lower_fidelities=lower_fidelities, timeout=1, batch_size=1)
     model = scorer.update(model, update_msg)
 
     # Run it
     model_msg = scorer.prepare_message(model, training=False)
-    preds = scorer.score(model_msg, parsed_inputs)
+    preds = scorer.score(model_msg, parsed_inputs, lower_fidelities=lower_fidelities)
     assert np.isfinite(preds).all()
-    # We should not actually use model predictions, so result should be the same
-    assert np.isclose(preds, true_outputs).all()
-
-    # Eliminate the top level and verify that we still get predictions
-    top_level = multifi_recipes[-1]
-    for record in training_set:
-        record.properties[top_level.name].pop(top_level.level)
-    parsed_inputs = scorer.transform_inputs(training_set, multifi_recipes)
-    preds = scorer.score(model_msg, parsed_inputs)
-    assert np.isfinite(preds).all()
-    assert np.isclose(preds, true_outputs, atol=1e-1).all()  # It should still be _close_
+    assert np.isclose(preds, parsed_outputs).all()  # The results should at least be close, as the model should predict "1" for all entries
