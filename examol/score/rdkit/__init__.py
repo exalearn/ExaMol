@@ -1,9 +1,11 @@
 """Scorers that rely on RDKit and sklearn"""
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Union
 
 import numpy as np
+from sklearn import clone
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsRegressor
@@ -13,27 +15,78 @@ from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
 from examol.score.base import Scorer
+from examol.score.utils.multifi import collect_outputs, compute_deltas
 from examol.score.rdkit.descriptors import compute_morgan_fingerprints, compute_doan_2020_fingerprints
 from examol.store.models import MoleculeRecord
 
+ModelType = Pipeline | list[Pipeline]
+"""Model is a single for training and a list of models after training"""
+InputType = list[tuple[str, np.ndarray | None]]
+"""Model inputs are the SMILES string of the molecule and either the known values for the properties, for multi-fidelity learning,
+or None, for single fidelity"""
 
+
+def _unpack(inputs: InputType) -> tuple[list[str], np.ndarray | None]:
+    smiles, values = zip(*inputs)
+    if any(v is None for v in values):
+        return smiles, None
+    return smiles, np.array(values)
+
+
+@dataclass
 class RDKitScorer(Scorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn
 
     Models must take a SMILES string as input.
     Use the :class:`~.FingerprintTransformer` to transform the SMILES into an RDKit Mol object if needed.
+
+    **Multi Fidelity Learning**
+
+    We implement multi-fidelity learning by training separate models for each level of fidelity.
+
+    The model for the lowest level of fidelity is trained to predict the value of the property
+    and each subsequent model predicts the delta between it and the previous step.
+
+    On inference, we use the known values for either the lowest level of fidelity or
+    the deltas in place of the predictions from the machine learning models.
     """
 
-    def transform_inputs(self, record_batch: list[MoleculeRecord]) -> list:
-        return [x.identifier.smiles for x in record_batch]
+    _supports_multi_fidelity: bool = True
 
-    def prepare_message(self, model: Pipeline, training: bool = True) -> Pipeline:
-        return model
+    def transform_inputs(self, record_batch: list[MoleculeRecord], recipes=None) -> InputType:
+        smiles = [x.identifier.smiles for x in record_batch]
+        if recipes is None:
+            return list((s, None) for s in smiles)
+        else:
+            outputs = collect_outputs(record_batch, recipes)
+            return list(zip(smiles, outputs))
 
-    def score(self, model_msg: Pipeline, inputs: list, **kwargs) -> np.ndarray:
-        return model_msg.predict(inputs)
+    def prepare_message(self, model: ModelType, training: bool = True) -> ModelType:
+        if training:
+            # Only send a single model for training
+            return model[0] if isinstance(model, list) else model
+        else:
+            # Send the whole list for inference
+            return model
 
-    def retrain(self, model_msg: Pipeline, inputs: list, outputs: np.ndarray, bootstrap: bool = True, **kwargs) -> object:
+    def score(self, model_msg: ModelType, inputs: InputType, **kwargs) -> np.ndarray:
+        smiles, values = _unpack(inputs)
+        if values is None:
+            return model_msg.predict(smiles)
+        else:
+            # Get the known deltas
+            deltas = compute_deltas(values)
+
+            # Run the model at each level
+            for my_level, my_model in enumerate(model_msg):
+                my_preds = my_model.predict(smiles)
+                is_unknown = np.isnan(deltas[:, my_level])
+                deltas[:, is_unknown] = my_preds[is_unknown]
+
+            # Sum up the deltas
+            return np.sum(deltas, axis=1)
+
+    def retrain(self, model_msg: Pipeline, inputs: InputType, outputs: np.ndarray, bootstrap: bool = True, **kwargs) -> ModelType:
         """Retrain the scorer based on new training records
 
         Args:
@@ -45,15 +98,38 @@ class RDKitScorer(Scorer):
             Message defining how to update the model
         """
         # If desired, resample with replacement
+        smiles, values = _unpack(inputs)
         if bootstrap:
             samples = np.random.random_integers(0, len(inputs) - 1, size=(len(inputs),))
-            inputs = [inputs[i] for i in samples]
-            outputs = outputs[samples]
+            smiles = [smiles[i] for i in samples]
+            if values is not None:
+                values = values[samples, :]
+                outputs = outputs[samples, :]
+            else:
+                outputs = outputs[samples]
 
-        model_msg.fit(inputs, outputs)
-        return model_msg
+        if values is None:
+            # For single level, train a single model
+            model_msg.fit(smiles, outputs)
+            return model_msg
+        else:
+            # Compute the delta and then train a different model for each delta
+            deltas = compute_deltas(values)
 
-    def update(self, model: object, update_msg: object) -> object:
+            models = []
+            for y in deltas.T:
+                # Remove the missing values
+                mask = np.isfinite(y)
+                my_smiles = [i for m, i in zip(mask, smiles) if m]
+                y = y[mask]
+
+                # Fit a fresh copy of the model
+                my_model: Pipeline = clone(model_msg)
+                my_model.fit(my_smiles, y)
+                models.append(my_model)
+            return models
+
+    def update(self, model: ModelType, update_msg: ModelType) -> ModelType:
         return update_msg
 
 
