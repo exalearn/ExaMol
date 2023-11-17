@@ -4,23 +4,9 @@ from typing import Sequence
 
 import numpy as np
 
+from examol.score.utils.multifi import collect_outputs
 from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
-
-
-def collect_outputs(records: list[MoleculeRecord], recipes: Sequence[PropertyRecipe]) -> np.ndarray:
-    """Collect the outputs for several recipe for each molecule
-
-    Args:
-        records: Molecule records to be summarized
-        recipes: List of recipes to include
-    Returns:
-        Matrix where each row is a different molecule, and each column is a different recipe
-    """
-    return np.array([
-        [record.properties.get(recipe.name, {}).get(recipe.level, np.nan) for recipe in recipes]
-        for record in records
-    ])
 
 
 @dataclass

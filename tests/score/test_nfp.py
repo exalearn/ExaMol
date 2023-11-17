@@ -1,6 +1,6 @@
 import pickle as pkl
 
-from examol.score.base import collect_outputs
+from examol.score.utils.multifi import collect_outputs
 
 try:
     import tensorflow as tf

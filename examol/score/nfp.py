@@ -13,7 +13,8 @@ import nfp
 from examol.store.models import MoleculeRecord
 from examol.utils.conversions import convert_string_to_nx
 from examol.store.recipes import PropertyRecipe
-from .base import Scorer, collect_outputs
+from .base import Scorer
+from .utils.multifi import collect_outputs, compute_deltas
 from .utils.tf import LRLogger, TimeLimitCallback, EpochTimeLogger
 
 
@@ -340,11 +341,8 @@ class NFPScorer(Scorer):
 
         # Unpack the known values if running multiobjective learning
         is_single = isinstance(inputs[0], dict)
-        known_outputs = None
-        if not is_single:
+        if is_single:
             inputs, known_outputs = zip(*inputs)
-            known_outputs = np.array(known_outputs)
-            known_outputs[:, 1:] = np.diff(known_outputs)
 
         # Run inference
         loader = make_data_loader(inputs, batch_size=batch_size)
@@ -353,7 +351,8 @@ class NFPScorer(Scorer):
             return ml_outputs
 
         # For multi-objective, add in the use the known outputs in place of the NN outputs
-        best_outputs = np.where(np.isnan(known_outputs), ml_outputs, known_outputs)
+        deltas = compute_deltas(known_outputs)
+        best_outputs = np.where(np.isnan(deltas), ml_outputs, deltas)
         best_outputs = best_outputs.cumsum(axis=1)  # The outputs of the networks are deltas
         return best_outputs[:, -1]  # Return only the highest level of fidelity
 
@@ -413,8 +412,7 @@ class NFPScorer(Scorer):
             inputs, _ = zip(*inputs)  # We do not need the input values for training
 
             # Prepare the outputs
-            outputs = outputs.copy()
-            outputs[:, 1:] = np.diff(outputs)  # Compute the deltas between successive stages
+            outputs = compute_deltas(outputs)
             value_spec = tf.TensorSpec((outputs.shape[1],), dtype=tf.float32)
 
         # Split off a validation set
