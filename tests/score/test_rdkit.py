@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 
 import numpy as np
-from pytest import fixture
+from pytest import fixture, mark
 from sklearn.pipeline import Pipeline
 
 from examol.score.rdkit.descriptors import compute_doan_2020_fingerprints
@@ -21,24 +21,26 @@ def scorer() -> RDKitScorer:
 
 
 def test_transform(training_set, scorer, recipe):
-    assert scorer.transform_inputs(training_set) == ['C', 'CC', 'CCC']
+    assert scorer.transform_inputs(training_set)[0] == ['C', 'CC', 'CCC']
     assert np.isclose(scorer.transform_outputs(training_set, recipe), [1, 2, 3]).all()
 
 
-def test_functions(training_set, scorer, pipeline, recipe):
+@mark.parametrize('bootstrap', [True, False])
+def test_functions(training_set, scorer, pipeline, recipe, bootstrap):
     model_msg = scorer.prepare_message(pipeline)
     assert isinstance(model_msg, Pipeline)
 
     # Test training
     inputs = scorer.transform_inputs(training_set)
     outputs = scorer.transform_outputs(training_set, recipe)
-    update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=False)
+    update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=bootstrap)
     pipeline, scorer.update(pipeline, update_msg)
 
     # Test scoring
     model_msg = scorer.prepare_message(pipeline)
     scores = scorer.score(model_msg, inputs)
-    assert np.isclose(scores, outputs).all()  # KNN should fit the dataset perfectly
+    if not bootstrap:
+        assert np.isclose(scores, outputs).all()  # KNN should fit the dataset perfectly
 
 
 def test_doan_descriptors():
@@ -55,7 +57,32 @@ def test_gpr(training_set, scorer, recipe):
     model_msg = scorer.prepare_message(pipeline)
     inputs = scorer.transform_inputs(training_set)
     outputs = scorer.transform_outputs(training_set, recipe)
-    update_msg = scorer.retrain(model_msg, inputs, outputs)
+    update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=False)
     pipeline, scorer.update(pipeline, update_msg)
 
     assert pipeline.best_estimator_.steps[1][1].n_components < 10
+
+
+@mark.parametrize('bootstrap', [True, False])
+def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
+    # Test conversion to multi-fidelity
+    inputs = scorer.transform_inputs(training_set, multifi_recipes)
+    smiles, values = inputs
+    assert smiles[0] == training_set[0].identifier.smiles
+    assert values is not None
+
+    # Test training
+    model_msg = scorer.prepare_message(pipeline, training=True)
+    outputs = scorer.transform_outputs(training_set, multifi_recipes)
+    update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=bootstrap)
+    assert len(update_msg) == len(multifi_recipes)
+
+    # Test updating
+    pipeline = scorer.update(pipeline, update_msg)
+    assert len(pipeline) == len(multifi_recipes)
+
+    # Test inference
+    model_msg = scorer.prepare_message(pipeline, training=False)
+    outputs = scorer.score(model_msg, inputs)
+    assert outputs.shape == (len(training_set),)
+    assert np.isclose(outputs, values[:, -1]).all()  # Should give exact result, since all values are known
