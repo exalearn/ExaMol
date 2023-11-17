@@ -354,7 +354,7 @@ class SingleStepThinker(MoleculeThinker):
         selector.start_gathering()
 
         # Gather all inference results
-        n_tasks = len(all_done[0]) * len(all_done)
+        n_tasks = all_done.size
         self.logger.info(f'Prepared to receive {n_tasks} results')
         for i in range(n_tasks):
             # Find which result this is
@@ -374,13 +374,13 @@ class SingleStepThinker(MoleculeThinker):
             inference_results[chunk_id][recipe_id, :, model_id] = np.squeeze(result.value)
 
             # Check if we are done for the whole chunk (all models for this chunk)
-            if all_done[:, :, chunk_id].all():
+            if all_done[chunk_id, :, :].all():
                 self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
                 selector.add_possibilities(chunk_smiles[chunk_id], inference_results[chunk_id])
 
-            # If we are done with the model
-            if all_done[:, model_id, :].all():
-                self.logger.info(f'Done with all inference tasks for model={model_id}. Evicting proxy, if any.')
+            # If we are done with all chunks for a model
+            if all_done[:, recipe_id, model_id].all():
+                self.logger.info(f'Done with all inference tasks for recipe={recipe_id} model={model_id}. Evicting proxy, if any.')
                 if self._model_proxies[recipe_id][model_id] is not None:
                     key = get_key(self._model_proxies[recipe_id][model_id])
                     self.inference_store.evict(key)
