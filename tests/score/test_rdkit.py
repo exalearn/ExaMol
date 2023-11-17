@@ -21,7 +21,7 @@ def scorer() -> RDKitScorer:
 
 
 def test_transform(training_set, scorer, recipe):
-    assert scorer.transform_inputs(training_set)[0] == ['C', 'CC', 'CCC']
+    assert scorer.transform_inputs(training_set)[0][0] == 'C'
     assert np.isclose(scorer.transform_outputs(training_set, recipe), [1, 2, 3]).all()
 
 
@@ -67,9 +67,8 @@ def test_gpr(training_set, scorer, recipe):
 def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
     # Test conversion to multi-fidelity
     inputs = scorer.transform_inputs(training_set, multifi_recipes)
-    smiles, values = inputs
-    assert smiles[0] == training_set[0].identifier.smiles
-    assert values is not None
+    assert inputs[0][0] == training_set[0].identifier.smiles
+    assert inputs[0][1] is not None
 
     # Test training
     model_msg = scorer.prepare_message(pipeline, training=True)
@@ -85,4 +84,5 @@ def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
     model_msg = scorer.prepare_message(pipeline, training=False)
     outputs = scorer.score(model_msg, inputs)
     assert outputs.shape == (len(training_set),)
-    assert np.isclose(outputs, values[:, -1]).all()  # Should give exact result, since all values are known
+    values = [v[-1] for _, v in inputs]
+    assert np.isclose(outputs, values).all()  # Should give exact result, since all values are known

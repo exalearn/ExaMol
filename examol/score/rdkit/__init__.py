@@ -30,7 +30,7 @@ def _unpack(inputs: InputType) -> tuple[list[str], np.ndarray | None]:
     smiles, values = zip(*inputs)
     if any(v is None for v in values):
         return smiles, None
-    return smiles, np.ndarray(values)
+    return smiles, np.array(values)
 
 
 @dataclass
