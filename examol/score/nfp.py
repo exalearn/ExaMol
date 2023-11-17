@@ -341,7 +341,8 @@ class NFPScorer(Scorer):
 
         # Unpack the known values if running multiobjective learning
         is_single = isinstance(inputs[0], dict)
-        if is_single:
+        known_outputs = None
+        if not is_single:
             inputs, known_outputs = zip(*inputs)
 
         # Run inference
