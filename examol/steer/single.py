@@ -19,7 +19,7 @@ from colmena.thinker import event_responder, ResourceCounter, agent
 from more_itertools import interleave_longest, batched
 from proxystore.proxy import extract, Proxy
 from proxystore.store import Store
-from proxystore.store.utils import get_key, ConnectorKeyT
+from proxystore.store.utils import get_key
 
 from .base import MoleculeThinker
 from examol.solution import SingleFidelityActiveLearning
@@ -110,8 +110,8 @@ class SingleStepThinker(MoleculeThinker):
             raise ValueError('You must provide the same number of models for each class')
         if len(self.models) != len(recipes):  # pragma: no-coverage
             raise ValueError('You must provide as many model ensembles as recipes')
-        self._model_proxy_keys: list[list[ConnectorKeyT | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model(s)
-        self._ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
+        self._model_proxies: list[list[Proxy | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model(s)
+        self.ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
 
         # Partition the search space into smaller chunks
         self.search_space_smiles: list[list[str]]
@@ -289,14 +289,21 @@ class SingleStepThinker(MoleculeThinker):
 
             # Signal to begin inference
             self.start_inference.set()
-            self._ready_models.put((recipe_id, model_id))
+            self.ready_models.put((recipe_id, model_id))
         self.logger.info('Finished training all models')
 
-    def submit_inference(self) -> tuple[np.ndarray, list[np.ndarray]]:
+    def submit_inference(self) -> tuple[list[list[str]], np.ndarray, list[np.ndarray]]:
         """Submit all molecules to be evaluated, return placeholders for their outputs
 
+        Inference tasks are submitted with a few bits of metadata
+            - recipe_id: Index of the recipe being evaluated
+            - model_id: Index of the model being evaluated
+            - chunk_id: Index of the chunk of molecules
+            - chunk_size: Number of molecules in chunks being evaluated
+
         Returns:
-            - Boolean array marking if inference task are done ``n_chunks x recipes x ensemble_size x ``
+            - Smiles strings of the molecules being evaluated
+            - Boolean array marking if inference task is done ``n_chunks x recipes x ensemble_size``
             - List of arrays in which to store inference results a total of ``n_chunks`` arrays of size ``recipes x batch_size x models ``
         """
 
@@ -306,14 +313,14 @@ class SingleStepThinker(MoleculeThinker):
         # Submit a model as soon as it is read
         for i in range(self.num_models):
             # Wait for a model to finish training
-            recipe_id, model_id = self._ready_models.get()
+            recipe_id, model_id = self.ready_models.get()
             model = self.models[recipe_id][model_id]
 
             # Serialize and, if available, proxy the model
             model_msg = self.scorer.prepare_message(model, training=False)
             if store is not None:
                 model_msg = store.proxy(model_msg)
-                self._model_proxy_keys[recipe_id][model_id] = get_key(model_msg)
+                self._model_proxies[recipe_id][model_id] = model_msg
             self.logger.info(f'Preparing to submit tasks for model {i + 1}/{self.num_models}.')
 
             for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_smiles)):
@@ -332,14 +339,14 @@ class SingleStepThinker(MoleculeThinker):
         inference_results: list[np.ndarray] = [
             np.zeros((len(self.recipes), len(chunk), ensemble_size)) for chunk in self.search_space_smiles
         ]  # (chunk, recipe, molecule, model)
-        return all_done, inference_results
+        return list(self.search_space_smiles), all_done, inference_results
 
     @event_responder(event_name='start_inference')
     def run_inference(self):
         """Store inference results then update the task list"""
 
         # Submit the tasks and prepare the storage
-        all_done, inference_results = self.submit_inference()
+        chunk_smiles, all_done, inference_results = self.submit_inference()
 
         # Reset the selector
         selector = self.solution.selector
@@ -369,13 +376,14 @@ class SingleStepThinker(MoleculeThinker):
             # Check if we are done for the whole chunk (all models for this chunk)
             if all_done[:, :, chunk_id].all():
                 self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
-                selector.add_possibilities(self.search_space_smiles[chunk_id], inference_results[chunk_id])
+                selector.add_possibilities(chunk_smiles[chunk_id], inference_results[chunk_id])
 
             # If we are done with the model
             if all_done[:, model_id, :].all():
-                self.logger.info(f'Done with all inference tasks for model={model_id}. Evicting.')
-                if self._model_proxy_keys[recipe_id][model_id] is not None:
-                    self.inference_store.evict(self._model_proxy_keys[recipe_id][model_id])
+                self.logger.info(f'Done with all inference tasks for model={model_id}. Evicting proxy, if any.')
+                if self._model_proxies[recipe_id][model_id] is not None:
+                    key = get_key(self._model_proxies[recipe_id][model_id])
+                    self.inference_store.evict(key)
 
             # Mark that we're done with this result
             self.logger.info(f'Done processing inference result {i + 1}/{n_tasks}. Time: {perf_counter() - start_time:.2e}s')

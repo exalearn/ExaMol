@@ -6,6 +6,7 @@ from typing import Sequence, Iterable
 
 import numpy as np
 from colmena.queue import ColmenaQueues
+from more_itertools import batched
 
 from examol.solution import MultiFidelityActiveLearning
 from examol.steer.single import SingleStepThinker
@@ -36,7 +37,8 @@ class PipelineThinker(SingleStepThinker):
                  search_space: list[Path | str],
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, run_dir, recipes, solution, search_space, database, inference_chunk_size)
+        super().__init__(queues, run_dir, recipes, solution, search_space, database, num_workers, inference_chunk_size)
+        self.inference_chunk_size = inference_chunk_size
 
         # Initialize the list of relevant database records
         self.already_in_db = self.get_relevant_database_records()
@@ -124,3 +126,51 @@ class PipelineThinker(SingleStepThinker):
                     all_keys.remove(search_key)
 
         return matched
+
+    def submit_inference(self) -> tuple[list[list[str]], np.ndarray, list[np.ndarray]]:
+        # Submit the tasks from the whole search space
+        all_smiles, all_is_done, all_results = super().submit_inference()
+
+        # Submit the tasks from the database
+        self.logger.info('Submitting the molecules with data from the database')
+        initial_chunks = len(all_smiles)
+        store = self.inference_store
+        batch_count = 0
+        for batch_id, db_chunk in enumerate(
+                batched(filter(lambda x: x.key in self.already_in_db, self.database.iterate_over_records()), self.inference_chunk_size)
+        ):
+            batch_count += 1
+
+            # Prepare the inputs and proxy them, if desired
+            all_smiles.append([r.identifier.smiles for r in db_chunk])
+            chunk_inputs = self.scorer.transform_inputs(db_chunk)
+            if store is not None:
+                chunk_inputs = store.proxy(chunk_inputs)
+
+            # Submit models for all chunks
+            for recipe_id in range(len(self.recipes)):
+                for model_id, model in enumerate(self.models[recipe_id]):
+                    # Either get the model or the proxy
+                    if self._model_proxies[recipe_id][model_id] is None:
+                        model_msg = self.scorer.prepare_message(model, training=False)
+                    else:
+                        model_msg = self._model_proxies[recipe_id][model_id]
+
+                    self.queues.send_inputs(
+                        model_msg, chunk_inputs,
+                        method='score',
+                        topic='inference',
+                        task_info={'recipe_id': recipe_id, 'model_id': model_id, 'chunk_id': batch_id + initial_chunks, 'chunk_size': len(db_chunk)}
+                    )
+
+            # Create placeholder for the outputs
+            all_results.append(np.empty((len(self.recipes), len(db_chunk), len(self.models[0]))))
+            self.logger.info(f'Submitted all tasks for batch={batch_id} of records in the database')
+
+        # Append to the "all done" array
+        all_is_done = np.concatenate([
+            np.zeros((batch_count, len(self.recipes), len(self.models[0])), dtype=bool),
+            all_is_done
+        ], axis=0)
+
+        return all_smiles, all_is_done, all_results

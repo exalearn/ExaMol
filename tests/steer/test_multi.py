@@ -7,6 +7,7 @@ from examol.start.fast import RandomStarter
 from examol.solution import MultiFidelityActiveLearning
 from examol.steer.multifi import PipelineThinker
 from examol.store.recipes import RedoxEnergy
+from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
 @fixture()
@@ -42,8 +43,29 @@ def test_initialize(thinker):
 
 
 def test_detect_relevant(thinker):
+    assert len(thinker.get_relevant_database_records()) == 0
+
     thinker.database.get_or_make_record('C')
     assert thinker.get_relevant_database_records() == {'VNWKTOKETHGBQD-UHFFFAOYSA-N'}
+
+
+def test_submit_inference(thinker):
+    # Without any relevant data in our database
+    for recipe_ind, models in enumerate(thinker.models):
+        for model_ind, _ in enumerate(models):
+            thinker.ready_models.put((recipe_ind, model_ind))
+    all_smiles, all_is_done, all_results = thinker.submit_inference()
+    assert len(all_smiles) == 1
+
+    # Ensure at least one molecule is read from the database
+    thinker.database.get_or_make_record('C')
+    thinker.already_in_db.add(get_inchi_key_from_molecule_string('C'))
+    for recipe_ind, models in enumerate(thinker.models):
+        for model_ind, _ in enumerate(models):
+            thinker.ready_models.put((recipe_ind, model_ind))
+    all_smiles, all_is_done, all_results = thinker.submit_inference()
+    assert len(all_smiles) == 2
+    assert all_results[-1].shape == (1, 1, len(thinker.models[0]))
 
 
 def test_detect_level(thinker, recipe):
