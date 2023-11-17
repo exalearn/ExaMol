@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from pytest import fixture, mark
@@ -104,3 +105,15 @@ def test_iterator(thinker, recipe, mocker):
             assert recipes[0].level == 'mopac_pm7-vertical'
             assert request.config_name == 'mopac_pm7', f'choice={choice}'
             assert len(thinker.task_queue) == 0
+
+
+@mark.timeout(120)
+def test_thinker(thinker: PipelineThinker, database, caplog):
+    caplog.set_level(logging.ERROR)
+
+    # Make sure it is set up right
+    assert len(thinker.search_space_smiles) == 1
+
+    # Run it
+    thinker.run()
+    assert len(caplog.records) == 0, caplog.records[0]

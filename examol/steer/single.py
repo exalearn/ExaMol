@@ -304,7 +304,7 @@ class SingleStepThinker(MoleculeThinker):
         Returns:
             - Smiles strings of the molecules being evaluated
             - Boolean array marking if inference task is done ``n_chunks x recipes x ensemble_size``
-            - List of arrays in which to store inference results a total of ``n_chunks`` arrays of size ``recipes x batch_size x models ``
+            - List of arrays in which to store inference results a total of ``n_chunks`` arrays of size ``recipes x batch_size x models``
         """
 
         # Get the proxystore for inference, if defined
@@ -341,6 +341,19 @@ class SingleStepThinker(MoleculeThinker):
         ]  # (chunk, recipe, molecule, model)
         return list(self.search_space_smiles), all_done, inference_results
 
+    def _filter_inference_results(self, chunk_id: int, chunk_smiles: list[str], inference_results: np.ndarray) -> tuple[list[str], np.ndarray]:
+        """Remove entries from the input array before adding to the selector
+
+        Args:
+            chunk_id: Index of the chunk being processed
+            chunk_smiles: SMILES strings for molecules in this chunk
+            inference_results: Results for the inference
+        Returns:
+             - SMILES strings of chunk after filtering
+             - Inference results after filtering
+        """
+        return chunk_smiles, inference_results
+
     @event_responder(event_name='start_inference')
     def run_inference(self):
         """Store inference results then update the task list"""
@@ -376,7 +389,8 @@ class SingleStepThinker(MoleculeThinker):
             # Check if we are done for the whole chunk (all models for this chunk)
             if all_done[chunk_id, :, :].all():
                 self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
-                selector.add_possibilities(chunk_smiles[chunk_id], inference_results[chunk_id])
+                chunk_smiles, chunk_results = self._filter_inference_results(chunk_id, chunk_smiles[chunk_id], inference_results[chunk_id])
+                selector.add_possibilities(chunk_smiles, chunk_results)
 
             # If we are done with all chunks for a model
             if all_done[:, recipe_id, model_id].all():

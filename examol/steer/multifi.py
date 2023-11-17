@@ -1,4 +1,5 @@
 """Scheduling strategies for multi-fidelity design campaigns"""
+import math
 from pathlib import Path
 from multiprocessing import Pool
 from functools import cached_property
@@ -73,6 +74,13 @@ class PipelineThinker(SingleStepThinker):
         return self.num_levels
 
     def _get_next_tasks(self) -> tuple[MoleculeRecord, float, Iterable[PropertyRecipe]]:
+        # Special case: Return first entry if its priority is infinite
+        if math.isinf(self.task_queue[0][1]):
+            smiles, score = self.task_queue.pop(0)
+            record = self.database.get_or_make_record(smiles)
+            level = self.get_level(smiles)
+            return record, score, self.steps[level]
+
         # Determine which level of accuracy to run
         weights = np.cumprod([self.solution.pipeline_target] * self.num_levels)
         weights /= weights.sum()
@@ -174,3 +182,24 @@ class PipelineThinker(SingleStepThinker):
         ], axis=0)
 
         return all_smiles, all_is_done, all_results
+
+    def _filter_inference_results(self, chunk_id: int, chunk_smiles: list[str], inference_results: np.ndarray) -> tuple[list[str], np.ndarray]:
+        if chunk_id < len(self.search_space_smiles):
+            # Remove molecules from the chunk which are in the database
+            #  TODO (wardlt): Parallelize this
+            mask = [get_inchi_key_from_molecule_string(s) not in self.already_in_db for s in chunk_smiles]
+            return [s for m, s in zip(mask, chunk_smiles) if m], inference_results[:, mask, :]
+        else:
+            return chunk_smiles, inference_results
+
+    def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
+        # Find all levels at which we compute this property
+        to_match = self.solution.get_levels_for_property(recipe)
+        self.logger.info(f'Finding all records which compute {recipe.name} at levels: {", ".join(to_match)}')
+
+        # Match records that hit _any_ of them
+        output = []
+        for record in self.database.iterate_over_records():
+            if recipe.name in record.properties and any(x in record.properties[recipe.name] for x in to_match):
+                output.append(record)
+        return output
