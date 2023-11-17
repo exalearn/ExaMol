@@ -22,7 +22,7 @@ def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> PipelineT
         selector=RandomSelector(10),
         minimum_training_size=4,
         num_to_run=3,
-        pipeline_target=1.
+        pipeline_target=0.5
     )
     return PipelineThinker(
         queues=queues,
@@ -86,9 +86,10 @@ def test_iterator(thinker, recipe, mocker):
     for choice in [0, 1]:
         with mocker.patch('numpy.random.choice', return_value=choice):
             thinker.task_queue = [('C', 0)]
-            record, request = next(thinker.task_iterator)
+            record, recipes, request = next(thinker.task_iterator)
             assert record.identifier.smiles == 'C'
             assert request.config_name == 'xtb'
+            assert recipes[0].level == 'xtb-vertical'
             assert len(thinker.task_queue) == 0
 
     # Test after we add data for C
@@ -98,7 +99,8 @@ def test_iterator(thinker, recipe, mocker):
     for choice in [0, 1]:
         with mocker.patch('numpy.random.choice', return_value=choice):
             thinker.task_queue = [('C', 0)]
-            record, request = next(thinker.task_iterator)
+            record, recipes, request = next(thinker.task_iterator)
             assert record.identifier.smiles == 'C'
+            assert recipes[0].level == 'mopac_pm7-vertical'
             assert request.config_name == 'mopac_pm7', f'choice={choice}'
             assert len(thinker.task_queue) == 0
