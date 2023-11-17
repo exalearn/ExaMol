@@ -25,13 +25,6 @@ InputType = list[str]
 """Model inputs are the SMILES string of the molecule"""
 
 
-def _unpack(inputs: InputType) -> tuple[list[str], np.ndarray | None]:
-    smiles, values = zip(*inputs)
-    if any(v is None for v in values):
-        return smiles, None
-    return smiles, np.array(values)
-
-
 @dataclass
 class RDKitScorer(MultiFidelityScorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn
