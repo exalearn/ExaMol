@@ -9,6 +9,7 @@ from examol.store.models import MoleculeRecord
 from examol.store.recipes import PropertyRecipe
 
 
+# TODO (wardlt): Make this a generic class once we move to Py3.12. https://peps.python.org/pep-0695/
 @dataclass
 class Scorer:
     """Base class for algorithms which quickly assign a score to a molecule, typically using a machine learning model

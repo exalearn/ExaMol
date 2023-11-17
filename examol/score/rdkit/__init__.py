@@ -21,9 +21,16 @@ from examol.store.models import MoleculeRecord
 
 ModelType = Pipeline | list[Pipeline]
 """Model is a single for training and a list of models after training"""
-InputType = tuple[list[str], np.ndarray | None]
+InputType = list[tuple[str, np.ndarray | None]]
 """Model inputs are the SMILES string of the molecule and either the known values for the properties, for multi-fidelity learning,
 or None, for single fidelity"""
+
+
+def _unpack(inputs: InputType) -> tuple[list[str], np.ndarray | None]:
+    smiles, values = zip(*inputs)
+    if any(v is None for v in values):
+        return smiles, None
+    return smiles, np.ndarray(values)
 
 
 @dataclass
@@ -49,10 +56,10 @@ class RDKitScorer(Scorer):
     def transform_inputs(self, record_batch: list[MoleculeRecord], recipes=None) -> InputType:
         smiles = [x.identifier.smiles for x in record_batch]
         if recipes is None:
-            return smiles, None
+            return list((s, None) for s in smiles)
         else:
             outputs = collect_outputs(record_batch, recipes)
-            return smiles, outputs
+            return list(zip(smiles, outputs))
 
     def prepare_message(self, model: ModelType, training: bool = True) -> ModelType:
         if training:
@@ -63,7 +70,7 @@ class RDKitScorer(Scorer):
             return model
 
     def score(self, model_msg: ModelType, inputs: InputType, **kwargs) -> np.ndarray:
-        smiles, values = inputs
+        smiles, values = _unpack(inputs)
         if values is None:
             return model_msg.predict(smiles)
         else:
@@ -91,7 +98,7 @@ class RDKitScorer(Scorer):
             Message defining how to update the model
         """
         # If desired, resample with replacement
-        smiles, values = inputs
+        smiles, values = _unpack(inputs)
         if bootstrap:
             samples = np.random.random_integers(0, len(inputs) - 1, size=(len(inputs),))
             smiles = [smiles[i] for i in samples]
