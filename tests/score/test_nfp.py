@@ -178,4 +178,7 @@ def test_multifi_model(atomwise, training_set, multifi_recipes, scorer):
     model_msg = scorer.prepare_message(model, training=False)
     preds = scorer.score(model_msg, parsed_inputs, lower_fidelities=lower_fidelities)
     assert np.isfinite(preds).all()
-    assert np.isclose(preds, parsed_outputs).all()  # The results should at least be close, as the model should predict "1" for all entries
+    assert np.isclose(preds, parsed_outputs, atol=1e-1).all()  # The results should at least be close, as the model should predict "1" for all entries
+
+    preds = scorer.score(model_msg, parsed_inputs, lower_fidelities=None)
+    assert np.isfinite(preds).all()

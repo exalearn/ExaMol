@@ -62,12 +62,16 @@ class RDKitScorer(MultiFidelityScorer):
             return model
 
     def score(self, model_msg: ModelType, inputs: InputType, lower_fidelities: np.ndarray | None = None, **kwargs) -> np.ndarray:
-        if lower_fidelities is None:
+        if not isinstance(model_msg, list):
+            # Single objective
             return model_msg.predict(inputs)
         else:
             # Get the known deltas then append a NaN to the end (we don't know the last delta)
-            known_deltas = compute_deltas(lower_fidelities)
-            deltas = np.concatenate((known_deltas, np.empty_like(known_deltas[:, :1]) * np.nan), axis=1)
+            if lower_fidelities is None:
+                deltas = np.empty((len(inputs), len(model_msg))) * np.nan
+            else:
+                known_deltas = compute_deltas(lower_fidelities)
+                deltas = np.concatenate((known_deltas, np.empty_like(known_deltas[:, :1]) * np.nan), axis=1)
 
             # Run the model at each level
             for my_level, my_model in enumerate(model_msg):

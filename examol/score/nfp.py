@@ -343,11 +343,11 @@ class NFPScorer(MultiFidelityScorer):
         if ml_outputs.ndim == 1:  # Single-fidelity learning
             return ml_outputs
 
-        # For multi-objective, add in the use the known outputs in place of the NN outputs
-        known_outputs = np.concatenate([lower_fidelities, np.empty_like(lower_fidelities[:, :1]) * np.nan], axis=1)
-        deltas = compute_deltas(known_outputs)
-        best_outputs = np.where(np.isnan(deltas), ml_outputs, deltas)
-        return best_outputs.sum(axis=1)  # The outputs of the networks are deltas
+        # For multi-objective, add in the use the known outputs in place of the NN outputs if we know them
+        if lower_fidelities is not None:
+            known_deltas = compute_deltas(lower_fidelities)
+            ml_outputs[:, :-1] = np.where(np.isnan(known_deltas), ml_outputs[:, :-1], known_deltas)
+        return ml_outputs.sum(axis=1)  # The outputs of the networks are deltas
 
     def retrain(self,
                 model_msg: dict | NFPMessage,

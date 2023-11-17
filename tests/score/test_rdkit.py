@@ -85,3 +85,8 @@ def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
     predictions = scorer.score(model_msg, inputs, lower_fidelities=lower_fidelities)
     assert predictions.shape == (len(training_set),)
     assert np.isclose(predictions, outputs).all()  # Should give exact result, since all values are known
+
+    predictions = scorer.score(model_msg, inputs)
+    assert predictions.shape == (len(training_set),)
+    if not bootstrap:
+        assert np.isclose(predictions, outputs).all()  # Should give exact result, since all values are known and we're using a KNN
