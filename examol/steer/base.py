@@ -134,7 +134,7 @@ class MoleculeThinker(BaseThinker):
                     self.logger.info('No tasks available to run. Waiting')
                     while not self.task_queue_lock.wait(timeout=2):
                         if self.done.is_set():
-                            yield None, None
+                            yield None, None, None
             record, score, recipes = self._get_next_tasks()
             self.logger.info(f'Selected {record.key} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
 

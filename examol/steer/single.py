@@ -213,12 +213,24 @@ class SingleStepThinker(MoleculeThinker):
         """
         return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
 
+    # TODO (wardlt): Move to a function of the database class?
+    def count_training_size(self, recipe: PropertyRecipe) -> int:
+        """Count the number of entries available for training each recipe
+
+        Args:
+            recipe: Recipe being assessed
+        Return:
+            Number of records for which this property is defined
+        """
+
+        return len([None for r in self.database.iterate_over_records() if recipe.name in r.properties and recipe.level in r.properties[recipe.name]])
+
     @agent(startup=True)
     def startup(self):
         """Pre-populate the database, if needed."""
 
         # Determine how many training points are available
-        train_size = min(len(self._get_training_set(recipe)) for recipe in self.recipes)
+        train_size = min(self.count_training_size(r) for r in self.recipes)
 
         # If enough, start by training
         if train_size > self.solution.minimum_training_size:
@@ -235,6 +247,19 @@ class SingleStepThinker(MoleculeThinker):
                 self.task_queue.append((key, np.nan))  # All get the same score
             self.task_queue_lock.notify_all()
 
+    def get_additional_training_information(self, train_set: list[MoleculeRecord], recipe: PropertyRecipe) -> dict[str, object]:
+        """Determine any additional information to be provided during training
+
+        An example could be to gather low-fidelity data to use to augment the training process
+
+        Args:
+            train_set: Training set for the model
+            recipe: Recipe being trained
+        Returns:
+            Additional options
+        """
+        return {}
+
     @event_responder(event_name='start_training')
     def retrain(self):
         """Retrain all models"""
@@ -245,18 +270,22 @@ class SingleStepThinker(MoleculeThinker):
             return
 
         for recipe_id, recipe in enumerate(self.recipes):
+            # Count how many entries are available (maybe be fewer than data which are available for training)
+            train_size = min(self.count_training_size(r) for r in self.recipes)
+
+            # If too small, stop
+            if train_size < self.solution.minimum_training_size:
+                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
+                return
+
             # Get the training set
             train_set = self._get_training_set(recipe)
             self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')
 
-            # If too small, stop
-            if len(train_set) < self.solution.minimum_training_size:
-                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
-                return
-
             # Process to form the inputs and outputs
             train_inputs = self.scorer.transform_inputs(train_set)
             train_outputs = self.scorer.transform_outputs(train_set, recipe)
+            train_kwargs = self.get_additional_training_information(train_set, recipe)
             self.logger.info('Pre-processed the training entries')
 
             # Submit all models
@@ -264,6 +293,7 @@ class SingleStepThinker(MoleculeThinker):
                 model_msg = self.scorer.prepare_message(model, training=True)
                 self.queues.send_inputs(
                     model_msg, train_inputs, train_outputs,
+                    input_kwargs=train_kwargs,
                     method='retrain',
                     topic='train',
                     task_info={'recipe_id': recipe_id, 'model_id': model_id}

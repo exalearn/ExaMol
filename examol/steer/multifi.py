@@ -9,6 +9,7 @@ import numpy as np
 from colmena.queue import ColmenaQueues
 from more_itertools import batched
 
+from examol.score.utils.multifi import collect_outputs
 from examol.solution import MultiFidelityActiveLearning
 from examol.steer.single import SingleStepThinker
 from examol.store.db.base import MoleculeStore
@@ -110,7 +111,11 @@ class PipelineThinker(SingleStepThinker):
 
     def _simulations_complete(self, record: MoleculeRecord):
         super()._simulations_complete(record)
-        self.already_in_db.add(record.key)  # Make sure it is there
+        self.already_in_db.add(record.key)  # Make sure we know it is in the database
+
+        # Put it back on the end of the task queue, in case we need to run the last level
+        with self.task_queue_lock:
+            self.task_queue.append((record.identifier.smiles, 0))
 
     def get_relevant_database_records(self) -> set[str]:
         """Get only the entries from the database which are in the search space
@@ -144,19 +149,23 @@ class PipelineThinker(SingleStepThinker):
         initial_chunks = len(all_smiles)
         store = self.inference_store
         batch_count = 0
-        for batch_id, db_chunk in enumerate(
+        for batch_id, chunk_records in enumerate(
                 batched(filter(lambda x: x.key in self.already_in_db, self.database.iterate_over_records()), self.inference_chunk_size)
         ):
             batch_count += 1
 
             # Prepare the inputs and proxy them, if desired
-            all_smiles.append([r.identifier.smiles for r in db_chunk])
-            chunk_inputs = self.scorer.transform_inputs(db_chunk)
+            all_smiles.append([r.identifier.smiles for r in chunk_records])
+            chunk_inputs = self.scorer.transform_inputs(chunk_records)
             if store is not None:
                 chunk_inputs = store.proxy(chunk_inputs)
 
             # Submit models for all chunks
-            for recipe_id in range(len(self.recipes)):
+            for recipe_id, recipe in enumerate(self.recipes):
+                # Get the lower levels of fidelity
+                all_fidelities = self.solution.get_levels_for_property(recipe)
+                lower_fidelities = collect_outputs(chunk_records, all_fidelities[:-1])
+
                 for model_id, model in enumerate(self.models[recipe_id]):
                     # Either get the model or the proxy
                     if self._model_proxies[recipe_id][model_id] is None:
@@ -166,13 +175,14 @@ class PipelineThinker(SingleStepThinker):
 
                     self.queues.send_inputs(
                         model_msg, chunk_inputs,
+                        input_kwargs={'lower_fidelities': lower_fidelities},
                         method='score',
                         topic='inference',
-                        task_info={'recipe_id': recipe_id, 'model_id': model_id, 'chunk_id': batch_id + initial_chunks, 'chunk_size': len(db_chunk)}
+                        task_info={'recipe_id': recipe_id, 'model_id': model_id, 'chunk_id': batch_id + initial_chunks, 'chunk_size': len(chunk_records)}
                     )
 
             # Create placeholder for the outputs
-            all_results.append(np.empty((len(self.recipes), len(db_chunk), len(self.models[0]))))
+            all_results.append(np.empty((len(self.recipes), len(chunk_records), len(self.models[0]))))
             self.logger.info(f'Submitted all tasks for batch={batch_id} of records in the database')
 
         # Append to the "all done" array
@@ -194,12 +204,19 @@ class PipelineThinker(SingleStepThinker):
 
     def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
         # Find all levels at which we compute this property
-        to_match = self.solution.get_levels_for_property(recipe)
-        self.logger.info(f'Finding all records which compute {recipe.name} at levels: {", ".join(to_match)}')
+        to_match_levels = [x.level for x in self.solution.get_levels_for_property(recipe)]
+        self.logger.info(f'Finding all records which compute {recipe.name} at levels: {", ".join(to_match_levels)}')
 
         # Match records that hit _any_ of them
         output = []
         for record in self.database.iterate_over_records():
-            if recipe.name in record.properties and any(x in record.properties[recipe.name] for x in to_match):
+            if recipe.name in record.properties and any(x in record.properties[recipe.name] for x in to_match_levels):
                 output.append(record)
         return output
+
+    def get_additional_training_information(self, train_set: list[MoleculeRecord], recipe: PropertyRecipe) -> dict[str, object]:
+        to_match = self.solution.get_levels_for_property(recipe)
+        lower_fidelities = collect_outputs(
+            train_set, to_match[:-1]
+        )
+        return dict(lower_fidelities=lower_fidelities)

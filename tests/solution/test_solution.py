@@ -7,4 +7,4 @@ def test_match():
         steps=[[RedoxEnergy(charge=1, energy_config='low')]]
     )
     levels = solution.get_levels_for_property(RedoxEnergy(charge=1, energy_config='high'))
-    assert levels == ['low-adiabatic', 'high-adiabatic']
+    assert [r.level for r in levels] == ['low-adiabatic', 'high-adiabatic']

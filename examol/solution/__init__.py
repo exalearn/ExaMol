@@ -86,13 +86,13 @@ class MultiFidelityActiveLearning(SingleFidelityActiveLearning):
     pipeline_target: float = 0.1
     """Fraction of entries to progress through each stage of the pipeline"""
 
-    def get_levels_for_property(self, recipe: PropertyRecipe) -> list[str]:
+    def get_levels_for_property(self, recipe: PropertyRecipe) -> list[PropertyRecipe]:
         """Get the list of levels at which we compute a certain property"""
 
         levels = []
         for recipes in self.steps:
             for step in recipes:
                 if recipe.name == step.name:
-                    levels.append(step.level)
-        levels.append(recipe.level)
+                    levels.append(step)
+        levels.append(recipe)
         return levels
