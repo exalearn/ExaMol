@@ -27,9 +27,11 @@ def test_transform(training_set, scorer, recipe):
 
 
 @mark.parametrize('bootstrap', [True, False])
-def test_functions(training_set, scorer, pipeline, recipe, bootstrap):
+@mark.parametrize('n_jobs', [1, 2])
+def test_functions(training_set, scorer, pipeline, recipe, bootstrap, n_jobs):
     model_msg = scorer.prepare_message(pipeline)
     assert isinstance(model_msg, Pipeline)
+    pipeline.steps[0][1].n_jobs = n_jobs
 
     # Test training
     inputs = scorer.transform_inputs(training_set)
@@ -51,9 +53,15 @@ def test_doan_descriptors():
     assert np.isclose(x, y).all()
 
 
+@mark.parametrize('pre_compute', [True, False])
 @mark.parametrize('num_pcs', [None, 2])
-def test_gpr(training_set, scorer, recipe, num_pcs):
+def test_gpr(training_set, scorer, recipe, num_pcs, pre_compute):
     pipeline = make_gpr_model(num_pcs=num_pcs)
+
+    # Set up for pre-computing
+    if pre_compute:
+        scorer = RDKitScorer(pre_transform=pipeline.steps[0][1])
+        pipeline.steps.pop(0)
 
     # Test training
     model_msg = scorer.prepare_message(pipeline)
@@ -62,7 +70,7 @@ def test_gpr(training_set, scorer, recipe, num_pcs):
     update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=False)
     pipeline = scorer.update(pipeline, update_msg)
 
-    if num_pcs is None:
+    if num_pcs is None and not pre_compute:
         assert pipeline.steps[1][1].best_estimator_.steps[0][1].n_components < 10
 
 

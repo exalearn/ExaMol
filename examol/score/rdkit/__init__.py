@@ -21,16 +21,58 @@ from examol.store.models import MoleculeRecord
 
 ModelType = Pipeline | list[Pipeline]
 """Model is a single for training and a list of models after training"""
-InputType = list[str]
+InputType = list[str] | np.ndarray
 """Model inputs are the SMILES string of the molecule"""
+
+
+class FingerprintTransformer(BaseEstimator, TransformerMixin):
+    """Pipeline step which converts SMILES strings to fingerprint vectors
+
+    Args:
+        function: Function which takes a SMILES string and generates a vector of fingerprints
+        n_jobs: Number of fingerprinting tasks to run in parallel
+    """
+
+    def __init__(self, function: Callable[[str], np.ndarray], n_jobs: int | None = None):
+        self.function = function
+        self.n_jobs = n_jobs
+
+    def fit(self, X, y=None):
+        return self  # Do nothing
+
+    def transform(self, X, y=None):
+        """Compute the fingerprints
+
+        Args:
+            X: List of SMILES strings
+        Returns:
+            Array of fingerprints
+        """
+
+        if self.n_jobs is None or self.n_jobs > 1:
+            with ProcessPoolExecutor(max_workers=self.n_jobs) as pool:
+                fing = list(pool.map(self.function, X))
+        else:
+            fing = [self.function(x) for x in X]
+        return np.vstack(fing)
 
 
 @dataclass
 class RDKitScorer(MultiFidelityScorer):
     """Score molecules based on a model defined using RDKit and Scikit-Learn
 
-    Models must take a SMILES string as input.
-    Use the :class:`~.FingerprintTransformer` to transform the SMILES into an RDKit Mol object if needed.
+    Args:
+        pre_transform: Tool used to compute fingerprints before passing them to the models.
+
+    **Supported Models**
+
+    The core step in an RDKit is computing the fingerprints used as inputs to the model.
+
+    ExaMol provides the :class:`~.FingerprintTransformer` to run a function which takes
+    the SMILES string as input and computes a fingerprint vector.
+    Either use it as part of a Scikit-Learn pipeline or provide it as the "pre_transform"
+    argument to this class, which will pre-compute the features for molecules on the
+    steering process rather than the compute node.
 
     **Multi Fidelity Learning**
 
@@ -43,8 +85,15 @@ class RDKitScorer(MultiFidelityScorer):
     the deltas in place of the predictions from the machine learning models.
     """
 
+    def __init__(self, pre_transform: FingerprintTransformer | None = None):
+        self.pre_transform = pre_transform
+
     def transform_inputs(self, record_batch: list[MoleculeRecord]) -> InputType:
-        return [x.identifier.smiles for x in record_batch]
+        smiles = [x.identifier.smiles for x in record_batch]
+        if self.pre_transform:
+            return self.pre_transform.transform(smiles)
+        else:
+            return smiles
 
     def prepare_message(self, model: ModelType, training: bool = True) -> ModelType:
         if training:
@@ -164,32 +213,3 @@ def make_gpr_model(num_pcs: int | None = None, max_pcs: int = 10, k: int = 3) ->
                 cv=k,
             )),
         ])
-
-
-class FingerprintTransformer(BaseEstimator, TransformerMixin):
-    """Pipeline step which converts SMILES strings to fingerprint vectors
-
-    Args:
-        function: Function which takes a SMILES string and generates a vector of fingerprints
-        n_jobs: Number of fingerprinting tasks to run in parallel
-    """
-
-    def __init__(self, function: Callable[[str], np.ndarray], n_jobs: int | None = None):
-        self.function = function
-        self.n_jobs = n_jobs
-
-    def fit(self, X, y=None):
-        return self  # Do nothing
-
-    def transform(self, X, y=None):
-        """Compute the fingerprints
-
-        Args:
-            X: List of SMILES strings
-        Returns:
-            Array of fingerprints
-        """
-
-        with ProcessPoolExecutor(max_workers=self.n_jobs) as pool:
-            fing = list(pool.map(self.function, X))
-        return np.vstack(fing)
