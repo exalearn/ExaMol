@@ -113,7 +113,13 @@ class PipelineThinker(SingleStepThinker):
         super()._simulations_complete(record)
         self.already_in_db.add(record.key)  # Make sure we know it is in the database
 
-        # Put it back on the end of the task queue, in case we need to run the last level
+        # Put it back on the end of the task queue if we can to run another level
+        for recipe in self.recipes:
+            if recipe.lookup(record) is None:
+                break  # We haven't finished yet
+        else:
+            self.logger.info(f'Done everything for {record.key}')
+            return
         with self.task_queue_lock:
             self.task_queue.append((record.identifier.smiles, 0))
 

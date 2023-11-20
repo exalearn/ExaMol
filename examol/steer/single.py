@@ -240,7 +240,8 @@ class SingleStepThinker(MoleculeThinker):
 
         # If not, pick some
         self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.solution.minimum_training_size})')
-        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
+        search_space_size = sum(map(len, self.search_space_smiles))
+        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), min(self.num_to_run, search_space_size))
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
             for key in subset:
@@ -419,8 +420,9 @@ class SingleStepThinker(MoleculeThinker):
             # Check if we are done for the whole chunk (all models for this chunk)
             if all_done[chunk_id, :, :].all():
                 self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
-                chunk_smiles, chunk_results = self._filter_inference_results(chunk_id, chunk_smiles[chunk_id], inference_results[chunk_id])
-                selector.add_possibilities(chunk_smiles, chunk_results)
+                filtered_smiles, filtered_results = self._filter_inference_results(chunk_id, chunk_smiles[chunk_id], inference_results[chunk_id])
+                if len(filtered_smiles) > 0:
+                    selector.add_possibilities(filtered_smiles, filtered_results)
 
             # If we are done with all chunks for a model
             if all_done[:, recipe_id, model_id].all():

@@ -45,7 +45,7 @@ def search_space(tmp_path) -> Path:
 
 @fixture()
 def scorer() -> tuple[RDKitScorer, Pipeline]:
-    pipeline = make_knn_model()
+    pipeline = make_knn_model(n_neighbors=1)
     return RDKitScorer(), pipeline
 
 

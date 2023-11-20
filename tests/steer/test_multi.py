@@ -22,7 +22,7 @@ def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> PipelineT
         models=[[model, model]],
         selector=RandomSelector(10),
         minimum_training_size=4,
-        num_to_run=3,
+        num_to_run=8,
         pipeline_target=0.5
     )
     return PipelineThinker(
