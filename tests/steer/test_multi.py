@@ -117,3 +117,6 @@ def test_thinker(thinker: PipelineThinker, database, caplog):
     # Run it
     thinker.run()
     assert len(caplog.records) == 0, caplog.records[0]
+
+    # Make sure that at least a few records made it to a new level
+    assert any(thinker.get_level(record.identifier.smiles) > 0 for record in thinker.database.iterate_over_records())
