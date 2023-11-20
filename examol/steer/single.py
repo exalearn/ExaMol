@@ -270,15 +270,14 @@ class SingleStepThinker(MoleculeThinker):
             self.logger.info('Inference is still ongoing. Will not retrain yet')
             return
 
-        for recipe_id, recipe in enumerate(self.recipes):
-            # Count how many entries are available (maybe be fewer than data which are available for training)
+        # Check that we have enough data for all recipes
+        for recipe in self.recipes:
             train_size = min(self.count_training_size(r) for r in self.recipes)
-
-            # If too small, stop
             if train_size < self.solution.minimum_training_size:
-                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
+                self.logger.info(f'Too few to entries to train {recipe.name}. Waiting for {self.solution.minimum_training_size}. Have {train_size}')
                 return
 
+        for recipe_id, recipe in enumerate(self.recipes):
             # Get the training set
             train_set = self._get_training_set(recipe)
             self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')

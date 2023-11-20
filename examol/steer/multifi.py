@@ -100,13 +100,16 @@ class PipelineThinker(SingleStepThinker):
                 break
             elif target_level > my_level > current_best[0]:
                 current_best = (my_level, ind)
+        else:
+            self.logger.info(f'Did not find a record at step {target_level}. Opting for one at {current_best[0]}')
 
         # Return the best choice
         chosen_level, chosen_ind = current_best
         smiles, score = self.task_queue.pop(chosen_ind)
         if chosen_level == -1:
             chosen_level = self.get_level(smiles)
-        self.logger.info(f'Pulled molecule at position {chosen_ind} to run at level #{chosen_level}')
+        chosen_level = min(chosen_level, len(self.steps) - 1)  # Defend against race condition where molecule is running last step while being placed in queue
+        self.logger.info(f'Pulled molecule at position {chosen_ind} to run at step #{chosen_level}')
         return self.database.get_or_make_record(smiles), score, self.steps[chosen_level]
 
     def _simulations_complete(self, record: MoleculeRecord):
@@ -121,6 +124,7 @@ class PipelineThinker(SingleStepThinker):
             self.logger.info(f'Done everything for {record.key}')
             return
         with self.task_queue_lock:
+            self.logger.info(f'Still more to do for {record.key}. Putting it back in the queue')
             self.task_queue.append((record.identifier.smiles, 0))
 
     def get_relevant_database_records(self) -> set[str]:

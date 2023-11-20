@@ -76,7 +76,7 @@ class RDKitScorer(MultiFidelityScorer):
             return np.sum(deltas, axis=1)
 
     def retrain(self, model_msg: Pipeline, inputs: InputType, outputs: np.ndarray,
-                bootstrap: bool = True,
+                bootstrap: bool = False,
                 lower_fidelities: np.ndarray | None = None) -> ModelType:
         if bootstrap:
             samples = np.random.random_integers(0, len(inputs) - 1, size=(len(inputs),))

@@ -12,6 +12,7 @@ import numpy as np
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.thinker import BaseThinker, ResourceCounter, result_processor, task_submitter
+from pydantic import ValidationError
 
 from examol.simulate.base import SimResult
 from examol.solution import SolutionSpecification
@@ -101,7 +102,10 @@ class MoleculeThinker(BaseThinker):
                         elif is_json:
                             yield MoleculeRecord.parse_raw(line)
                         else:
-                            yield MoleculeRecord.from_identifier(line.strip())
+                            try:
+                                yield MoleculeRecord.from_identifier(line.strip())
+                            except ValidationError:
+                                self.logger.warning(f'Parsing failed for molecule: {line}')
             else:
                 raise ValueError(f'File type is unrecognized for {path}')
 
