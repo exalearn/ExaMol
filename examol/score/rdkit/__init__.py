@@ -149,20 +149,21 @@ def make_gpr_model(num_pcs: int | None = None, max_pcs: int = 10, k: int = 3) ->
     gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=40, normalize_y=False)
 
     # Make the pipeline
-    pipeline = Pipeline([
-        ('fingerprints', FingerprintTransformer(compute_doan_2020_fingerprints)),
-        ('pca', PCA(n_components=num_pcs)),
-        ('gpr', gp)
-    ])
-
-    if num_pcs is None:
-        pipeline = GridSearchCV(
-            pipeline,
-            param_grid={'pca__n_components': range(1, max_pcs + 1)},
-            cv=k,
-            n_jobs=1  # Parallelism is a level below
-        )
-    return pipeline
+    if num_pcs is not None:
+        return Pipeline([
+            ('fingerprints', FingerprintTransformer(compute_doan_2020_fingerprints)),
+            ('pca', PCA(n_components=num_pcs)),
+            ('gpr', gp)
+        ])
+    else:
+        return Pipeline([
+            ('fingerprints', FingerprintTransformer(compute_doan_2020_fingerprints)),
+            ('model', GridSearchCV(
+                Pipeline([('pca', PCA(n_components=num_pcs)), ('gpr', gp)]),
+                param_grid={'pca__n_components': range(1, max_pcs + 1)},
+                cv=k,
+            )),
+        ])
 
 
 class FingerprintTransformer(BaseEstimator, TransformerMixin):
