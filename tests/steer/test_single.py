@@ -49,7 +49,7 @@ def test_thinker(thinker: SingleStepThinker, database, caplog):
     # Check if there are points where the
     run_log = (thinker.run_dir / 'run.log').read_text().splitlines(keepends=False)
     assert any('Training set is smaller than the threshold size (2<4)' in x for x in run_log)
-    assert any('Too few to entries to train. Waiting for 4' in x for x in run_log)
+    assert any('Too few to entries to train oxidation_potential. Waiting for 4' in x for x in run_log)
 
     # Check the output files
     with (thinker.run_dir / 'inference-results.json').open() as fp:
@@ -77,4 +77,4 @@ def test_iterator(thinker, caplog):
     assert record.identifier.smiles == 'C'  # It should not
 
     # Make sure we are warned about it
-    assert 'C1C2CN3C1C1C3CN21' in caplog.messages[-1]
+    assert 'HKRAFRNOHKOEOU-UHFFFAOYSA-N' in caplog.messages[-1]  # That's the InChI key for C1C2...

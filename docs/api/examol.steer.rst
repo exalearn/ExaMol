@@ -28,3 +28,11 @@ examol.steer.single
    :members:
    :undoc-members:
    :show-inheritance:
+
+examol.steer.multifi
+--------------------
+
+.. automodule:: examol.steer.multifi
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -22,8 +22,11 @@ Each steering strategy is associated with a specific `Solution strategy <solutio
       - :class:`~examol.specify.base.SolutionSpecification`
       - Evaluate all molecules in an initial population
     * - :class:`~examol.steer.single.SingleStepThinker`
-      - :class:`~examol.specify.solution.SingleFidelityActiveLearning`
+      - :class:`~examol.solution.SingleFidelityActiveLearning`
       - Run all recipes for each selected molecule
+    * - :class:`~examol.steer.multifi.PipelineThinker`
+      - :class:`~examol.solution.MultiFidelityActiveLearning`
+      - Run the next step in a pipeline each time a model is selected
 
 
 Single Objective Thinker as an Example

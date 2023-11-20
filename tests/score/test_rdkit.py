@@ -51,17 +51,19 @@ def test_doan_descriptors():
     assert np.isclose(x, y).all()
 
 
-def test_gpr(training_set, scorer, recipe):
-    pipeline = make_gpr_model()
+@mark.parametrize('num_pcs', [None, 2])
+def test_gpr(training_set, scorer, recipe, num_pcs):
+    pipeline = make_gpr_model(num_pcs=num_pcs)
 
     # Test training
     model_msg = scorer.prepare_message(pipeline)
     inputs = scorer.transform_inputs(training_set)
     outputs = scorer.transform_outputs(training_set, recipe)
     update_msg = scorer.retrain(model_msg, inputs, outputs, bootstrap=False)
-    pipeline, scorer.update(pipeline, update_msg)
+    pipeline = scorer.update(pipeline, update_msg)
 
-    assert pipeline.best_estimator_.steps[1][1].n_components < 10
+    if num_pcs is None:
+        assert pipeline.steps[1][1].best_estimator_.steps[0][1].n_components < 10
 
 
 @mark.parametrize('bootstrap', [False, True])

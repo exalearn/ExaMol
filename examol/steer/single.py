@@ -1,7 +1,7 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
+import os
 import gzip
 import json
-import os
 import pickle as pkl
 import shutil
 from concurrent.futures import ProcessPoolExecutor
@@ -13,20 +13,40 @@ from time import perf_counter
 from typing import Sequence
 
 import numpy as np
+from colmena.proxy import get_store
 from colmena.queue import ColmenaQueues
 from colmena.thinker import event_responder, ResourceCounter, agent
 from more_itertools import interleave_longest, batched
-from proxystore.proxy import Proxy, extract
-from proxystore.store import Store, get_store
-from proxystore.store.base import ConnectorKeyT
+from proxystore.proxy import extract, Proxy
+from proxystore.store import Store
 from proxystore.store.utils import get_key
 
 from .base import MoleculeThinker
-from ..score.base import Scorer
 from examol.solution import SingleFidelityActiveLearning
+from ..score.base import Scorer
 from ..store.db.base import MoleculeStore
 from ..store.models import MoleculeRecord
 from ..store.recipes import PropertyRecipe
+
+
+def _generate_inputs(record: MoleculeRecord, scorer: Scorer) -> tuple[str, object] | None:
+    """Parse a molecule then generate a form ready for inference
+
+    Args:
+        record: Molecule record to be parsed
+        scorer: Tool used for inference
+    Returns:
+        - Key for the molecule record
+        - Inference-ready format
+        Or None if the transformation fails
+    """
+
+    try:
+        # Compute the features
+        readied = scorer.transform_inputs([record])[0]
+    except (ValueError, RuntimeError):
+        return None
+    return record.identifier.smiles, readied
 
 
 class SingleStepThinker(MoleculeThinker):
@@ -41,44 +61,62 @@ class SingleStepThinker(MoleculeThinker):
         search_space: Search space of molecules. Provided as a list of paths to ".smi" files
         num_workers: Number of simulation tasks to run in parallel
         inference_chunk_size: Number of molecules to run inference on per task
-
-    Attributes:
-        search_space_smiles: SMILES associated with each molecule in the search space, broken into chunks
-        search_space_inputs: Inputs to the ML models for each molecule in the search space, broken into chucks
-        database: Map between molecule InChI key and currently-known information about it
     """
+    """
+
+    Args:
+        queues: Queues used to communicate with the task server
+        rec: Tool used to control the number of tasks being deployed on each resource
+        run_dir: Directory in which to store logs, etc.
+        recipes: Recipes used to compute the target properties
+        database: Connection to the store of molecular data
+        solution: Settings related to tools used to solve the problem (e.g., active learning strategy)
+        search_space: Search space of molecules. Provided as a list of paths to ".smi" files
+        inference_chunk_size: Number of molecules to run inference on per task
+    """
+
+    search_space_dir: Path
+    """Cache directory for search space"""
+    search_space_smiles: list[list[str]]
+    """SMILES strings of molecules in the search space"""
+    search_space_inputs: list[list[object]]
+    """Inputs (or proxies of inputs) to the machine learning models for each molecule in the search space"""
+
+    scorer: Scorer
+    """Class used to communicate data and models to distributed workers"""
+
+    solution: SingleFidelityActiveLearning
 
     def __init__(self,
                  queues: ColmenaQueues,
                  run_dir: Path,
                  recipes: Sequence[PropertyRecipe],
-                 database: MoleculeStore,
                  solution: SingleFidelityActiveLearning,
                  search_space: list[Path | str],
+                 database: MoleculeStore,
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
         super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
+        self.search_space_dir = self.run_dir / 'search-space'
+        self.scorer = solution.scorer
+        self._cache_search_space(inference_chunk_size, search_space)
 
-        # Store the selection equipment
-        self.solution = solution
-        self.scorer = self.solution.scorer
-        self.models = self.solution.models.copy()
-        self.selector = self.solution.selector
+        # Startup-related information
         self.starter = self.solution.starter
+
+        # Model tracking information
+        self.models = solution.models.copy()
         if len(set(map(len, self.models))) > 1:  # pragma: no-coverage
             raise ValueError('You must provide the same number of models for each class')
         if len(self.models) != len(recipes):  # pragma: no-coverage
             raise ValueError('You must provide as many model ensembles as recipes')
+        self._model_proxies: list[list[Proxy | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model(s)
+        self.ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
 
         # Partition the search space into smaller chunks
-        self.search_space_dir = self.run_dir / 'search-space'
         self.search_space_smiles: list[list[str]]
         self.search_space_inputs: list[list[object]]
         self.search_space_smiles, self.search_space_inputs = zip(*self._cache_search_space(inference_chunk_size, self.search_space))
-
-        # Model tracking information
-        self._model_proxy_keys: list[list[ConnectorKeyT | None]] = [[None] * len(m) for m in self.models]  # Proxy for the current model
-        self._ready_models: Queue[tuple[int, int]] = Queue()  # Queue of models are ready for inference
 
         # Coordination tools
         self.start_inference: Event = Event()
@@ -88,12 +126,6 @@ class SingleStepThinker(MoleculeThinker):
     def num_models(self) -> int:
         """Number of models being trained by this class"""
         return sum(map(len, self.models))
-
-    @property
-    def inference_store(self) -> Store | None:
-        """Proxystore used for inference tasks"""
-        if (store_name := self.queues.proxystore_name.get('inference')) is not None:
-            return get_store(store_name)
 
     def _cache_search_space(self, inference_chunk_size: int, search_space: list[str | Path]):
         """Cache the search space into a directory within the run"""
@@ -165,15 +197,40 @@ class SingleStepThinker(MoleculeThinker):
             output.append((keys, objects))
         return output
 
-    def _simulations_complete(self):
-        self.start_training.set()
+    @property
+    def inference_store(self) -> Store | None:
+        """Proxystore used for inference tasks"""
+        if (store_name := self.queues.proxystore_name.get('inference')) is not None:
+            return get_store(store_name)
+
+    def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
+        """Gather molecules for which the target property is available
+
+        Args:
+            recipe: Recipe to evaluate
+        Returns:
+            List of molecules for which that property is defined
+        """
+        return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
+
+    # TODO (wardlt): Move to a function of the database class?
+    def count_training_size(self, recipe: PropertyRecipe) -> int:
+        """Count the number of entries available for training each recipe
+
+        Args:
+            recipe: Recipe being assessed
+        Return:
+            Number of records for which this property is defined
+        """
+
+        return len([None for r in self.database.iterate_over_records() if recipe.name in r.properties and recipe.level in r.properties[recipe.name]])
 
     @agent(startup=True)
     def startup(self):
         """Pre-populate the database, if needed."""
 
         # Determine how many training points are available
-        train_size = min(len(self._get_training_set(recipe)) for recipe in self.recipes)
+        train_size = min(self.count_training_size(r) for r in self.recipes)
 
         # If enough, start by training
         if train_size > self.solution.minimum_training_size:
@@ -183,101 +240,26 @@ class SingleStepThinker(MoleculeThinker):
 
         # If not, pick some
         self.logger.info(f'Training set is smaller than the threshold size ({train_size}<{self.solution.minimum_training_size})')
-        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), self.num_to_run)
+        search_space_size = sum(map(len, self.search_space_smiles))
+        subset = self.starter.select(list(interleave_longest(*self.search_space_smiles)), min(self.num_to_run, search_space_size))
         self.logger.info(f'Selected {len(subset)} molecules to run')
         with self.task_queue_lock:
             for key in subset:
                 self.task_queue.append((key, np.nan))  # All get the same score
             self.task_queue_lock.notify_all()
 
-    @event_responder(event_name='start_inference')
-    def submit_inference(self):
-        """Submit all molecules to be evaluated"""
+    def get_additional_training_information(self, train_set: list[MoleculeRecord], recipe: PropertyRecipe) -> dict[str, object]:
+        """Determine any additional information to be provided during training
 
-        # Get the proxystore for inference, if defined
-        store = self.inference_store
+        An example could be to gather low-fidelity data to use to augment the training process
 
-        # Submit a model as soon as it is read
-        for i in range(self.num_models):
-            # Wait for a model to finish training
-            recipe_id, model_id = self._ready_models.get()
-            model = self.models[recipe_id][model_id]
-
-            # Serialize and, if available, proxy the model
-            model_msg = self.scorer.prepare_message(model, training=False)
-            if store is not None:
-                model_msg = store.proxy(model_msg)
-                self._model_proxy_keys[recipe_id][model_id] = get_key(model_msg)
-            self.logger.info(f'Preparing to submit tasks for model {i + 1}/{self.num_models}.')
-
-            for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_smiles)):
-                self.queues.send_inputs(
-                    model_msg, chunk_inputs,
-                    method='score',
-                    topic='inference',
-                    task_info={'recipe_id': recipe_id, 'model_id': model_id, 'chunk_id': chunk_id, 'chunk_size': len(chunk_keys)}
-                )
-            self.logger.info(f'Submitted all tasks for recipe={recipe_id} model={model_id}')
-
-    @event_responder(event_name='start_inference')
-    def store_inference(self):
-        """Store inference results then update the task list"""
-        # Prepare to store the inference results
-        n_chunks = len(self.search_space_inputs)
-        ensemble_size = len(self.models[0])
-        all_done: np.ndarray = np.zeros((len(self.recipes), ensemble_size, n_chunks), dtype=bool)  # Whether a chunk is finished. (recipe, chunk, model)
-        inference_results: list[np.ndarray] = [
-            np.zeros((len(self.recipes), len(chunk), ensemble_size)) for chunk in self.search_space_smiles
-        ]  # (chunk, recipe, molecule, model)
-        n_tasks = self.num_models * n_chunks
-
-        # Reset the selector
-        self.selector.update(self.database, self.recipes)
-        self.selector.start_gathering()
-
-        # Gather all inference results
-        self.logger.info(f'Prepared to receive {n_tasks} results')
-        for i in range(n_tasks):
-            # Find which result this is
-            result = self.queues.get_result(topic='inference')
-            start_time = perf_counter()
-            recipe_id = result.task_info['recipe_id']
-            model_id = result.task_info['model_id']
-            chunk_id = result.task_info['chunk_id']
-            self.logger.info(f'Received inference result {i + 1}/{n_tasks}. Recipe={recipe_id}, model={model_id}, chunk={chunk_id}, success={result.success}')
-
-            # Save the outcome
-            self._write_result(result, 'inference')
-            assert result.success, f'Inference failed due to {result.failure_info}'
-
-            # Update the inference results
-            all_done[recipe_id, model_id, chunk_id] = True
-            inference_results[chunk_id][recipe_id, :, model_id] = np.squeeze(result.value)
-
-            # Check if we are done for the whole chunk (all models for this chunk)
-            if all_done[:, :, chunk_id].all():
-                self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
-                self.selector.add_possibilities(self.search_space_smiles[chunk_id], inference_results[chunk_id])
-
-            # If we are done with the model
-            if all_done[:, model_id, :].all():
-                self.logger.info(f'Done with all inference tasks for model={model_id}. Evicting.')
-                if self._model_proxy_keys[recipe_id][model_id] is not None:
-                    self.inference_store.evict(self._model_proxy_keys[recipe_id][model_id])
-
-            # Mark that we're done with this result
-            self.logger.info(f'Done processing inference result {i + 1}/{n_tasks}. Time: {perf_counter() - start_time:.2e}s')
-
-        # Get the top list of molecules
-        self.logger.info('Done storing all results')
-        with self.task_queue_lock:
-            self.task_queue.clear()
-            for key, score in self.selector.dispense():
-                self.task_queue.append((str(key), score))
-
-            # Notify anyone waiting on more tasks
-            self.task_queue_lock.notify_all()
-        self.logger.info('Updated task queue. All done.')
+        Args:
+            train_set: Training set for the model
+            recipe: Recipe being trained
+        Returns:
+            Additional options
+        """
+        return {}
 
     @event_responder(event_name='start_training')
     def retrain(self):
@@ -288,19 +270,22 @@ class SingleStepThinker(MoleculeThinker):
             self.logger.info('Inference is still ongoing. Will not retrain yet')
             return
 
+        # Check that we have enough data for all recipes
+        for recipe in self.recipes:
+            train_size = min(self.count_training_size(r) for r in self.recipes)
+            if train_size < self.solution.minimum_training_size:
+                self.logger.info(f'Too few to entries to train {recipe.name}. Waiting for {self.solution.minimum_training_size}. Have {train_size}')
+                return
+
         for recipe_id, recipe in enumerate(self.recipes):
             # Get the training set
             train_set = self._get_training_set(recipe)
             self.logger.info(f'Gathered a total of {len(train_set)} entries for retraining recipe {recipe_id}')
 
-            # If too small, stop
-            if len(train_set) < self.solution.minimum_training_size:
-                self.logger.info(f'Too few to entries to train. Waiting for {self.solution.minimum_training_size}')
-                return
-
             # Process to form the inputs and outputs
             train_inputs = self.scorer.transform_inputs(train_set)
             train_outputs = self.scorer.transform_outputs(train_set, recipe)
+            train_kwargs = self.get_additional_training_information(train_set, recipe)
             self.logger.info('Pre-processed the training entries')
 
             # Submit all models
@@ -308,6 +293,7 @@ class SingleStepThinker(MoleculeThinker):
                 model_msg = self.scorer.prepare_message(model, training=True)
                 self.queues.send_inputs(
                     model_msg, train_inputs, train_outputs,
+                    input_kwargs=train_kwargs,
                     method='retrain',
                     topic='train',
                     task_info={'recipe_id': recipe_id, 'model_id': model_id}
@@ -333,35 +319,130 @@ class SingleStepThinker(MoleculeThinker):
 
             # Signal to begin inference
             self.start_inference.set()
-            self._ready_models.put((recipe_id, model_id))
+            self.ready_models.put((recipe_id, model_id))
         self.logger.info('Finished training all models')
 
-    def _get_training_set(self, recipe: PropertyRecipe) -> list[MoleculeRecord]:
-        """Gather molecules for which the target property is available
+    def submit_inference(self) -> tuple[list[list[str]], np.ndarray, list[np.ndarray]]:
+        """Submit all molecules to be evaluated, return placeholders for their outputs
+
+        Inference tasks are submitted with a few bits of metadata
+            - recipe_id: Index of the recipe being evaluated
+            - model_id: Index of the model being evaluated
+            - chunk_id: Index of the chunk of molecules
+            - chunk_size: Number of molecules in chunks being evaluated
+
+        Returns:
+            - Smiles strings of the molecules being evaluated
+            - Boolean array marking if inference task is done ``n_chunks x recipes x ensemble_size``
+            - List of arrays in which to store inference results a total of ``n_chunks`` arrays of size ``recipes x batch_size x models``
+        """
+
+        # Get the proxystore for inference, if defined
+        store = self.inference_store
+
+        # Submit a model as soon as it is read
+        for i in range(self.num_models):
+            # Wait for a model to finish training
+            recipe_id, model_id = self.ready_models.get()
+            model = self.models[recipe_id][model_id]
+
+            # Serialize and, if available, proxy the model
+            model_msg = self.scorer.prepare_message(model, training=False)
+            if store is not None:
+                model_msg = store.proxy(model_msg)
+                self._model_proxies[recipe_id][model_id] = model_msg
+            self.logger.info(f'Preparing to submit tasks for model {i + 1}/{self.num_models}.')
+
+            for chunk_id, (chunk_inputs, chunk_keys) in enumerate(zip(self.search_space_inputs, self.search_space_smiles)):
+                self.queues.send_inputs(
+                    model_msg, chunk_inputs,
+                    method='score',
+                    topic='inference',
+                    task_info={'recipe_id': recipe_id, 'model_id': model_id, 'chunk_id': chunk_id, 'chunk_size': len(chunk_keys)}
+                )
+            self.logger.info(f'Submitted all tasks for recipe={recipe_id} model={model_id}')
+
+        # Prepare to store the inference results
+        n_chunks = len(self.search_space_inputs)
+        ensemble_size = len(self.models[0])
+        all_done: np.ndarray = np.zeros((n_chunks, len(self.recipes), ensemble_size), dtype=bool)
+        inference_results: list[np.ndarray] = [
+            np.zeros((len(self.recipes), len(chunk), ensemble_size)) for chunk in self.search_space_smiles
+        ]  # (chunk, recipe, molecule, model)
+        return list(self.search_space_smiles), all_done, inference_results
+
+    def _filter_inference_results(self, chunk_id: int, chunk_smiles: list[str], inference_results: np.ndarray) -> tuple[list[str], np.ndarray]:
+        """Remove entries from the input array before adding to the selector
 
         Args:
-            recipe: Recipe to evaluate
+            chunk_id: Index of the chunk being processed
+            chunk_smiles: SMILES strings for molecules in this chunk
+            inference_results: Results for the inference
         Returns:
-            List of molecules for which that property is defined
+             - SMILES strings of chunk after filtering
+             - Inference results after filtering
         """
-        return [x for x in self.database.iterate_over_records() if recipe.lookup(x) is not None]
+        return chunk_smiles, inference_results
 
+    @event_responder(event_name='start_inference')
+    def run_inference(self):
+        """Store inference results then update the task list"""
 
-def _generate_inputs(record: MoleculeRecord, scorer: Scorer) -> tuple[str, object] | None:
-    """Parse a molecule then generate a form ready for inference
+        # Submit the tasks and prepare the storage
+        chunk_smiles, all_done, inference_results = self.submit_inference()
 
-    Args:
-        record: Molecule record to be parsed
-        scorer: Tool used for inference
-    Returns:
-        - Key for the molecule record
-        - Inference-ready format
-        Or None if the transformation fails
-    """
+        # Reset the selector
+        selector = self.solution.selector
+        selector.update(self.database, self.recipes)
+        selector.start_gathering()
 
-    try:
-        # Compute the features
-        readied = scorer.transform_inputs([record])[0]
-    except (ValueError, RuntimeError):
-        return None
-    return record.identifier.smiles, readied
+        # Gather all inference results
+        n_tasks = all_done.size
+        self.logger.info(f'Prepared to receive {n_tasks} results')
+        for i in range(n_tasks):
+            # Find which result this is
+            result = self.queues.get_result(topic='inference')
+            start_time = perf_counter()
+            recipe_id = result.task_info['recipe_id']
+            model_id = result.task_info['model_id']
+            chunk_id = result.task_info['chunk_id']
+            self.logger.info(f'Received inference result {i + 1}/{n_tasks}. Recipe={recipe_id}, model={model_id}, chunk={chunk_id}, success={result.success}')
+
+            # Save the outcome
+            self._write_result(result, 'inference')
+            assert result.success, f'Inference failed due to {result.failure_info}'
+
+            # Update the inference results
+            all_done[chunk_id, recipe_id, model_id] = True
+            inference_results[chunk_id][recipe_id, :, model_id] = np.squeeze(result.value)
+
+            # Check if we are done for the whole chunk (all models for this chunk)
+            if all_done[chunk_id, :, :].all():
+                self.logger.info(f'Everything done for chunk={chunk_id}. Adding to selector.')
+                filtered_smiles, filtered_results = self._filter_inference_results(chunk_id, chunk_smiles[chunk_id], inference_results[chunk_id])
+                if len(filtered_smiles) > 0:
+                    selector.add_possibilities(filtered_smiles, filtered_results)
+
+            # If we are done with all chunks for a model
+            if all_done[:, recipe_id, model_id].all():
+                self.logger.info(f'Done with all inference tasks for recipe={recipe_id} model={model_id}. Evicting proxy, if any.')
+                if self._model_proxies[recipe_id][model_id] is not None:
+                    key = get_key(self._model_proxies[recipe_id][model_id])
+                    self.inference_store.evict(key)
+
+            # Mark that we're done with this result
+            self.logger.info(f'Done processing inference result {i + 1}/{n_tasks}. Time: {perf_counter() - start_time:.2e}s')
+
+        # Get the top list of molecules
+        self.logger.info('Done storing all results')
+        with self.task_queue_lock:
+            self.task_queue.clear()
+            for key, score in selector.dispense():
+                self.task_queue.append((str(key), score))
+
+            # Notify anyone waiting on more tasks
+            self.task_queue_lock.notify_all()
+        self.logger.info('Updated task queue. All done.')
+
+    def _simulations_complete(self, record: MoleculeRecord):
+        self.start_training.set()
