@@ -75,7 +75,12 @@ def test_gpr(training_set, scorer, recipe, num_pcs, pre_compute):
 
 
 @mark.parametrize('bootstrap', [False, True])
-def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
+@mark.parametrize('actually_single', [False, True])
+def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap, actually_single):
+    # Emulate what happens if we don't have any steps
+    if actually_single:
+        multifi_recipes = multifi_recipes[:1]
+
     # Test conversion to multi-fidelity
     inputs = scorer.transform_inputs(training_set)
     lower_fidelities = collect_outputs(training_set, multifi_recipes[:-1])
@@ -94,9 +99,10 @@ def test_multifi(training_set, multifi_recipes, scorer, pipeline, bootstrap):
     model_msg = scorer.prepare_message(pipeline, training=False)
     predictions = scorer.score(model_msg, inputs, lower_fidelities=lower_fidelities)
     assert predictions.shape == (len(training_set),)
-    assert np.isclose(predictions, outputs).all()  # Should give exact result, since all values are known
+    if not (bootstrap or actually_single):
+        assert np.isclose(predictions, outputs).all()  # Should give exact result, since all values are known
 
     predictions = scorer.score(model_msg, inputs)
     assert predictions.shape == (len(training_set),)
-    if not bootstrap:
+    if not (bootstrap or actually_single):
         assert np.isclose(predictions, outputs).all()  # Should give exact result, since all values are known and we're using a KNN

@@ -10,7 +10,7 @@ from examol.steer.base import MoleculeThinker
 
 
 @mark.parametrize('use_json', [True, False])
-def test_search_space(queues, search_space, tmp_path, database, use_json):
+def test_search_space(queues, search_space, tmp_path, database, use_json, pool):
     """Test using a JSON-format search space"""
 
     # Save the training data to JSON format
@@ -32,7 +32,8 @@ def test_search_space(queues, search_space, tmp_path, database, use_json):
         solution=solution,
         run_dir=tmp_path / 'run',
         search_space=[json_search_space] if use_json else [search_space],
-        database=database
+        database=database,
+        pool=pool
     )
     assert len(list(thinker.iterate_over_search_space())) == 5
     smiles_only = list(thinker.iterate_over_search_space(only_smiles=True))
