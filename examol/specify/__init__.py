@@ -1,11 +1,13 @@
 """Tool for defining then deploying an ExaMol application"""
 import contextlib
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Sequence
 from pathlib import Path
 import logging
 
-from colmena.queue import PipeQueues
+from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from parsl import Config
@@ -36,17 +38,17 @@ class ExaMolSpecification:
     """
 
     # Define the problem
-    database: Path | str | MoleculeStore = ...
+    database: Path | str | MoleculeStore
     """Path to the data as a line-delimited JSON file or an already-activated store"""
-    recipes: Sequence[PropertyRecipe] = ...
+    recipes: Sequence[PropertyRecipe]
     """Definition for how to compute the target properties"""
-    search_space: list[Path | str] = ...
+    search_space: list[Path | str]
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
-    simulator: BaseSimulator = ...
+    simulator: BaseSimulator
     """Tool used to perform quantum chemistry computations"""
 
     # Define the solution
-    solution: SolutionSpecification = ...
+    solution: SolutionSpecification
     """Define how to solve the design challenge"""
 
     # Define how we create the thinker
@@ -54,6 +56,8 @@ class ExaMolSpecification:
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
     """Options passed forward to initializing the thinker"""
+    thinker_workers: int = min(4, os.cpu_count())
+    """Number of workers to use in the steering process"""
 
     # Define how we communicate to the user
     reporters: list[BaseReporter] = field(default_factory=list)
@@ -66,7 +70,11 @@ class ExaMolSpecification:
     """Proxy store(s) used to communicate large objects between Thinker and workers. Can be either a single store used for all task types,
     or a mapping between a task topic (inference, simulation, train) and the store used for that task type.
 
-    All messages larger than 10kB will be proxied using the store."""
+    All messages larger than :attr:`proxystore_threshold` will be proxied using the store."""
+    proxystore_threshold: float | int = 10000
+    """Messages larger than this size will be sent via Proxystore rather than through the workflow engine. Units: bytes"""
+    colmena_queue: type[ColmenaQueues] = PipeQueues
+    """Class used to send messages between Thinker and Task Server."""
     run_dir: Path | str = ...
     """Path in which to write output files"""
 
@@ -95,7 +103,7 @@ class ExaMolSpecification:
                 logger.info(f'Using {store} for {name} tasks')
         else:
             raise NotImplementedError()
-        queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=10000, proxystore_name=proxy_name)
+        queues = self.colmena_queue(topics=['inference', 'simulation', 'train'], proxystore_threshold=self.proxystore_threshold, proxystore_name=proxy_name)
 
         # Make the functions associated with steering
         learning_functions = self.solution.generate_functions()
@@ -119,7 +127,7 @@ class ExaMolSpecification:
 
         # Create the thinker
         store = self.load_database()
-        with store:
+        with store, ProcessPoolExecutor(self.thinker_workers) as pool:
             thinker = self.thinker(
                 queues=queues,
                 run_dir=self.run_dir,
@@ -127,6 +135,7 @@ class ExaMolSpecification:
                 search_space=self.search_space,
                 solution=self.solution,
                 database=store,
+                pool=pool,
                 **self.thinker_options
             )
             yield doer, thinker, store

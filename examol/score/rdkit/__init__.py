@@ -107,6 +107,8 @@ class RDKitScorer(MultiFidelityScorer):
         if not isinstance(model_msg, list):
             # Single objective
             return model_msg.predict(inputs)
+        elif len(model_msg) == 1:
+            return np.squeeze(model_msg[0].predict(inputs))
         else:
             # Get the known deltas then append a NaN to the end (we don't know the last delta)
             if lower_fidelities is None:

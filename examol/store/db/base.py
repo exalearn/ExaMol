@@ -1,5 +1,6 @@
 """Base classes for storage utilities"""
 import gzip
+import logging
 from abc import ABC
 from pathlib import Path
 from typing import Iterable
@@ -7,6 +8,8 @@ from contextlib import AbstractContextManager
 
 from examol.store.models import MoleculeRecord
 from examol.utils.chemistry import get_inchi_key_from_molecule_string
+
+logger = logging.getLogger(__name__)
 
 
 class MoleculeStore(AbstractContextManager, ABC):
@@ -77,7 +80,7 @@ class MoleculeStore(AbstractContextManager, ABC):
         Args:
             path: Path in which to save all data. Use a ".json.gz"
         """
-
+        logger.info(f'Started writing to {path}')
         with (gzip.open(path, 'wt') if path.name.endswith('.gz') else open(path, 'w')) as fp:
             for record in self.iterate_over_records():
                 print(record.json(), file=fp)

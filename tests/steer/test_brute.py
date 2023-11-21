@@ -9,7 +9,7 @@ from examol.steer.baseline import BruteForceThinker
 
 
 @fixture()
-def thinker(queues, recipe, search_space, database, tmp_path) -> BruteForceThinker:
+def thinker(queues, recipe, search_space, database, tmp_path, pool) -> BruteForceThinker:
     run_dir = tmp_path / 'run'
     solution = SolutionSpecification(
         starter=RandomStarter(),
@@ -22,6 +22,7 @@ def thinker(queues, recipe, search_space, database, tmp_path) -> BruteForceThink
         database=database,
         num_workers=1,
         solution=solution,
+        pool=pool,
         search_space=[search_space],
     )
 

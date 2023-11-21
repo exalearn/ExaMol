@@ -12,7 +12,7 @@ from examol.steer.single import SingleStepThinker
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> SingleStepThinker:
+def thinker(queues, recipe, search_space, scorer, database, tmpdir, pool) -> SingleStepThinker:
     run_dir = Path(tmpdir / 'run')
     scorer, model = scorer
     solution = SingleFidelityActiveLearning(
@@ -30,6 +30,7 @@ def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> SingleSte
         database=database,
         num_workers=1,
         solution=solution,
+        pool=pool,
         search_space=[search_space],
     )
 

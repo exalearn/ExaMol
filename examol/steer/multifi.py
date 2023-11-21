@@ -1,9 +1,9 @@
 """Scheduling strategies for multi-fidelity design campaigns"""
 import math
 from pathlib import Path
-from multiprocessing import Pool
 from functools import cached_property
 from typing import Sequence, Iterable
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from colmena.queue import ColmenaQueues
@@ -37,9 +37,10 @@ class PipelineThinker(SingleStepThinker):
                  database: MoleculeStore,
                  solution: MultiFidelityActiveLearning,
                  search_space: list[Path | str],
+                 pool: ProcessPoolExecutor,
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, run_dir, recipes, solution, search_space, database, num_workers, inference_chunk_size)
+        super().__init__(queues, run_dir, recipes, solution, search_space, database, pool, num_workers, inference_chunk_size)
         self.inference_chunk_size = inference_chunk_size
 
         # Initialize the list of relevant database records
@@ -142,11 +143,10 @@ class PipelineThinker(SingleStepThinker):
 
         # Evaluate against molecules from the search spaces in batches
         self.logger.info(f'Searching for {len(all_keys)} molecules from the database in our search space')
-        with Pool(4) as pool:
-            for search_key in pool.imap_unordered(get_inchi_key_from_molecule_string, self.iterate_over_search_space(only_smiles=True), chunksize=10000):
-                if search_key in all_keys:
-                    matched.add(search_key)
-                    all_keys.remove(search_key)
+        for search_key in self.pool.map(get_inchi_key_from_molecule_string, self.iterate_over_search_space(only_smiles=True), chunksize=10000):
+            if search_key in all_keys:
+                matched.add(search_key)
+                all_keys.remove(search_key)
 
         return matched
 
@@ -206,8 +206,7 @@ class PipelineThinker(SingleStepThinker):
     def _filter_inference_results(self, chunk_id: int, chunk_smiles: list[str], inference_results: np.ndarray) -> tuple[list[str], np.ndarray]:
         if chunk_id < len(self.search_space_smiles):
             # Remove molecules from the chunk which are in the database
-            #  TODO (wardlt): Parallelize this
-            mask = [get_inchi_key_from_molecule_string(s) not in self.already_in_db for s in chunk_smiles]
+            mask = [s not in self.already_in_db for s in self.pool.map(get_inchi_key_from_molecule_string, chunk_smiles, chunksize=1000)]
             return [s for m, s in zip(mask, chunk_smiles) if m], inference_results[:, mask, :]
         else:
             return chunk_smiles, inference_results

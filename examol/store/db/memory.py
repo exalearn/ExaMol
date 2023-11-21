@@ -3,7 +3,7 @@ import gzip
 import logging
 from concurrent.futures import ThreadPoolExecutor, Future
 from pathlib import Path
-from time import monotonic
+from time import monotonic, sleep
 from threading import Event
 from typing import Iterable
 
@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class InMemoryStore(MoleculeStore):
     """Store all molecule records in memory, write to disk as a single file
 
-    The class will start checkpointing as soon as any record is updated.
+    The class will start checkpointing as soon as any record is updated
+    but no more frequently than :attr:`write_freq`
 
     Args:
         path: Path from which to read data. Must be a JSON file, can be compressed with GZIP.
@@ -42,6 +43,14 @@ class InMemoryStore(MoleculeStore):
         if self.path is not None:
             logger.info('Start the writing thread')
             self._write_thread = self._thread_pool.submit(self._writer)
+
+            # Add a callback to print a logging message if there is an error
+            def _write_if_error(future: Future):
+                if (exc := future.exception()) is not None:
+                    logger.warning(f'Write thread failed: {exc}')
+                logger.info('Write thread has exited')
+
+            self._write_thread.add_done_callback(_write_if_error)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -67,7 +76,7 @@ class InMemoryStore(MoleculeStore):
         logger.info(f'Loaded {len(self.db)} molecule records')
 
     def iterate_over_records(self) -> Iterable[MoleculeRecord]:
-        yield from list(self.db.values())  # Use `list` to copy the current state of the db and avoid errors due to concurrent writes
+        yield from list(self.db.values())
 
     def __getitem__(self, item):
         return self.db[item]
@@ -81,10 +90,14 @@ class InMemoryStore(MoleculeStore):
 
     def _writer(self):
         next_write = 0
-        while not (self._closing.is_set() or self._updates_available.is_set()):  # Loop until closing and no updates are available
+        while self._updates_available.is_set() or not self._closing.is_set():
             # Wait until updates are available and the standoff is not met, or if we're closing
-            while (monotonic() < next_write or not self._updates_available.is_set()) and not self._closing.is_set():
-                self._updates_available.wait(timeout=1)
+            while monotonic() < next_write or not self._closing.is_set():
+                if self._updates_available.wait(timeout=1):  # Check for termination condition once per second
+                    to_sleep = next_write - monotonic()
+                    if to_sleep > 0:
+                        sleep(to_sleep)
+                    break
 
             # Mark that we've caught up with whatever signaled this thread
             self._updates_available.clear()

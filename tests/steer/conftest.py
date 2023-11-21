@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import sys
 
@@ -52,6 +53,11 @@ def scorer() -> tuple[RDKitScorer, Pipeline]:
 @fixture()
 def simulator(tmp_path) -> ASESimulator:
     return ASESimulator(scratch_dir=tmp_path / 'ase-temp')
+
+
+@fixture()
+def pool():
+    yield ProcessPoolExecutor()
 
 
 @fixture()
