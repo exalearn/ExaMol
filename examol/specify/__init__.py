@@ -36,17 +36,17 @@ class ExaMolSpecification:
     """
 
     # Define the problem
-    database: Path | str | MoleculeStore = ...
+    database: Path | str | MoleculeStore
     """Path to the data as a line-delimited JSON file or an already-activated store"""
-    recipes: Sequence[PropertyRecipe] = ...
+    recipes: Sequence[PropertyRecipe]
     """Definition for how to compute the target properties"""
-    search_space: list[Path | str] = ...
+    search_space: list[Path | str]
     """Path to the molecules over which to search. Should be a list of ".smi" files"""
-    simulator: BaseSimulator = ...
+    simulator: BaseSimulator
     """Tool used to perform quantum chemistry computations"""
 
     # Define the solution
-    solution: SolutionSpecification = ...
+    solution: SolutionSpecification
     """Define how to solve the design challenge"""
 
     # Define how we create the thinker
@@ -66,7 +66,9 @@ class ExaMolSpecification:
     """Proxy store(s) used to communicate large objects between Thinker and workers. Can be either a single store used for all task types,
     or a mapping between a task topic (inference, simulation, train) and the store used for that task type.
 
-    All messages larger than 10kB will be proxied using the store."""
+    All messages larger than :attr:`proxystore_threshold` will be proxied using the store."""
+    proxystore_threshold: float | int = 10000
+    """Messages larger than this size will be sent via Proxystore rather than through the workflow engine. Units: bytes"""
     run_dir: Path | str = ...
     """Path in which to write output files"""
 
@@ -95,7 +97,7 @@ class ExaMolSpecification:
                 logger.info(f'Using {store} for {name} tasks')
         else:
             raise NotImplementedError()
-        queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=10000, proxystore_name=proxy_name)
+        queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=self.proxystore_threshold, proxystore_name=proxy_name)
 
         # Make the functions associated with steering
         learning_functions = self.solution.generate_functions()

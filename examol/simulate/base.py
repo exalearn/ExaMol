@@ -157,11 +157,12 @@ class BaseSimulator:
 
         # Write a calculation summary to the run path
         with open(run_path / 'summary.json', 'w') as fp:
+            # Convert to strings because json.dump does not work with Proxy objects
             json.dump({
-                'xyz': xyz,
-                'config_name': config_name,
-                'charge': charge,
-                'solvent': solvent
+                'xyz': str(xyz),
+                'config_name': str(config_name),
+                'charge': str(charge),
+                'solvent': str(solvent)
             }, fp, indent=2)
 
         return run_path
