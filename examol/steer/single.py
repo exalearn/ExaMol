@@ -151,8 +151,6 @@ class SingleStepThinker(MoleculeThinker):
         # Get the paths to inputs and keys, either by rebuilding or reading from disk
         search_space_keys = {}
         if rebuild:
-            # Build search space and save to disk
-
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)

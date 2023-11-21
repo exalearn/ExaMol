@@ -105,7 +105,7 @@ class MoleculeThinker(BaseThinker):
                             try:
                                 yield MoleculeRecord.from_identifier(line.strip())
                             except ValidationError:
-                                self.logger.warning(f'Parsing failed for molecule: {line}')
+                                self.logger.warning(f'Parsing failed for molecule: {line.strip()}')
             else:
                 raise ValueError(f'File type is unrecognized for {path}')
 
