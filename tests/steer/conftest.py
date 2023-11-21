@@ -59,6 +59,7 @@ def simulator(tmp_path) -> ASESimulator:
 def pool():
     yield ProcessPoolExecutor()
 
+
 @fixture()
 def queues(recipe, scorer, simulator, tmp_path) -> ColmenaQueues:
     """Make a start the task server"""
