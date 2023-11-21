@@ -1,4 +1,5 @@
 """Baseline methods for steering a molecular design campaign"""
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Sequence
 
@@ -35,9 +36,10 @@ class BruteForceThinker(MoleculeThinker):
                  solution: SolutionSpecification,
                  search_space: list[Path | str],
                  database: MoleculeStore,
+                 pool: ProcessPoolExecutor,
                  num_workers: int = 1,
                  overselection: float = 0):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database, pool)
         self.overselection = overselection
 
     @agent(startup=True)

@@ -12,7 +12,7 @@ from examol.utils.chemistry import get_inchi_key_from_molecule_string
 
 
 @fixture()
-def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> PipelineThinker:
+def thinker(queues, recipe, search_space, scorer, database, tmpdir, pool) -> PipelineThinker:
     run_dir = Path(tmpdir / 'run')
     scorer, model = scorer
     solution = MultiFidelityActiveLearning(
@@ -32,7 +32,8 @@ def thinker(queues, recipe, search_space, scorer, database, tmpdir) -> PipelineT
         database=database,
         num_workers=1,
         solution=solution,
-        search_space=[search_space],
+        pool=pool,
+        search_space=[search_space]
     )
 
 
