@@ -1,16 +1,15 @@
 """Single-objective and single-fidelity implementation of active learning. As easy as we get"""
-import os
 import gzip
 import json
 import pickle as pkl
 import shutil
-from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
 from queue import Queue
 from threading import Event
 from time import perf_counter
 from typing import Sequence
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from colmena.proxy import get_store
@@ -94,9 +93,10 @@ class SingleStepThinker(MoleculeThinker):
                  solution: SingleFidelityActiveLearning,
                  search_space: list[Path | str],
                  database: MoleculeStore,
+                 pool: ProcessPoolExecutor,
                  num_workers: int = 2,
                  inference_chunk_size: int = 10000):
-        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database)
+        super().__init__(queues, ResourceCounter(num_workers), run_dir, recipes, solution, search_space, database, pool)
         self.search_space_dir = self.run_dir / 'search-space'
         self.scorer = solution.scorer
         self._cache_search_space(inference_chunk_size, search_space)
@@ -154,17 +154,18 @@ class SingleStepThinker(MoleculeThinker):
             # Process the inputs and store them to disk
             search_size = 0
             input_func = partial(_generate_inputs, scorer=self.scorer)
-            with ProcessPoolExecutor(min(4, os.cpu_count())) as pool:
-                mol_iter = pool.map(input_func, self.iterate_over_search_space(), chunksize=1000)
-                mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
-                for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
-                    keys, objects = zip(*chunk)
-                    search_size += len(keys)
-                    chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
-                    with gzip.open(chunk_path, 'wb') as fp:
-                        pkl.dump(objects, fp)
 
-                    search_space_keys[chunk_path.name] = keys
+            # Run asynchronously
+            mol_iter = self.pool.map(input_func, self.iterate_over_search_space(), chunksize=1000)
+            mol_iter_no_failures = filter(lambda x: x is not None, mol_iter)
+            for chunk_id, chunk in enumerate(batched(mol_iter_no_failures, inference_chunk_size)):
+                keys, objects = zip(*chunk)
+                search_size += len(keys)
+                chunk_path = self.search_space_dir / f'chunk-{chunk_id}.pkl.gz'
+                with gzip.open(chunk_path, 'wb') as fp:
+                    pkl.dump(objects, fp)
+
+                search_space_keys[chunk_path.name] = keys
             self.logger.info(f'Saved {search_size} search entries into {len(search_space_keys)} batches')
 
             # Save the keys and the configuration

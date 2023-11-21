@@ -6,6 +6,7 @@ from pathlib import Path
 from dataclasses import asdict
 from threading import Condition
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterator, Sequence, Iterable
 
 import numpy as np
@@ -32,6 +33,7 @@ class MoleculeThinker(BaseThinker):
         solution: Description of how to solve the problem
         database: List of molecule records
         search_space: Lists of molecules to be evaluated as a list of ".smi" or ".json" files
+        num_workers: Number of workers to use locally for the thinker
     """
 
     database: MoleculeStore
@@ -49,7 +51,8 @@ class MoleculeThinker(BaseThinker):
                  recipes: Sequence[PropertyRecipe],
                  solution: SolutionSpecification,
                  search_space: list[Path | str],
-                 database: MoleculeStore):
+                 database: MoleculeStore,
+                 pool: ProcessPoolExecutor):
         super().__init__(queues, resource_counter=rec)
         self.database = database
         self.run_dir = run_dir
@@ -75,6 +78,9 @@ class MoleculeThinker(BaseThinker):
         self.task_queue = []  # List of tasks to run, SMILES string and score
         self.task_iterator = self.task_iterator()  # Tool for pulling from the task queue
         self.recipe_types = dict((r.name, r) for r in recipes)
+
+        # Attributes related to performing compute on the thinker
+        self.pool: ProcessPoolExecutor = pool
 
     def iterate_over_search_space(self, only_smiles: bool = False) -> Iterator[MoleculeRecord | str]:
         """Function to produce a stream of molecules from the input files

@@ -1,11 +1,13 @@
 """Tool for defining then deploying an ExaMol application"""
 import contextlib
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Sequence
 from pathlib import Path
 import logging
 
-from colmena.queue import PipeQueues
+from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.task_server import ParslTaskServer
 from colmena.task_server.base import BaseTaskServer
 from parsl import Config
@@ -54,6 +56,8 @@ class ExaMolSpecification:
     """Policy used to schedule computations"""
     thinker_options: dict[str, object] = field(default_factory=dict)
     """Options passed forward to initializing the thinker"""
+    thinker_workers: int = min(4, os.cpu_count())
+    """Number of workers to use in the steering process"""
 
     # Define how we communicate to the user
     reporters: list[BaseReporter] = field(default_factory=list)
@@ -69,6 +73,8 @@ class ExaMolSpecification:
     All messages larger than :attr:`proxystore_threshold` will be proxied using the store."""
     proxystore_threshold: float | int = 10000
     """Messages larger than this size will be sent via Proxystore rather than through the workflow engine. Units: bytes"""
+    colmena_queue: type[ColmenaQueues] = PipeQueues
+    """Class used to send messages between Thinker and Task Server."""
     run_dir: Path | str = ...
     """Path in which to write output files"""
 
@@ -97,7 +103,7 @@ class ExaMolSpecification:
                 logger.info(f'Using {store} for {name} tasks')
         else:
             raise NotImplementedError()
-        queues = PipeQueues(topics=['inference', 'simulation', 'train'], proxystore_threshold=self.proxystore_threshold, proxystore_name=proxy_name)
+        queues = self.colmena_queue(topics=['inference', 'simulation', 'train'], proxystore_threshold=self.proxystore_threshold, proxystore_name=proxy_name)
 
         # Make the functions associated with steering
         learning_functions = self.solution.generate_functions()
@@ -121,7 +127,7 @@ class ExaMolSpecification:
 
         # Create the thinker
         store = self.load_database()
-        with store:
+        with store, ProcessPoolExecutor(self.thinker_workers) as pool:
             thinker = self.thinker(
                 queues=queues,
                 run_dir=self.run_dir,
@@ -129,6 +135,7 @@ class ExaMolSpecification:
                 search_space=self.search_space,
                 solution=self.solution,
                 database=store,
+                pool=pool,
                 **self.thinker_options
             )
             yield doer, thinker, store
