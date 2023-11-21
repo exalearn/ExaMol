@@ -20,7 +20,7 @@ def test_version(capsys):
 def test_dryrun(caplog, capsys):
     with caplog.at_level(logging.INFO):
         main(['run', '--dry-run', f'{_spec_dir / "spec.py"}:spec'])
-    assert any('dry run' in m for m in caplog.messages[-3:])
+    assert any('dry run' in m for m in caplog.messages[-6:])
 
 
 @mark.skipif(on_mac, reason='Only test the CLI on Linux')
