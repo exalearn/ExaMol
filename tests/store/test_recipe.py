@@ -221,6 +221,8 @@ def test_adia_redox(record):
         (SolvationEnergy, 'solvation_energy', 'test-acn'),
         (RedoxEnergy, 'oxidation_potential', 'test-acn-vertical'),
         (RedoxEnergy, 'double_reduction_potential', 'test-vertical'),
+        (RedoxEnergy, 'double_reduction_potential', 'cp2k_wb97x_d3_tzvpd-acn-vertical'),
+        (RedoxEnergy, 'double_reduction_potential', 'cp2k_wb97x_d3_tzvpd-adiabatic'),
     ]
 )
 def test_from_name(recipe_cls, prop, level):

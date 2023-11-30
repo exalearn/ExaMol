@@ -28,7 +28,7 @@ _files_dir = Path(__file__).parent / 'files'
 has_cpk2 = shutil.which('cp2k_shell') is not None
 is_ci = os.environ.get('CI', None) == "true"
 
-cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x-d3_tzvpd']
+cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x_d3_tzvpd']
 
 
 class FakeCP2K(LennardJones):
@@ -140,26 +140,25 @@ def test_optimization(config_name: str, strc, tmpdir):
 def test_solvent(strc, tmpdir):
     """Test running computations with a solvent"""
 
-    with patch('ase.calculators.cp2k.CP2K', new=FakeCP2K):
-        # Run a test with a patched executor
-        db_path = str(tmpdir / 'data.db')
-        sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=True)
-        config = sim.create_configuration('cp2k_blyp_szv', strc, solvent='acn', charge=0)
-        assert 'ALPHA' in config['kwargs']['inp']
+    # Run a test with a patched executor
+    db_path = str(tmpdir / 'data.db')
+    sim = ASESimulator(scratch_dir=tmpdir, ase_db_path=db_path, clean_after_run=True)
+    config = sim.create_configuration('cp2k_blyp_szv', strc, solvent='acn', charge=0)
+    assert 'ALPHA' in config['kwargs']['inp']
 
-        # Make sure there are no directories left
-        assert len(list(Path(tmpdir).glob('ase_*'))) == 0
+    # Make sure there are no directories left
+    assert len(list(Path(tmpdir).glob('ase_*'))) == 0
 
-        # Run the calculation
-        result, metadata = sim.compute_energy('name', strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
-        assert result.energy
+    # Run the calculation
+    result, metadata = sim.compute_energy('name', strc, 'cp2k_blyp_szv', charge=0, solvent='acn')
+    assert result.energy
 
-        # Make sure the run directory was deleted
-        assert len(list(Path(tmpdir).glob('name/single_*'))) == 0
+    # Make sure the run directory was deleted
+    assert len(list(Path(tmpdir).glob('name/single_*'))) == 0
 
-        # Check that the data was added
-        with connect(db_path) as db:
-            assert db.count() == 1
+    # Check that the data was added
+    with connect(db_path) as db:
+        assert db.count() == 1
 
 
 @mark.parametrize('config_name', ['mopac_pm7'] + (['xtb'] if has_xtb else []))

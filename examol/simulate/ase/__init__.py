@@ -93,8 +93,8 @@ class ASESimulator(BaseSimulator):
     - *MOPAC*: Semiempirical quantum chemistry. Choose a method
       by providing a configuration name of the form ``mopac_[method]``
     - *CP2K*: Supports only a few combinations of basis sets and XC functions,
-      those for which we have determined appropriate cutoff energies:
-      ``cp2k_blyp_szv``, ``cp2k_blyp_dzvp``, ``cp2k_b3lyp_svp``, ``cp2k_b3lyp_tzvpd``
+      those for which we have determined appropriate cutoff energies.
+      All are named ``cp2k_[xc name]_[basis]``
 
 
     Args:
@@ -174,12 +174,11 @@ class ASESimulator(BaseSimulator):
             }
         elif name.startswith('cp2k_'):
             # Get the name the basis set
-            xc_name, basis_set_id = name.rsplit('_')[-2:]
+            xc_name, basis_set_id = name.rsplit('_', 2)[-2:]
             xc_name = xc_name.upper()
 
             # Determine the proper basis set, pseudopotential, and method
-            if xc_name in ['B3LYP', 'WB97X-D3']:
-                xc_name = xc_name.replace("-", "_")  # Underscores used in LibXC
+            if xc_name in ['B3LYP', 'WB97X_D3']:
                 xc_section = f'\n&HYB_GGA_XC_{xc_name}\n&END HYB_GGA_XC_{xc_name}'
 
                 basis_set_name = f'def2-{basis_set_id.upper()}'
@@ -406,6 +405,13 @@ METHOD ANDREUSSI
                 atoms.calc = calc
                 forces = atoms.get_forces() if forces else None
                 energy = atoms.get_potential_energy()
+
+                # If CP2K, make sure it converged
+                if config_name.startswith('cp2k'):
+                    cp2k_output = (run_path / 'cp2k.out')
+                    assert cp2k_output.is_file(), f'Cannot find output at: {cp2k_output.absolute()}'
+                    if ':: SCF run NOT converged ***' in cp2k_output.read_text():  # pragma: no-coverage
+                        raise ValueError('CP2K computation did not converge')
 
                 # Report the results
                 if self.ase_db_path is not None:
