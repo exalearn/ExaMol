@@ -406,6 +406,13 @@ METHOD ANDREUSSI
                 forces = atoms.get_forces() if forces else None
                 energy = atoms.get_potential_energy()
 
+                # If CP2K, make sure it converged
+                if config_name.startswith('cp2k'):
+                    cp2k_output = (run_path / 'cp2k.out')
+                    assert cp2k_output.is_file(), f'Cannot find output at: {cp2k_output.absolute()}'
+                    if ':: SCF run NOT converged ***' in cp2k_output.read_text():  # pragma: no-coverage
+                        raise ValueError('CP2K computation did not converge')
+
                 # Report the results
                 if self.ase_db_path is not None:
                     self.update_database([atoms], config_name, charge, solvent)
