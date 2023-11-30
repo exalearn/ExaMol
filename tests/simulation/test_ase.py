@@ -28,7 +28,7 @@ _files_dir = Path(__file__).parent / 'files'
 has_cpk2 = shutil.which('cp2k_shell') is not None
 is_ci = os.environ.get('CI', None) == "true"
 
-cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x-d3_tzvpd']
+cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x_d3_tzvpd']
 
 
 class FakeCP2K(LennardJones):
