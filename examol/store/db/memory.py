@@ -1,11 +1,12 @@
 """Stores that keep the entire dataset in memory"""
 import gzip
 import logging
-from concurrent.futures import ThreadPoolExecutor, Future
+from shutil import move
 from pathlib import Path
-from time import monotonic, sleep
 from threading import Event
 from typing import Iterable
+from time import monotonic, sleep
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
@@ -31,7 +32,7 @@ class InMemoryStore(MoleculeStore):
         self.db: dict[str, MoleculeRecord] = {}
 
         # Start thread which writes until
-        self._thread_pool = ThreadPoolExecutor(max_workers=1)
+        self._thread_pool: ThreadPoolExecutor | None = None
         self._write_thread: Future | None = None
         self._updates_available: Event = Event()
         self._closing = Event()
@@ -42,6 +43,7 @@ class InMemoryStore(MoleculeStore):
     def __enter__(self):
         if self.path is not None:
             logger.info('Start the writing thread')
+            self._thread_pool = ThreadPoolExecutor(max_workers=1)
             self._write_thread = self._thread_pool.submit(self._writer)
 
             # Add a callback to print a logging message if there is an error
@@ -63,6 +65,7 @@ class InMemoryStore(MoleculeStore):
             # Mark that we're closed
             self._write_thread = None
             self._closing.clear()
+            self._thread_pool.shutdown()
 
     def _load_molecules(self):
         """Load molecules from disk"""
@@ -103,7 +106,10 @@ class InMemoryStore(MoleculeStore):
             self._updates_available.clear()
 
             # Checkpoint and advance the standoff
-            self.export_records(self.path)
+            temp_path = self.path.parent / ("new-" + self.path.name)
+            logger.info(f'Started writing {len(self.db)} records to {temp_path}')
+            self.export_records(temp_path)
+            move(temp_path, self.path)
             next_write = monotonic() + self.write_freq
 
     def update_record(self, record: MoleculeRecord):
