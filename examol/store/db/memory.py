@@ -32,7 +32,7 @@ class InMemoryStore(MoleculeStore):
         self.db: dict[str, MoleculeRecord] = {}
 
         # Start thread which writes until
-        self._thread_pool ThreadPoolExecutor | None = None
+        self._thread_pool: ThreadPoolExecutor | None = None
         self._write_thread: Future | None = None
         self._updates_available: Event = Event()
         self._closing = Event()
