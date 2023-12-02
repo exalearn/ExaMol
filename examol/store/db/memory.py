@@ -107,7 +107,7 @@ class InMemoryStore(MoleculeStore):
 
             # Checkpoint and advance the standoff
             temp_path = self.path.parent / ("new-" + self.path.name)
-            logger.info(f'Started writing {len(db)} records to {temp_path}')
+            logger.info(f'Started writing {len(self.db)} records to {temp_path}')
             self.export_records(temp_path)
             move(temp_path, self.path)
             next_write = monotonic() + self.write_freq
