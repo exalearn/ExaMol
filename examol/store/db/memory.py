@@ -1,11 +1,12 @@
 """Stores that keep the entire dataset in memory"""
 import gzip
 import logging
-from concurrent.futures import ThreadPoolExecutor, Future
+from shutil import move
 from pathlib import Path
-from time import monotonic, sleep
 from threading import Event
 from typing import Iterable
+from time import monotonic, sleep
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from examol.store.db.base import MoleculeStore
 from examol.store.models import MoleculeRecord
