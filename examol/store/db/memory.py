@@ -103,7 +103,9 @@ class InMemoryStore(MoleculeStore):
             self._updates_available.clear()
 
             # Checkpoint and advance the standoff
-            self.export_records(self.path)
+            temp_path = self.path.parent / (self.path.name + "-new")
+            self.export_records(temp_path)
+            move(temp_path, self.path)
             next_write = monotonic() + self.write_freq
 
     def update_record(self, record: MoleculeRecord):
