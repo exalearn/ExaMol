@@ -80,7 +80,6 @@ class MoleculeStore(AbstractContextManager, ABC):
         Args:
             path: Path in which to save all data. Use a ".json.gz"
         """
-        logger.info(f'Started writing to {path}')
         with (gzip.open(path, 'wt') if path.name.endswith('.gz') else open(path, 'w')) as fp:
             for record in self.iterate_over_records():
                 print(record.json(), file=fp)
