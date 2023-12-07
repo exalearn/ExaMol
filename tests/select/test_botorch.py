@@ -1,8 +1,24 @@
 """Tests for the BOTorch-based acquisition functions"""
 from botorch.acquisition import ExpectedImprovement
 import numpy as np
+import torch
 
-from examol.select.botorch import BOTorchSequentialSelector, EHVISelector
+from examol.select.botorch import BOTorchSequentialSelector, EHVISelector, EnsembleCovarianceModel
+
+
+def test_ensemble_covar():
+    # Normal case: non-zero variance for all properties
+    x = torch.tensor([[[1.0, 1.1, 2.0, 2.1]]])
+    model = EnsembleCovarianceModel(num_outputs=2)
+    covar = model.posterior(x)
+    assert torch.isclose(covar.distribution.mean, torch.tensor([1.05, 2.05])).all()
+    assert torch.isclose(covar.distribution.variance, torch.tensor([[0.0050, 0.0050]]), atol=1e-4).all()
+
+    # Bad case: zero variance
+    x = torch.tensor([[[1.0, 1.0, 2.1, 2.1]]])
+    covar = model.posterior(x)
+    assert torch.isclose(covar.distribution.mean, torch.tensor([1.0, 2.1])).all()
+    assert torch.isclose(covar.distribution.variance, torch.tensor([[0.0, 0.0]]), atol=1e-4).all()
 
 
 def test_sequential(test_data, recipe):

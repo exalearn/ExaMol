@@ -6,9 +6,13 @@ from pathlib import Path
 from pytest import fixture, mark
 
 from examol.select.baseline import RandomSelector
+from examol.simulate.base import SimResult
+from examol.simulate.initialize import add_initial_conformer
 from examol.solution import SingleFidelityActiveLearning
 from examol.start.fast import RandomStarter
 from examol.steer.single import SingleStepThinker
+from examol.store.models import Conformer
+from examol.store.recipes import SolvationEnergy
 
 
 @fixture()
@@ -79,3 +83,24 @@ def test_iterator(thinker, caplog):
 
     # Make sure we are warned about it
     assert 'HKRAFRNOHKOEOU-UHFFFAOYSA-N' in caplog.messages[-1]  # That's the InChI key for C1C2...
+
+
+@mark.timeout(120)
+def test_multiproperty_iterator(thinker, caplog, recipe):
+    # Add solvation energy as a record and a record for 'C' which has a nuetral geometry
+    thinker.recipes = [SolvationEnergy(recipe.energy_config, solvent='acn'), recipe]
+
+    record = thinker.database.get_or_make_record('C')
+    record = add_initial_conformer(record)
+    new_conf = Conformer.from_simulation_result(
+        SimResult(xyz=record.conformers[0].xyz, config_name=recipe.energy_config, charge=0, energy=1, solvent=None)
+    )
+    record.conformers.append(new_conf)
+    thinker.database.update_record(record)
+
+    # Insert a molecule and make sure it yields three computations
+    thinker.task_queue.append(('C', 0))
+
+    requests = [next(thinker.task_iterator), next(thinker.task_iterator)]
+    assert requests[0][0].identifier.smiles == 'C'  # It should not
+    assert 1 in [r[-1].charge for r in requests]
