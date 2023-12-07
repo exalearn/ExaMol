@@ -22,12 +22,18 @@ from examol.store.recipes import PropertyRecipe
 from examol.store.db.base import MoleculeStore
 
 
-class _EnsembleCovarianceModel(Model):
+class EnsembleCovarianceModel(Model):
     """Model which generates a multivariate Gaussian distribution given samples from an ensemble of models"""
 
-    def __init__(self, num_outputs: int):
+    def __init__(self, num_outputs: int, c: float = 1e-6):
+        """
+        Args:
+            num_outputs: Number of outputs for the model
+            c: Regularization parameter used to ensure covariance matrix is positive definite
+        """
         super().__init__()
         self._num_outputs = num_outputs
+        self.regularization = torch.eye(num_outputs) * c
 
     @property
     def num_outputs(self) -> int:
@@ -60,6 +66,7 @@ class _EnsembleCovarianceModel(Model):
         combined_task_and_samples = torch.flatten(centered, start_dim=1, end_dim=2)  # b x (q x o) x s
         d = combined_task_and_samples.shape[-1]
         cov = 1 / (d - 1) * combined_task_and_samples @ combined_task_and_samples.transpose(-1, -2)
+        cov += self.regularization
 
         # Make the multivariate normal as an output
         posterior = GPyTorchPosterior(
@@ -118,7 +125,7 @@ class BOTorchSequentialSelector(RankingSelector):
             outputs = _extract_observations(database, recipes)
             self.acq_options = self.acq_options_updater(self, outputs)
 
-        self.acq_function = self.acq_function_type(model=_EnsembleCovarianceModel(len(recipes)), **self.acq_options)
+        self.acq_function = self.acq_function_type(model=EnsembleCovarianceModel(len(recipes)), **self.acq_options)
 
     def _assign_score(self, samples: np.ndarray) -> np.ndarray:
         # Shape the tensor in the form expected by BOtorch's GPyTorch
