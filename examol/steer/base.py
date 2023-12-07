@@ -146,13 +146,15 @@ class MoleculeThinker(BaseThinker):
                         if self.done.is_set():
                             yield None, None, None
             record, score, recipes = self._get_next_tasks()
-            self.logger.info(f'Selected {record.key} to run next. Score={score:.2f}, queue length={len(self.task_queue)}')
+            recipe_names = [f'{r.name}/{r.level}' for r in recipes]
+            self.logger.info(f'Selected {record.key} to run next for recipes: {", ".join(recipe_names)}.'
+                             f' Score={score:.2f}, queue length={len(self.task_queue)}')
 
             # Determine which computations to run next
             try:
                 suggestions = set()
                 for recipe in recipes:
-                    suggestions = set(recipe.suggest_computations(record))
+                    suggestions.update(recipe.suggest_computations(record))
             except ValueError as exc:
                 self.logger.warning(f'Generating computations for {record.key} failed. Skipping. Reason: {exc}')
                 continue
