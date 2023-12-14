@@ -408,7 +408,7 @@ METHOD ANDREUSSI
 
                 # If CP2K, make sure it converged
                 if config_name.startswith('cp2k'):
-                    cp2k_output = (run_path / 'cp2k.out')
+                    cp2k_output = Path('cp2k.out')
                     assert cp2k_output.is_file(), f'Cannot find output at: {cp2k_output.absolute()}'
                     if ':: SCF run NOT converged ***' in cp2k_output.read_text():  # pragma: no-coverage
                         raise ValueError('CP2K computation did not converge')
