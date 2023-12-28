@@ -19,6 +19,7 @@ from examol.utils.conversions import write_to_string
 
 try:
     import xtb  # noqa: F401
+
     has_xtb = True
 except ImportError:
     has_xtb = False
@@ -31,7 +32,14 @@ is_ci = os.environ.get('CI', None) == "true"
 cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x_d3_tzvpd']
 
 
+class FakeShell:
+
+    def __del__(self):
+        return
+
+
 class FakeCP2K(LennardJones):
+    _shell = FakeShell()
 
     def __init__(self, *args, **kwargs):
         super().__init__()
