@@ -38,8 +38,8 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     name = calc['name'].lower()
     if name == 'cp2k':
         from ase.calculators.cp2k import CP2K
-        calc = CP2K(*args, **kwargs)
-        yield calc  # CP2K can function as a context manager
+        with CP2K(*args, **kwargs) as calc:
+            yield calc
     elif name == 'gaussian':
         from ase.calculators.gaussian import Gaussian
         yield Gaussian(*args, **kwargs)
