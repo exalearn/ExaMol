@@ -55,7 +55,7 @@ _cp2k_inp = """&FORCE_EVAL
   &END QS
   &SCF
     &OUTER_SCF
-      MAX_SCF 5
+      MAX_SCF 3
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
