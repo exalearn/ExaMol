@@ -86,26 +86,26 @@ def test_detect_level(thinker, recipe):
 def test_iterator(thinker, recipe, mocker):
     # Make sure we return xTB regardless of what the system asks for
     for choice in [0, 1]:
-        with mocker.patch('numpy.random.choice', return_value=choice):
-            thinker.task_queue = [('C', 0)]
-            record, recipes, request = next(thinker.task_iterator)
-            assert record.identifier.smiles == 'C'
-            assert request.config_name == 'xtb'
-            assert recipes[0].level == 'xtb-vertical'
-            assert len(thinker.task_queue) == 0
+        mocker.patch('numpy.random.choice', return_value=choice)
+        thinker.task_queue = [('C', 0)]
+        record, recipes, request = next(thinker.task_iterator)
+        assert record.identifier.smiles == 'C'
+        assert request.config_name == 'xtb'
+        assert recipes[0].level == 'xtb-vertical'
+        assert len(thinker.task_queue) == 0
 
     # Test after we add data for C
     #  We should default to C if it's the only item in the task queue
     thinker.database.get_or_make_record('C').properties[recipe.name] = {'xtb-vertical': 1}
     assert thinker.get_level('C') == 1
     for choice in [0, 1]:
-        with mocker.patch('numpy.random.choice', return_value=choice):
-            thinker.task_queue = [('C', 0)]
-            record, recipes, request = next(thinker.task_iterator)
-            assert record.identifier.smiles == 'C'
-            assert recipes[0].level == 'mopac_pm7-vertical'
-            assert request.config_name == 'mopac_pm7', f'choice={choice}'
-            assert len(thinker.task_queue) == 0
+        mocker.patch('numpy.random.choice', return_value=choice)
+        thinker.task_queue = [('C', 0)]
+        record, recipes, request = next(thinker.task_iterator)
+        assert record.identifier.smiles == 'C'
+        assert recipes[0].level == 'mopac_pm7-vertical'
+        assert request.config_name == 'mopac_pm7', f'choice={choice}'
+        assert len(thinker.task_queue) == 0
 
 
 @mark.timeout(120)

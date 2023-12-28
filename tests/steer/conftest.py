@@ -57,7 +57,7 @@ def simulator(tmp_path) -> ASESimulator:
 
 @fixture()
 def pool():
-    yield ProcessPoolExecutor()
+    yield ProcessPoolExecutor(max_workers=1)
 
 
 @fixture()
