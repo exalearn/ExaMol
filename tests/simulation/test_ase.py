@@ -50,6 +50,7 @@ class FakeCP2K(LennardJones):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return
 
+
 @fixture()
 def strc() -> str:
     atoms = molecule('H2')
