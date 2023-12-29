@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 
@@ -57,7 +57,7 @@ def simulator(tmp_path) -> ASESimulator:
 
 @fixture()
 def pool():
-    yield ProcessPoolExecutor(max_workers=1)
+    yield ThreadPoolExecutor(max_workers=1)
 
 
 @fixture()
