@@ -174,7 +174,7 @@ class ASESimulator(BaseSimulator):
             }
         elif name.startswith('cp2k_'):
             # Get the name the basis set
-            xc_name, basis_set_id = name.rsplit('_', 2)[-2:]
+            xc_name, basis_set_id = name[5:].rsplit('_', 1)
             xc_name = xc_name.upper()
 
             # Determine the proper basis set, pseudopotential, and method

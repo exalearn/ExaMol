@@ -78,6 +78,14 @@ def test_cp2k_configs(tmpdir, strc):
     assert 'GAPW' in config['kwargs']['inp']
     assert Path(config['kwargs']['basis_set_file']).is_file()
 
+    # With wb97x-d3
+    config = sim.create_configuration('cp2k_wb97x_d3_tzvpd', strc, charge=1, solvent=None)
+    assert config['kwargs']['cutoff'] == 600 * units.Ry
+    assert config['kwargs']['charge'] == 1
+    assert config['kwargs']['uks']
+    assert 'GAPW' in config['kwargs']['inp']
+    assert Path(config['kwargs']['basis_set_file']).is_file()
+
     # With an undefined basis set
     with raises(AssertionError):
         sim.create_configuration('cp2k_blyp_notreal', strc, charge=1, solvent=None)
