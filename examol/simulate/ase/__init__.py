@@ -54,8 +54,11 @@ _cp2k_inp = """&FORCE_EVAL
     METHOD $METHOD$
   &END QS
   &SCF
+    &MIXING
+       NBUFFER 8
+    &END MIXING
     &OUTER_SCF
-      MAX_SCF 5
+      MAX_SCF 3
     &END OUTER_SCF
     &OT T
       PRECONDITIONER FULL_ALL
@@ -174,7 +177,7 @@ class ASESimulator(BaseSimulator):
             }
         elif name.startswith('cp2k_'):
             # Get the name the basis set
-            xc_name, basis_set_id = name.rsplit('_', 2)[-2:]
+            xc_name, basis_set_id = name[5:].rsplit('_', 1)
             xc_name = xc_name.upper()
 
             # Determine the proper basis set, pseudopotential, and method
@@ -237,7 +240,7 @@ METHOD ANDREUSSI
                     uks=charge != 0,
                     inp=inp,
                     cutoff=cutoff * units.Ry,
-                    max_scf=32,
+                    max_scf=64,
                     basis_set_file=str(basis_set_file),
                     basis_set=basis_set_name,
                     pseudo_potential=potential,
@@ -401,6 +404,10 @@ METHOD ANDREUSSI
                 # Make any changes to cell needed by the calculator
                 self._prepare_atoms(atoms, charge, calc_cfg)
 
+                # Remove the previous output file, if any
+                cp2k_output = Path('cp2k.out')
+                cp2k_output.unlink(True)
+
                 # Run a single point
                 atoms.calc = calc
                 forces = atoms.get_forces() if forces else None
@@ -408,7 +415,6 @@ METHOD ANDREUSSI
 
                 # If CP2K, make sure it converged
                 if config_name.startswith('cp2k'):
-                    cp2k_output = (run_path / 'cp2k.out')
                     assert cp2k_output.is_file(), f'Cannot find output at: {cp2k_output.absolute()}'
                     if ':: SCF run NOT converged ***' in cp2k_output.read_text():  # pragma: no-coverage
                         raise ValueError('CP2K computation did not converge')

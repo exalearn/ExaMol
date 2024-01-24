@@ -38,19 +38,8 @@ def make_ephemeral_calculator(calc: Calculator | dict) -> Iterator[Calculator]:
     name = calc['name'].lower()
     if name == 'cp2k':
         from ase.calculators.cp2k import CP2K
-        calc = CP2K(*calc.get('args', []), **calc.get('kwargs', {}))
-        yield calc
-
-        # Kill the calculator by deleting the object to stop the underlying
-        #  shell and then set the `_shell` parameter of the object so that the
-        #  calculator object's destructor will skip the shell shutdown process
-        #  when the object is finally garbage collected
-        try:
-            calc.__del__()
-        except AssertionError as e:  # pragma: no-coverage
-            logger.info(f'CP2K was noisy on failure: {e}')
-            pass
-        calc._shell = None
+        with CP2K(*args, **kwargs) as calc:
+            yield calc
     elif name == 'gaussian':
         from ase.calculators.gaussian import Gaussian
         yield Gaussian(*args, **kwargs)

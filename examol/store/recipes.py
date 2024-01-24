@@ -153,7 +153,7 @@ class PropertyRecipe:
             # Determine if the geometry has been computed
             matching_conformers = [
                 (x.get_energy(geometry.config_name, geometry.charge, solvent=None), x) for x in record.conformers
-                if x.source == 'relaxation' and x.config_name == geometry.config_name and x.charge == geometry.charge
+                if x.config_name == geometry.config_name and x.charge == geometry.charge
             ]
             if len(matching_conformers) > 0:
                 _, conformer = min(matching_conformers)

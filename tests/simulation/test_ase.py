@@ -19,6 +19,7 @@ from examol.utils.conversions import write_to_string
 
 try:
     import xtb  # noqa: F401
+
     has_xtb = True
 except ImportError:
     has_xtb = False
@@ -31,12 +32,22 @@ is_ci = os.environ.get('CI', None) == "true"
 cp2k_configs_to_test = ['cp2k_b3lyp_svp', 'cp2k_blyp_szv', 'cp2k_wb97x_d3_tzvpd']
 
 
+class FakeShell:
+
+    def __del__(self):
+        return
+
+
 class FakeCP2K(LennardJones):
+    _shell = FakeShell()
 
     def __init__(self, *args, **kwargs):
         super().__init__()
 
-    def __del__(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         return
 
 
@@ -62,6 +73,14 @@ def test_cp2k_configs(tmpdir, strc):
     # With B3LYP
     config = sim.create_configuration('cp2k_b3lyp_tzvpd', strc, charge=1, solvent=None)
     assert config['kwargs']['cutoff'] == 500 * units.Ry
+    assert config['kwargs']['charge'] == 1
+    assert config['kwargs']['uks']
+    assert 'GAPW' in config['kwargs']['inp']
+    assert Path(config['kwargs']['basis_set_file']).is_file()
+
+    # With wb97x-d3
+    config = sim.create_configuration('cp2k_wb97x_d3_tzvpd', strc, charge=1, solvent=None)
+    assert config['kwargs']['cutoff'] == 600 * units.Ry
     assert config['kwargs']['charge'] == 1
     assert config['kwargs']['uks']
     assert 'GAPW' in config['kwargs']['inp']
