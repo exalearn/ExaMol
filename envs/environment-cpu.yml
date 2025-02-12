@@ -17,6 +17,7 @@ dependencies:
   # Quantum chemistry codes
   - xtb-python==22.*
   - mopac
+  - cp2k
 
   # Use Conda PyTorch to avoid OpenMP disagreement
   #  with xTB
