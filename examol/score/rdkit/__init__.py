@@ -103,53 +103,53 @@ class RDKitScorer(MultiFidelityScorer):
             # Send the whole list for inference
             return model
 
-    def score(self, model_msg: ModelType, inputs: InputType, lower_fidelities: np.ndarray | None = None, **kwargs) -> np.ndarray:
+    def score(self, model_msg: ModelType, input_data: InputType, lower_fidelities: np.ndarray | None = None, **kwargs) -> np.ndarray:
         if not isinstance(model_msg, list):
             # Single objective
-            return model_msg.predict(inputs)
+            return model_msg.predict(input_data)
         elif len(model_msg) == 1:
-            return np.squeeze(model_msg[0].predict(inputs))
+            return np.squeeze(model_msg[0].predict(input_data))
         else:
             # Get the known deltas then append a NaN to the end (we don't know the last delta)
             if lower_fidelities is None:
-                deltas = np.empty((len(inputs), len(model_msg))) * np.nan
+                deltas = np.empty((len(input_data), len(model_msg))) * np.nan
             else:
                 known_deltas = compute_deltas(lower_fidelities)
                 deltas = np.concatenate((known_deltas, np.empty_like(known_deltas[:, :1]) * np.nan), axis=1)
 
             # Run the model at each level
             for my_level, my_model in enumerate(model_msg):
-                my_preds = my_model.predict(inputs)
+                my_preds = my_model.predict(input_data)
                 is_unknown = np.isnan(deltas[:, my_level])
                 deltas[is_unknown, my_level] = my_preds[is_unknown]
 
             # Sum up the deltas
             return np.sum(deltas, axis=1)
 
-    def retrain(self, model_msg: Pipeline, inputs: InputType, outputs: np.ndarray,
+    def retrain(self, model_msg: Pipeline, input_data: InputType, output_data: np.ndarray,
                 bootstrap: bool = False,
                 lower_fidelities: np.ndarray | None = None) -> ModelType:
         if bootstrap:
-            samples = np.random.random_integers(0, len(inputs) - 1, size=(len(inputs),))
-            inputs = [inputs[i] for i in samples]
-            outputs = outputs[samples]
+            samples = np.random.random_integers(0, len(input_data) - 1, size=(len(input_data),))
+            input_data = [input_data[i] for i in samples]
+            output_data = output_data[samples]
             if lower_fidelities is not None:
                 lower_fidelities = lower_fidelities[samples, :]
 
         if lower_fidelities is None:
             # For single level, train a single model
-            model_msg.fit(inputs, outputs)
+            model_msg.fit(input_data, output_data)
             return model_msg
         else:
             # Compute the delta and then train a different model for each delta
-            outputs = np.concatenate([lower_fidelities, outputs[:, None]], axis=1)  # Append target level to end
-            deltas = compute_deltas(outputs)
+            output_data = np.concatenate([lower_fidelities, output_data[:, None]], axis=1)  # Append target level to end
+            deltas = compute_deltas(output_data)
 
             models = []
             for y in deltas.T:
                 # Remove the missing values
                 mask = np.isfinite(y)
-                my_smiles = [i for m, i in zip(mask, inputs) if m]
+                my_smiles = [i for m, i in zip(mask, input_data) if m]
                 y = y[mask]
 
                 # Fit a fresh copy of the model
