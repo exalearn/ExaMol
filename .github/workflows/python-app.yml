@@ -52,8 +52,18 @@ jobs:
     - name: Add quantum chemistry tools (Linux)
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
-        sudo apt-get update
-        sudo apt install -y cp2k
+         # CP2K package has disappeared as of 21Jan25
+         # sudo apt update
+         # sudo apt install -y cp2k lammps
+
+         # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
+         mkdir -p bin
+         cp2k_path=`which cp2k.ssmp`
+         export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
+         echo -e "#!/bin/bash\nCP2K_DATA_DIR=$CP2K_DATA_DIR `which cp2k.ssmp` --shell \$@" > bin/cp2k_shell
+         chmod u+x bin/cp2k_shell
+         cat `which cp2k_shell`
+         echo -n | ./bin/cp2k_shell --version
     - name: Run example
       run: examol run examples/redoxmers/spec.py:spec
     - name: Test with pytest
